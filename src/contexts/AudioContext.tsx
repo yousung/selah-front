@@ -8,6 +8,7 @@ interface VideoInfo {
   title: string
   thumbnail: string | null
   tag: string | null
+  hymnTitle?: string | null
 }
 
 interface AudioContextValue {

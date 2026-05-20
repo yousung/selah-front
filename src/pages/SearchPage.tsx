@@ -7,7 +7,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import VideoCard from '@/components/VideoCard'
 
 type SortMode = 'chapterAsc' | 'chapterDesc'
-type SearchField = 'title' | 'chapter' | 'psalm'
+type SearchField = 'all' | 'title' | 'chapter' | 'psalm'
 type TagFilter = '' | 'AR' | 'MR'
 
 interface Video {
@@ -15,6 +15,7 @@ interface Video {
   title: string
   thumbnail: string | null
   tag: string | null
+  hymnTitle?: string | null
   publishedAt?: string | null
   duration?: number | null
 }
@@ -30,6 +31,7 @@ interface VideoPage {
 const PAGE_LIMIT = 20
 
 const SEARCH_FIELDS: { value: SearchField; label: string }[] = [
+  { value: 'all', label: '전체' },
   { value: 'title', label: '제목' },
   { value: 'chapter', label: '장' },
   { value: 'psalm', label: '말씀' },
@@ -49,7 +51,7 @@ export default function SearchPage() {
 
   const initialQuery = searchParams.get('q') ?? ''
   const [sortMode, setSortMode] = useState<SortMode>('chapterAsc')
-  const [searchField, setSearchField] = useState<SearchField>('title')
+  const [searchField, setSearchField] = useState<SearchField>('all')
   const [tagFilter, setTagFilter] = useState<TagFilter>('')
   const [searchQuery, setSearchQuery] = useState(initialQuery)
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery)
@@ -117,7 +119,7 @@ export default function SearchPage() {
 
   const handlePlay = (v: Video) => {
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
     )
     const ctx = new URLSearchParams({ sort: sortMode })
@@ -132,7 +134,8 @@ export default function SearchPage() {
   const placeholder =
     searchField === 'chapter' ? '장 번호 입력 (예: 10)' :
     searchField === 'psalm' ? '시편 번호 입력 (예: 23)' :
-    '제목 검색'
+    searchField === 'title' ? '제목 검색' :
+    '제목, 장, 말씀 검색'
 
   const emptyMsg =
     debouncedQuery

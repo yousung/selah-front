@@ -92,7 +92,7 @@ export default function FavoritesPage() {
 
   const handlePlay = (v: Video) => {
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
     )
     const ctx = new URLSearchParams({ sort: sortMode })

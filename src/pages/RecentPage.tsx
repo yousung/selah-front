@@ -12,7 +12,7 @@ export default function RecentPage() {
 
   const handlePlay = (item: RecentItem) => {
     playVideo(
-      { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag },
+      { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, hymnTitle: item.hymnTitle },
       { autoPlay: autoPlayOnDetail, skipRecentAdd: true },
     )
     navigate(`/player/${item.id}?recentMode=1`)

@@ -116,7 +116,7 @@ function PlaylistSection({ playlist, limit }: { playlist: Playlist; limit: numbe
 
   const handlePlay = (v: Video) => {
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}?playlistId=${playlist.id}&sort=newest`)
@@ -235,7 +235,7 @@ export default function HomePage() {
 
   const handleSearchPlay = (v: Video) => {
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
     )
     const ctx = new URLSearchParams({ sort: 'chapterAsc', search: debouncedQuery, searchField: 'chapter' })

@@ -107,15 +107,12 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
           {video.hymnTitle && (
             <p className="line-clamp-1 text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{video.hymnTitle}</p>
           )}
-          {video.lyricLine && (
-            <p className="line-clamp-3 text-xs mt-1 leading-relaxed whitespace-pre-line" style={{ color: 'var(--ink-2)' }}>
-              {video.lyricLine}
-            </p>
+          {(views || likes) && (
+            <div className="flex items-center gap-2 mt-1">
+              {views && <span className="text-[11px]" style={{ color: 'var(--ink-3)' }}>조회 {views}</span>}
+              {likes && <span className="text-[11px]" style={{ color: 'var(--ink-3)' }}>좋아요 {likes}</span>}
+            </div>
           )}
-          <div className="flex items-center gap-2 mt-1">
-            {views && <span className="text-[11px]" style={{ color: 'var(--ink-3)' }}>조회 {views}</span>}
-            {likes && <span className="text-[11px]" style={{ color: 'var(--ink-3)' }}>좋아요 {likes}</span>}
-          </div>
         </div>
 
         {/* Fav */}
@@ -156,6 +153,7 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
           <div className="flex items-center gap-2">
             {views && <span className="text-[10px]" style={{ color: 'var(--ink-3)' }}>{views}</span>}
             {likes && <span className="text-[10px]" style={{ color: 'var(--ink-3)' }}>좋아요 {likes}</span>}
+            {!views && !likes && <span />}
           </div>
           <button
             onClick={handleFav}

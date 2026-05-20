@@ -123,6 +123,7 @@ interface AdjacentVideo {
   thumbnail: string | null
   tag: string | null
   chapter: number
+  hymnTitle?: string | null
 }
 
 interface Adjacent {
@@ -248,7 +249,7 @@ export default function PlayerPage() {
 
   const handleAdjacentNav = useCallback((target: AdjacentVideo) => {
     playVideo(
-      { id: target.id, title: target.title, thumbnail: target.thumbnail, tag: target.tag },
+      { id: target.id, title: target.title, thumbnail: target.thumbnail, tag: target.tag, hymnTitle: target.hymnTitle },
       { autoPlay: true, skipRecentAdd: recentMode },
     )
     const params = recentMode ? '?recentMode=1' : effectiveAdjacentParams ? `?${effectiveAdjacentParams}` : ''
@@ -259,7 +260,7 @@ export default function PlayerPage() {
     if (!video) return
     if (currentVideo?.id !== video.id) {
       playVideo(
-        { id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag },
+        { id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle },
         { autoPlay: autoPlayOnDetail },
       )
     }
@@ -310,7 +311,7 @@ export default function PlayerPage() {
   }, [isEnded, autoNextDelay, playMode, adjacent, handleAdjacentNav, cancelAutoNext, seek, togglePlay])
 
   const handleRetry = useCallback(() => {
-    if (video) playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag })
+    if (video) playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle })
   }, [video])
 
   const progress = dragValue !== null ? dragValue : (duration > 0 ? position / duration : 0)
