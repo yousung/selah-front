@@ -21,12 +21,12 @@ function IconStar({ active }: { active: boolean }) {
     </svg>
   )
 }
-function IconSearch({ active }: { active: boolean }) {
+function IconClock({ active }: { active: boolean }) {
   const c = active ? 'var(--primary-700)' : 'var(--ink-3)'
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.35-4.35" />
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
     </svg>
   )
 }
@@ -43,7 +43,7 @@ function IconPerson({ active }: { active: boolean }) {
 const navItems = [
   { to: '/', label: '홈', Icon: IconHome },
   { to: '/favorites', label: '즐겨찾기', Icon: IconStar },
-  { to: '/search', label: '검색', Icon: IconSearch },
+  { to: '/recent', label: '최근', Icon: IconClock },
   { to: '/my', label: '설정', Icon: IconPerson },
 ]
 
@@ -62,7 +62,7 @@ function Logo({ size = 'md' }: { size?: 'sm' | 'md' }) {
 
 /* ─── Layout ─────────────────────────────────────────── */
 export default function Layout() {
-  const { currentVideo } = useAudio()
+  const { currentVideo, stop } = useAudio()
   const location = useLocation()
   const isPlayerPage = location.pathname.startsWith('/player/')
   const [miniDismissed, setMiniDismissed] = useState(false)
@@ -146,13 +146,11 @@ export default function Layout() {
         <main className="flex-1 overflow-y-auto">
           <Outlet />
           {/* Bottom spacer so content isn't hidden behind mini player / nav */}
-          {!isPlayerPage && (
-            <div style={{
-              height: showMini
-                ? 'calc(68px + 24px + 64px)'  // mini(68) + gap(24) + nav(64) on mobile; md+ has no nav
-                : 64
-            }} className="md:hidden" />
-          )}
+          <div style={{
+            height: showMini
+              ? 'calc(68px + 24px + 64px)'
+              : 64
+          }} className="md:hidden" />
           {!isPlayerPage && (
             <div style={{ height: showMini ? 108 : 0 }} className="hidden md:block" />
           )}
@@ -164,38 +162,36 @@ export default function Layout() {
             className="fixed z-30 left-2 right-2 bottom-[84px] md:left-4 md:right-4 md:bottom-5 lg:bottom-6 lg:right-6 lg:left-[264px]"
             style={{ filter: 'drop-shadow(0 0 0 transparent)' }}
           >
-            <MiniPlayer onDismiss={() => setMiniDismissed(true)} />
+            <MiniPlayer onDismiss={() => { stop(); setMiniDismissed(true) }} />
           </div>
         )}
 
         {/* ── Mobile Bottom Nav ── */}
-        {!isPlayerPage && (
-          <nav
-            className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center"
-            style={{
-              height: 64,
-              background: 'var(--white)',
-              borderTop: '1px solid var(--divider)',
-              paddingBottom: 'env(safe-area-inset-bottom)',
-            }}
-          >
-            {navItems.map((item) => {
-              const active = isActive(item.to)
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className="flex-1 flex flex-col items-center justify-center gap-1 py-2"
-                >
-                  <item.Icon active={active} />
-                  <span className="text-[10px] font-medium" style={{ color: active ? 'var(--primary-700)' : 'var(--ink-3)' }}>
-                    {item.label}
-                  </span>
-                </NavLink>
-              )
-            })}
-          </nav>
-        )}
+        <nav
+          className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center"
+          style={{
+            height: 64,
+            background: 'var(--white)',
+            borderTop: '1px solid var(--divider)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+          }}
+        >
+          {navItems.map((item) => {
+            const active = isActive(item.to)
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className="flex-1 flex flex-col items-center justify-center gap-1 py-2"
+              >
+                <item.Icon active={active} />
+                <span className="text-[10px] font-medium" style={{ color: active ? 'var(--primary-700)' : 'var(--ink-3)' }}>
+                  {item.label}
+                </span>
+              </NavLink>
+            )
+          })}
+        </nav>
       </div>
     </div>
   )

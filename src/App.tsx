@@ -7,6 +7,7 @@ import PlaylistPage from '@/pages/PlaylistPage'
 import PlayerPage from '@/pages/PlayerPage'
 import FavoritesPage from '@/pages/FavoritesPage'
 import SearchPage from '@/pages/SearchPage'
+import RecentPage from '@/pages/RecentPage'
 import MyPage from '@/pages/MyPage'
 import AdminPage from '@/pages/AdminPage'
 import Layout from '@/components/Layout'
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="player/:id" element={<PlayerPage />} />
             <Route path="favorites" element={<FavoritesPage />} />
             <Route path="search" element={<SearchPage />} />
+            <Route path="recent" element={<RecentPage />} />
             <Route path="my" element={<MyPage />} />
             <Route path="admin" element={<AdminPage />} />
           </Route>

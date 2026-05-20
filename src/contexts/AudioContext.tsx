@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useRecentStore } from '@/store/recentStore'
 import { api } from '@/lib/api'
 
 interface VideoInfo {
@@ -13,11 +14,13 @@ interface AudioContextValue {
   currentVideo: VideoInfo | null
   isPlaying: boolean
   isLoading: boolean
+  isEnded: boolean
   position: number
   duration: number
   error: string | null
   volume: number
-  playVideo: (video: VideoInfo, options?: { autoPlay?: boolean }) => Promise<void>
+  playVideo: (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean }) => Promise<void>
+  stop: () => void
   togglePlay: () => void
   seek: (seconds: number) => void
   seekBy: (delta: number) => void
@@ -32,6 +35,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [currentVideo, setCurrentVideo] = useState<VideoInfo | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isEnded, setIsEnded] = useState(false)
   const [position, setPosition] = useState(0)
   const [duration, setDuration] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -49,7 +53,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       ['pause', () => setIsPlaying(false)],
       ['waiting', () => setIsLoading(true)],
       ['canplay', () => setIsLoading(false)],
-      ['ended', () => setIsPlaying(false)],
+      ['ended', () => { setIsPlaying(false); setIsEnded(true) }],
       ['error', () => { setError('재생 오류가 발생했습니다.'); setIsLoading(false) }],
     ]
 
@@ -64,14 +68,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const qualityRef = useRef(quality)
   useEffect(() => { qualityRef.current = quality }, [quality])
 
-  const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean }) => {
+  const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean }) => {
     const audio = audioRef.current
     if (!audio) return
     const autoPlay = options?.autoPlay ?? true
 
     setCurrentVideo(video)
+    if (!options?.skipRecentAdd) useRecentStore.getState().add(video)
     setIsLoading(true)
     setError(null)
+    setIsEnded(false)
     setPosition(0)
     setDuration(0)
 
@@ -80,14 +86,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         `/videos/${video.id}/stream`,
         { params: { quality: qualityRef.current } },
       )
-      console.log('[Player] playing stream url', {
-        videoId: video.id,
-        title: video.title,
-        url: data.url,
-        bitrate: data.bitrate,
-        encoding: data.encoding,
-        autoPlay,
-      })
       audio.src = data.url
       audio.volume = volume
       if (!autoPlay) {
@@ -98,8 +96,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
       try {
         await audio.play()
-      } catch (playError) {
-        console.warn('[Player] autoplay was blocked or interrupted', playError)
+      } catch {
         setIsLoading(false)
         setError(null)
       }
@@ -108,6 +105,20 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     }
   }, [volume])
+
+  const stop = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.pause()
+    audio.src = ''
+    setCurrentVideo(null)
+    setIsPlaying(false)
+    setIsLoading(false)
+    setIsEnded(false)
+    setPosition(0)
+    setDuration(0)
+    setError(null)
+  }, [])
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current
@@ -135,8 +146,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   return (
     <AudioCtx.Provider value={{
-      currentVideo, isPlaying, isLoading, position, duration, error, volume,
-      playVideo, togglePlay, seek, seekBy, setVolume: handleSetVolume,
+      currentVideo, isPlaying, isLoading, isEnded, position, duration, error, volume,
+      playVideo, stop, togglePlay, seek, seekBy, setVolume: handleSetVolume,
     }}>
       {children}
     </AudioCtx.Provider>

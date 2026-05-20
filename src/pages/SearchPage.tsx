@@ -97,7 +97,10 @@ export default function SearchPage() {
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag },
       { autoPlay: autoPlayOnDetail },
     )
-    navigate(`/player/${v.id}`)
+    const ctx = new URLSearchParams({ sort: sortMode })
+    if (debouncedQuery) ctx.set('search', debouncedQuery)
+    if (activeFavIds.length) ctx.set('favIds', activeFavIds.join(','))
+    navigate(`/player/${v.id}?${ctx}`)
   }
 
   return (

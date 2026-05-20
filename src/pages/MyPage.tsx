@@ -1,5 +1,5 @@
 import { useSettingsStore } from '@/store/settingsStore'
-import type { Theme, AudioQuality } from '@/store/settingsStore'
+import type { Theme, AudioQuality, AutoNextDelay } from '@/store/settingsStore'
 
 const QUALITY_OPTIONS: { value: AudioQuality; label: string; desc: string }[] = [
   { value: 'high', label: '고음질', desc: '최대 비트레이트' },
@@ -7,8 +7,15 @@ const QUALITY_OPTIONS: { value: AudioQuality; label: string; desc: string }[] = 
   { value: 'low', label: '저음질', desc: '데이터 절약' },
 ]
 
+const AUTO_NEXT_OPTIONS: { value: AutoNextDelay; label: string; desc: string }[] = [
+  { value: 'immediate', label: '바로 재생', desc: '곡이 끝나면 즉시 다음 곡' },
+  { value: '3s', label: '3초 후 재생', desc: '잠시 후 다음 곡으로 이동' },
+  { value: '5s', label: '5초 후 재생', desc: '여유 있게 다음 곡으로 이동' },
+  { value: 'off', label: '자동 재생 안함', desc: '다음 곡으로 이동하지 않음' },
+]
+
 export default function MyPage() {
-  const { theme, quality, autoPlayOnDetail, setTheme, setQuality, setAutoPlayOnDetail } = useSettingsStore()
+  const { theme, quality, autoPlayOnDetail, autoNextDelay, setTheme, setQuality, setAutoPlayOnDetail, setAutoNextDelay } = useSettingsStore()
 
   return (
     <div className="animate-fade-in">
@@ -124,6 +131,37 @@ export default function MyPage() {
                 />
               </span>
             </button>
+          </div>
+        </div>
+
+        {/* Auto next */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>다음곡 자동재생</p>
+          <div className="card overflow-hidden">
+            {AUTO_NEXT_OPTIONS.map((opt, i) => {
+              const active = autoNextDelay === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setAutoNextDelay(opt.value)}
+                  className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+                  style={{
+                    borderBottom: i < AUTO_NEXT_OPTIONS.length - 1 ? '1px solid var(--divider)' : 'none',
+                    background: active ? 'var(--primary-50)' : 'transparent',
+                  }}
+                >
+                  <div>
+                    <p className="text-sm font-medium text-left" style={{ color: 'var(--ink-0)' }}>{opt.label}</p>
+                    <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>{opt.desc}</p>
+                  </div>
+                  {active && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" style={{ color: 'var(--primary-700)' }}>
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 

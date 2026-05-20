@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
@@ -16,6 +16,7 @@ interface Video {
   tag: string | null
   publishedAt?: string | null
   duration?: number | null
+  lyricLine?: string | null
 }
 
 interface VideoPage {
@@ -36,13 +37,14 @@ const PAGE_LIMIT = 20
 export default function PlaylistPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { playVideo } = useAudio()
   const { ids: favIds } = useFavoritesStore()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
 
-  const [sortMode, setSortMode] = useState<SortMode>('newest')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [sortMode, setSortMode] = useState<SortMode>((searchParams.get('sort') as SortMode) ?? 'newest')
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '')
+  const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') ?? '')
   const sentinelRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -84,19 +86,39 @@ export default function PlaylistPage() {
   const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
   const total = data?.pages[0]?.total ?? 0
 
+  const prevIdRef = useRef<string | undefined>(undefined)
   useEffect(() => {
-    setSearchQuery('')
-    setDebouncedQuery('')
-    setSortMode('newest')
-  }, [id])
+    if (prevIdRef.current !== undefined && prevIdRef.current !== id) {
+      setSearchQuery('')
+      setDebouncedQuery('')
+      setSortMode('newest')
+      setSearchParams({}, { replace: true })
+    }
+    prevIdRef.current = id
+  }, [id, setSearchParams])
 
   const handleSearchChange = useCallback((v: string) => {
     setSearchQuery(v)
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => setDebouncedQuery(v.trim()), 300)
-  }, [])
+    debounceRef.current = setTimeout(() => {
+      const trimmed = v.trim()
+      setDebouncedQuery(trimmed)
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        if (trimmed) next.set('q', trimmed); else next.delete('q')
+        return next
+      }, { replace: true })
+    }, 300)
+  }, [setSearchParams])
 
-  const handleSortChange = (mode: SortMode) => setSortMode(mode)
+  const handleSortChange = (mode: SortMode) => {
+    setSortMode(mode)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (mode !== 'newest') next.set('sort', mode); else next.delete('sort')
+      return next
+    }, { replace: true })
+  }
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -119,7 +141,10 @@ export default function PlaylistPage() {
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag },
       { autoPlay: autoPlayOnDetail },
     )
-    navigate(`/player/${v.id}`)
+    const ctx = new URLSearchParams({ playlistId: id!, sort: sortMode })
+    if (debouncedQuery) ctx.set('search', debouncedQuery)
+    if (sortMode === 'favorites' && activeFavIds.length) ctx.set('favIds', activeFavIds.join(','))
+    navigate(`/player/${v.id}?${ctx}`)
   }
 
   return (

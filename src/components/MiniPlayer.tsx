@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAudio } from '@/contexts/AudioContext'
 
@@ -13,12 +14,13 @@ interface Props {
 }
 
 export default function MiniPlayer({ onDismiss }: Props) {
-  const { currentVideo, isPlaying, isLoading, position, duration, togglePlay } = useAudio()
+  const { currentVideo, isPlaying, isLoading, position, duration, togglePlay, seek } = useAudio()
   const navigate = useNavigate()
+  const [dragValue, setDragValue] = useState<number | null>(null)
 
   if (!currentVideo) return null
 
-  const progress = duration > 0 ? (position / duration) * 100 : 0
+  const progress = dragValue !== null ? dragValue : (duration > 0 ? position / duration : 0)
 
   return (
     <div
@@ -29,14 +31,25 @@ export default function MiniPlayer({ onDismiss }: Props) {
         boxShadow: '0 8px 32px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07)',
       }}
     >
-      {/* Progress bar */}
-      <div style={{ height: 3, background: 'var(--surface-2)' }}>
+      {/* Seekable progress bar */}
+      <div style={{ height: 3, background: 'var(--surface-2)', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
         <div
           style={{
-            height: '100%',
-            width: `${progress}%`,
+            position: 'absolute', inset: 0,
+            width: `${progress * 100}%`,
             background: 'var(--primary-700)',
-            transition: 'width 0.5s linear',
+            transition: dragValue !== null ? 'none' : 'width 0.5s linear',
+            pointerEvents: 'none',
+          }}
+        />
+        <input
+          type="range" min={0} max={1} step={0.001} value={progress}
+          onChange={(e) => setDragValue(Number(e.target.value))}
+          onMouseUp={(e) => { seek((e.target as HTMLInputElement).valueAsNumber * duration); setDragValue(null) }}
+          onTouchEnd={(e) => { seek((e.target as HTMLInputElement).valueAsNumber * duration); setDragValue(null) }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            opacity: 0, cursor: 'pointer', margin: 0, padding: 0,
           }}
         />
       </div>

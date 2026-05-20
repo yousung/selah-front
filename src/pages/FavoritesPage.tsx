@@ -95,7 +95,10 @@ export default function FavoritesPage() {
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag },
       { autoPlay: autoPlayOnDetail },
     )
-    navigate(`/player/${v.id}`)
+    const ctx = new URLSearchParams({ sort: sortMode })
+    if (debouncedQuery) ctx.set('search', debouncedQuery)
+    if (favIds.length) ctx.set('favIds', favIds.join(','))
+    navigate(`/player/${v.id}?${ctx}`)
   }
 
   return (
