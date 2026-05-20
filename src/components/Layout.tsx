@@ -86,7 +86,9 @@ export default function Layout() {
       >
         {/* Logo */}
         <div className="px-5 py-5 flex-shrink-0" style={{ borderBottom: '1px solid var(--divider)' }}>
-          <Logo />
+          <NavLink to="/">
+            <Logo />
+          </NavLink>
         </div>
 
         {/* Nav */}
@@ -115,33 +117,6 @@ export default function Layout() {
       {/* ═══════════════ Main Column ═══════════════ */}
       <div className="flex flex-col flex-1 min-w-0 lg:ml-[240px]">
 
-        {/* ── Tablet Top Nav (md only, hidden on lg) ── */}
-        <header
-          className="hidden md:flex lg:hidden items-center justify-between px-6 sticky top-0 z-30 flex-shrink-0"
-          style={{ height: 60, background: 'var(--white)', borderBottom: '1px solid var(--divider)' }}
-        >
-          <Logo size="sm" />
-          <nav className="flex items-center gap-0.5">
-            {navItems.map((item) => {
-              const active = isActive(item.to)
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className="flex items-center gap-2 px-3 py-2 rounded-[8px] transition-colors text-sm font-medium"
-                  style={{
-                    background: active ? 'var(--primary-50)' : 'transparent',
-                    color: active ? 'var(--primary-700)' : 'var(--ink-1)',
-                  }}
-                >
-                  <item.Icon active={active} />
-                  <span>{item.label}</span>
-                </NavLink>
-              )
-            })}
-          </nav>
-        </header>
-
         {/* ── Content ── */}
         <main className="flex-1 overflow-y-auto">
           <Outlet />
@@ -150,25 +125,25 @@ export default function Layout() {
             height: showMini
               ? 'calc(68px + 24px + 64px)'
               : 64
-          }} className="md:hidden" />
+          }} className="lg:hidden" />
           {!isPlayerPage && (
-            <div style={{ height: showMini ? 108 : 0 }} className="hidden md:block" />
+            <div style={{ height: showMini ? 108 : 0 }} className="hidden lg:block" />
           )}
         </main>
 
         {/* ── Universal Floating MiniPlayer ── */}
         {showMini && (
           <div
-            className="fixed z-30 left-2 right-2 bottom-[84px] md:left-4 md:right-4 md:bottom-5 lg:bottom-6 lg:right-6 lg:left-[264px]"
+            className="fixed z-30 left-2 right-2 bottom-[84px] lg:bottom-6 lg:right-6 lg:left-[264px]"
             style={{ filter: 'drop-shadow(0 0 0 transparent)' }}
           >
             <MiniPlayer onDismiss={() => { stop(); setMiniDismissed(true) }} />
           </div>
         )}
 
-        {/* ── Mobile Bottom Nav ── */}
+        {/* ── Mobile + Tablet Bottom Nav ── */}
         <nav
-          className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center"
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center"
           style={{
             height: 64,
             background: 'var(--white)',

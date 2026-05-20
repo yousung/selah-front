@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
-import { useFavoritesStore } from '@/store/favoritesStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import VideoCard from '@/components/VideoCard'
 
-type SortMode = 'newest' | 'oldest' | 'chapterAsc' | 'chapterDesc' | 'favorites'
+type SortMode = 'chapterAsc' | 'chapterDesc'
 
 interface Video {
   id: string
@@ -31,17 +30,14 @@ const PAGE_LIMIT = 20
 export default function SearchPage() {
   const navigate = useNavigate()
   const { playVideo } = useAudio()
-  const { ids: favIds } = useFavoritesStore()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
 
-  const [sortMode, setSortMode] = useState<SortMode>('newest')
+  const [sortMode, setSortMode] = useState<SortMode>('chapterAsc')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const sentinelRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  const activeFavIds = sortMode === 'favorites' ? favIds : []
 
   const {
     data,
@@ -50,7 +46,7 @@ export default function SearchPage() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery<VideoPage>({
-    queryKey: ['search-videos', sortMode, debouncedQuery, activeFavIds.join(',')],
+    queryKey: ['search-videos', sortMode, debouncedQuery],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({
@@ -59,7 +55,6 @@ export default function SearchPage() {
         sort: sortMode,
       })
       if (debouncedQuery) params.set('search', debouncedQuery)
-      if (sortMode === 'favorites' && activeFavIds.length) params.set('favIds', activeFavIds.join(','))
       const { data } = await api.get<VideoPage>(`/videos?${params}`)
       return data
     },
@@ -99,7 +94,6 @@ export default function SearchPage() {
     )
     const ctx = new URLSearchParams({ sort: sortMode })
     if (debouncedQuery) ctx.set('search', debouncedQuery)
-    if (activeFavIds.length) ctx.set('favIds', activeFavIds.join(','))
     navigate(`/player/${v.id}?${ctx}`)
   }
 
@@ -160,58 +154,29 @@ export default function SearchPage() {
         </div>
 
         {/* Sort row */}
-        <div className="flex items-center justify-between px-4 pb-3 gap-3">
-          <div className="flex items-center gap-0 flex-shrink-0">
-            {(['newest', 'oldest', 'favorites'] as const).map((mode, i) => {
-              const labels: Record<string, string> = { newest: '최신순', oldest: '오래된순', favorites: '즐겨찾기' }
+        <div className="flex items-center justify-end px-4 pb-3">
+          <div
+            className="flex items-center overflow-hidden"
+            style={{ border: '1px solid var(--divider)', borderRadius: 7, background: 'var(--surface-1)' }}
+          >
+            {(['chapterAsc', 'chapterDesc'] as const).map((mode, i) => {
               const isActive = sortMode === mode
               return (
                 <button
                   key={mode}
                   onClick={() => setSortMode(mode)}
-                  className="relative text-sm font-medium transition-colors duration-150"
+                  className="flex items-center gap-0.5 text-xs font-medium transition-colors duration-150"
                   style={{
-                    color: isActive ? 'var(--primary-700)' : 'var(--ink-2)',
-                    padding: '2px 0',
-                    marginRight: i < 2 ? 16 : 0,
+                    padding: '4px 8px',
+                    color: isActive ? 'var(--white)' : 'var(--ink-2)',
+                    background: isActive ? 'var(--primary-700)' : 'transparent',
+                    borderRight: i === 0 ? '1px solid var(--divider)' : 'none',
                   }}
                 >
-                  {labels[mode]}
-                  {isActive && (
-                    <span
-                      className="absolute left-0 right-0 bottom-[-2px] rounded-full"
-                      style={{ height: 2, background: 'var(--primary-700)' }}
-                    />
-                  )}
+                  장{mode === 'chapterAsc' ? '↑' : '↓'}
                 </button>
               )
             })}
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <div
-              className="flex items-center overflow-hidden"
-              style={{ border: '1px solid var(--divider)', borderRadius: 7, background: 'var(--surface-1)' }}
-            >
-              {(['chapterAsc', 'chapterDesc'] as const).map((mode, i) => {
-                const isActive = sortMode === mode
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => setSortMode(mode)}
-                    className="flex items-center gap-0.5 text-xs font-medium transition-colors duration-150"
-                    style={{
-                      padding: '4px 8px',
-                      color: isActive ? 'var(--white)' : 'var(--ink-2)',
-                      background: isActive ? 'var(--primary-700)' : 'transparent',
-                      borderRight: i === 0 ? '1px solid var(--divider)' : 'none',
-                    }}
-                  >
-                    장{mode === 'chapterAsc' ? '↑' : '↓'}
-                  </button>
-                )
-              })}
-            </div>
           </div>
         </div>
       </header>
