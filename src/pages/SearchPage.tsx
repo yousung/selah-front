@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
@@ -7,6 +7,8 @@ import { useSettingsStore } from '@/store/settingsStore'
 import VideoCard from '@/components/VideoCard'
 
 type SortMode = 'chapterAsc' | 'chapterDesc'
+type SearchField = 'title' | 'chapter' | 'psalm'
+type TagFilter = '' | 'AR' | 'MR'
 
 interface Video {
   id: string
@@ -27,14 +29,30 @@ interface VideoPage {
 
 const PAGE_LIMIT = 20
 
+const SEARCH_FIELDS: { value: SearchField; label: string }[] = [
+  { value: 'title', label: '제목' },
+  { value: 'chapter', label: '장' },
+  { value: 'psalm', label: '말씀' },
+]
+
+const TAG_FILTERS: { value: TagFilter; label: string }[] = [
+  { value: '', label: '전체' },
+  { value: 'AR', label: 'AR' },
+  { value: 'MR', label: 'MR' },
+]
+
 export default function SearchPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { playVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
 
+  const initialQuery = searchParams.get('q') ?? ''
   const [sortMode, setSortMode] = useState<SortMode>('chapterAsc')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [searchField, setSearchField] = useState<SearchField>('title')
+  const [tagFilter, setTagFilter] = useState<TagFilter>('')
+  const [searchQuery, setSearchQuery] = useState(initialQuery)
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -46,7 +64,7 @@ export default function SearchPage() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery<VideoPage>({
-    queryKey: ['search-videos', sortMode, debouncedQuery],
+    queryKey: ['search-videos', sortMode, searchField, tagFilter, debouncedQuery],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({
@@ -54,12 +72,16 @@ export default function SearchPage() {
         limit: String(PAGE_LIMIT),
         sort: sortMode,
       })
-      if (debouncedQuery) params.set('search', debouncedQuery)
+      if (debouncedQuery) {
+        params.set('search', debouncedQuery)
+        params.set('searchField', searchField)
+      }
+      if (tagFilter) params.set('tag', tagFilter)
       const { data } = await api.get<VideoPage>(`/videos?${params}`)
       return data
     },
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
-    enabled: true,
+    enabled: !!debouncedQuery || !!tagFilter,
   })
 
   const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
@@ -69,6 +91,12 @@ export default function SearchPage() {
     setSearchQuery(v)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => setDebouncedQuery(v.trim()), 300)
+  }, [])
+
+  const handleSearchFieldChange = useCallback((field: SearchField) => {
+    setSearchField(field)
+    setSearchQuery('')
+    setDebouncedQuery('')
   }, [])
 
   useEffect(() => {
@@ -93,9 +121,24 @@ export default function SearchPage() {
       { autoPlay: autoPlayOnDetail },
     )
     const ctx = new URLSearchParams({ sort: sortMode })
-    if (debouncedQuery) ctx.set('search', debouncedQuery)
+    if (debouncedQuery) {
+      ctx.set('search', debouncedQuery)
+      ctx.set('searchField', searchField)
+    }
+    if (tagFilter) ctx.set('tag', tagFilter)
     navigate(`/player/${v.id}?${ctx}`)
   }
+
+  const placeholder =
+    searchField === 'chapter' ? '장 번호 입력 (예: 10)' :
+    searchField === 'psalm' ? '시편 번호 입력 (예: 23)' :
+    '제목 검색'
+
+  const emptyMsg =
+    debouncedQuery
+      ? searchField === 'chapter' ? `${debouncedQuery}장에 해당하는 곡이 없어요.`
+      : `"${debouncedQuery}"에 맞는 곡이 없어요.`
+      : '등록된 영상이 없어요.'
 
   return (
     <div className="animate-fade-in">
@@ -104,8 +147,53 @@ export default function SearchPage() {
         className="sticky top-0 z-10"
         style={{ background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
-        {/* Search bar */}
-        <div className="px-4 pt-3 pb-2">
+        {/* Search field chips */}
+        <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+          {SEARCH_FIELDS.map(({ value, label }) => {
+            const active = searchField === value
+            return (
+              <button
+                key={value}
+                onClick={() => handleSearchFieldChange(value)}
+                className="text-xs font-medium transition-colors duration-150"
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 20,
+                  border: `1px solid ${active ? 'var(--primary-500)' : 'var(--divider)'}`,
+                  background: active ? 'var(--primary-500)' : 'transparent',
+                  color: active ? 'var(--white)' : 'var(--ink-2)',
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+
+          <div style={{ width: 1, height: 16, background: 'var(--divider)', marginLeft: 4 }} />
+
+          {TAG_FILTERS.map(({ value, label }) => {
+            const active = tagFilter === value
+            return (
+              <button
+                key={label}
+                onClick={() => setTagFilter(value)}
+                className="text-xs font-medium transition-colors duration-150"
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 20,
+                  border: `1px solid ${active ? 'var(--primary-700)' : 'var(--divider)'}`,
+                  background: active ? 'var(--primary-700)' : 'transparent',
+                  color: active ? 'var(--white)' : 'var(--ink-2)',
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Search input */}
+        <div className="px-4 pb-2">
           <div className="relative">
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -117,10 +205,11 @@ export default function SearchPage() {
             </svg>
             <input
               ref={inputRef}
-              type="text"
+              type={searchField === 'chapter' ? 'number' : 'text'}
+              inputMode={searchField === 'chapter' ? 'numeric' : 'text'}
               value={searchQuery}
               onChange={e => handleSearchChange(e.target.value)}
-              placeholder="찬양 제목 검색"
+              placeholder={placeholder}
               className="w-full text-sm outline-none pl-9 pr-8"
               style={{
                 height: 36,
@@ -146,15 +235,11 @@ export default function SearchPage() {
           </div>
         </div>
 
-        {/* Count */}
-        <div className="px-4 pb-1">
+        {/* Count + Sort */}
+        <div className="flex items-center justify-between px-4 pb-3">
           <p className="text-xs" style={{ color: 'var(--ink-2)' }}>
             {debouncedQuery ? `${total}편 검색됨` : `총 ${total}편`}
           </p>
-        </div>
-
-        {/* Sort row */}
-        <div className="flex items-center justify-end px-4 pb-3">
           <div
             className="flex items-center overflow-hidden"
             style={{ border: '1px solid var(--divider)', borderRadius: 7, background: 'var(--surface-1)' }}
@@ -217,9 +302,7 @@ export default function SearchPage() {
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.35-4.35" />
             </svg>
-            <p className="text-sm" style={{ color: 'var(--ink-2)' }}>
-              {debouncedQuery ? `"${debouncedQuery}"에 맞는 곡이 없어요.` : '등록된 영상이 없어요.'}
-            </p>
+            <p className="text-sm" style={{ color: 'var(--ink-2)' }}>{emptyMsg}</p>
           </div>
         )}
       </div>

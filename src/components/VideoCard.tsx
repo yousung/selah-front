@@ -6,6 +6,8 @@ interface Video {
   title: string
   thumbnail: string | null
   tag: string | null
+  chapter?: number | null
+  hymnTitle?: string | null
   publishedAt?: string | null
   duration?: number | null
   viewCount?: number | null
@@ -39,17 +41,18 @@ function fmtReactionCount(n?: number | null) {
   return fmtCompactCount(n)?.replace(/회$/, '')
 }
 
-function TagLine({ tag }: { tag: string }) {
-  if (tag === 'AR') {
-    return (
-      <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#3D6B44' }}>
-        <span style={{ fontSize: 8, lineHeight: 1 }}>●</span> AR
-      </span>
-    )
-  }
+function TagBadge({ tag }: { tag: string }) {
+  const isAR = tag === 'AR'
   return (
-    <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#3A3A3A' }}>
-      <span style={{ fontSize: 8, lineHeight: 1 }}>■</span> MR
+    <span
+      className="absolute top-1.5 left-1.5 text-white text-[10px] font-bold px-1.5 rounded"
+      style={{
+        background: isAR ? 'rgba(61,107,68,0.88)' : 'rgba(40,40,40,0.82)',
+        lineHeight: '17px',
+        letterSpacing: '0.02em',
+      }}
+    >
+      {tag}
     </span>
   )
 }
@@ -61,6 +64,7 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
   const dur = fmtDuration(video.duration)
   const views = fmtCompactCount(video.viewCount)
   const likes = fmtReactionCount(video.likeCount)
+  const title = video.title
 
   const handleFav = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -92,20 +96,23 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
               {dur}
             </span>
           )}
+          {video.tag && <TagBadge tag={video.tag} />}
         </div>
 
         {/* Meta */}
         <div className="flex-1 min-w-0 py-0.5">
           <p className="line-clamp-1 text-sm lg:text-base font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>
-            {video.title}
+            {title}
           </p>
+          {video.hymnTitle && (
+            <p className="line-clamp-1 text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{video.hymnTitle}</p>
+          )}
           {video.lyricLine && (
             <p className="line-clamp-3 text-xs mt-1 leading-relaxed whitespace-pre-line" style={{ color: 'var(--ink-2)' }}>
               {video.lyricLine}
             </p>
           )}
           <div className="flex items-center gap-2 mt-1">
-            {video.tag && <TagLine tag={video.tag} />}
             {views && <span className="text-[11px]" style={{ color: 'var(--ink-3)' }}>조회 {views}</span>}
             {likes && <span className="text-[11px]" style={{ color: 'var(--ink-3)' }}>좋아요 {likes}</span>}
           </div>
@@ -138,12 +145,15 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
             {dur}
           </span>
         )}
+        {video.tag && <TagBadge tag={video.tag} />}
       </div>
       <div className="pt-2 pb-1">
-        <p className="line-clamp-1 text-sm font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>{video.title}</p>
+        <p className="line-clamp-1 text-sm font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>{title}</p>
+        {video.hymnTitle && (
+          <p className="line-clamp-1 text-[11px] mt-0.5" style={{ color: 'var(--ink-2)' }}>{video.hymnTitle}</p>
+        )}
         <div className="flex items-center justify-between mt-1.5">
           <div className="flex items-center gap-2">
-            {video.tag && <TagLine tag={video.tag} />}
             {views && <span className="text-[10px]" style={{ color: 'var(--ink-3)' }}>{views}</span>}
             {likes && <span className="text-[10px]" style={{ color: 'var(--ink-3)' }}>좋아요 {likes}</span>}
           </div>

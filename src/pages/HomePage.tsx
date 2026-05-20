@@ -204,8 +204,9 @@ export default function HomePage() {
       const params = new URLSearchParams({
         page: String(pageParam),
         limit: String(PAGE_LIMIT),
-        sort: 'newest',
+        sort: 'chapterAsc',
         search: debouncedQuery,
+        searchField: 'chapter',
       })
       const { data } = await api.get<VideoPage>(`/videos?${params}`)
       return data
@@ -237,7 +238,7 @@ export default function HomePage() {
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag },
       { autoPlay: autoPlayOnDetail },
     )
-    const ctx = new URLSearchParams({ sort: 'newest', search: debouncedQuery })
+    const ctx = new URLSearchParams({ sort: 'chapterAsc', search: debouncedQuery, searchField: 'chapter' })
     navigate(`/player/${v.id}?${ctx}`)
   }
 
@@ -245,16 +246,16 @@ export default function HomePage() {
     <div className="animate-fade-in" style={{ paddingBottom: 16 }}>
       {/* AppBar */}
       <header
-        className="sticky top-0 z-10 lg:hidden"
+        className="sticky top-0 z-10"
         style={{ background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         <div className="flex items-center px-4" style={{ height: 56 }}>
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 lg:hidden">
             <p className="text-[11px] font-medium tracking-wider" style={{ color: 'var(--ink-2)' }}>주님의 교회</p>
             <p className="text-base font-bold leading-tight" style={{ color: 'var(--primary-700)' }}>셀라</p>
           </div>
           {/* Search input */}
-          <div className="relative flex-1 ml-4">
+          <div className="relative flex-1 ml-4 lg:ml-0">
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
               width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
@@ -264,10 +265,11 @@ export default function HomePage() {
               <path d="M21 21l-4.35-4.35" />
             </svg>
             <input
-              type="text"
+              type="number"
+              inputMode="numeric"
               value={searchQuery}
               onChange={e => handleSearchChange(e.target.value)}
-              placeholder="찬양 제목 검색"
+              placeholder="장 번호 검색 (예: 10)"
               className="w-full text-sm outline-none pl-8 pr-7"
               style={{
                 height: 34,
@@ -338,8 +340,8 @@ export default function HomePage() {
           {dailyVerse && (
             <div className="px-4 pt-5 pb-5">
               <blockquote
-                className="text-[28px] font-bold leading-[1.45] whitespace-pre-line"
-                style={{ color: 'var(--ink-0)', fontFamily: 'var(--font-serif)' }}
+                className="font-bold leading-[1.45] whitespace-pre-line"
+                style={{ color: 'var(--ink-0)', fontFamily: 'var(--font-serif)', fontSize: 'clamp(18px, 5vw, 28px)' }}
               >
                 {dailyVerse.content}
               </blockquote>

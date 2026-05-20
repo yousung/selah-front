@@ -343,9 +343,12 @@ export default function PlayerPage() {
       <div className="mb-6">
         {video ? (
           <>
-            <h1 className="serif text-xl font-medium leading-[1.5] text-center mb-2" style={{ color: 'var(--ink-0)' }}>
+            <h1 className="serif text-xl font-medium leading-[1.5] text-center mb-1" style={{ color: 'var(--ink-0)' }}>
               {video.title}
             </h1>
+            {video.hymnTitle && (
+              <p className="text-sm text-center mb-2" style={{ color: 'var(--ink-2)' }}>{video.hymnTitle}</p>
+            )}
             <div className="flex items-center justify-center gap-2">
               {video.tag && <TagBadge tag={video.tag} size="md" />}
               {video.playlist && (

@@ -73,7 +73,10 @@ export default function MiniPlayer({ onDismiss }: Props) {
 
         {/* Title + time */}
         <div className="flex-1 min-w-0">
-          <p className="line-clamp-1 text-sm font-semibold" style={{ color: 'var(--ink-0)' }}>{currentVideo.title}</p>
+          <p className="line-clamp-1 text-sm font-semibold leading-tight" style={{ color: 'var(--ink-0)' }}>{currentVideo.title}</p>
+          {currentVideo.hymnTitle && (
+            <p className="line-clamp-1 text-[11px] leading-tight" style={{ color: 'var(--ink-2)' }}>{currentVideo.hymnTitle}</p>
+          )}
           <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
             {fmtTime(position)} / {fmtTime(duration)}
           </p>

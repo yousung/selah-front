@@ -39,10 +39,20 @@ function IconPerson({ active }: { active: boolean }) {
     </svg>
   )
 }
+function IconSearch({ active }: { active: boolean }) {
+  const c = active ? 'var(--primary-700)' : 'var(--ink-3)'
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <path d="M21 21l-4.35-4.35" />
+    </svg>
+  )
+}
 
 const navItems = [
   { to: '/', label: '홈', Icon: IconHome },
   { to: '/favorites', label: '즐겨찾기', Icon: IconStar },
+  { to: '/search', label: '검색', Icon: IconSearch },
   { to: '/recent', label: '최근', Icon: IconClock },
   { to: '/my', label: '설정', Icon: IconPerson },
 ]
