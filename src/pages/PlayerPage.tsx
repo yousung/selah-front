@@ -42,6 +42,35 @@ function fmtTime(s: number) {
 }
 
 
+function LyricsSection({ lyric }: { lyric?: Lyric | null }) {
+  if (!lyric) return null
+  const verses = [
+    lyric.verse1, lyric.verse2, lyric.verse3, lyric.verse4,
+    lyric.verse5, lyric.verse6, lyric.verse7, lyric.verse8,
+    lyric.verse9, lyric.verse10, lyric.verse11, lyric.verse12,
+  ].filter(Boolean) as string[]
+  if (verses.length === 0) return null
+
+  return (
+    <section className="mt-8 pt-5" style={{ borderTop: '1px solid var(--divider)' }}>
+      {lyric.hymnTitle && (
+        <p className="text-sm font-semibold mb-4 text-center" style={{ color: 'var(--ink-1)' }}>{lyric.hymnTitle}</p>
+      )}
+      {lyric.reference && (
+        <p className="text-xs mb-4 text-center" style={{ color: 'var(--ink-2)' }}>{lyric.reference}</p>
+      )}
+      <div className="space-y-5">
+        {verses.map((v, i) => (
+          <div key={i}>
+            <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--ink-3)' }}>{i + 1}절</p>
+            <p className="text-sm leading-[1.9] whitespace-pre-line" style={{ color: 'var(--ink-1)' }}>{v}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export default function PlayerPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()

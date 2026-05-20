@@ -11,7 +11,7 @@ interface Video {
   viewCount?: number | null
   likeCount?: number | null
   dislikeCount?: number | null
-  description?: string | null
+  lyricLine?: string | null
 }
 
 interface Props {
@@ -99,9 +99,9 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
           <p className="line-clamp-1 text-sm lg:text-base font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>
             {video.title}
           </p>
-          {video.description && (
-            <p className="line-clamp-1 text-xs mt-0.5 leading-snug" style={{ color: 'var(--ink-2)' }}>
-              {video.description}
+          {video.lyricLine && (
+            <p className="line-clamp-3 text-xs mt-1 leading-relaxed whitespace-pre-line" style={{ color: 'var(--ink-2)' }}>
+              {video.lyricLine}
             </p>
           )}
           <div className="flex items-center gap-2 mt-1">
@@ -141,9 +141,6 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
       </div>
       <div className="pt-2 pb-1">
         <p className="line-clamp-1 text-sm font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>{video.title}</p>
-        {video.description && (
-          <p className="line-clamp-1 text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{video.description}</p>
-        )}
         <div className="flex items-center justify-between mt-1.5">
           <div className="flex items-center gap-2">
             {video.tag && <TagLine tag={video.tag} />}
