@@ -183,9 +183,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const seek = useCallback((seconds: number) => {
-    if (mediaModeRef.current === 'video') {
+    if (reactPlayerRef.current) {
       const clamped = Math.max(0, seconds)
-      if (reactPlayerRef.current) reactPlayerRef.current.currentTime = clamped
+      reactPlayerRef.current.currentTime = clamped
       positionRef.current = clamped
       setPosition(clamped)
       setIsEnded(false)
@@ -198,9 +198,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const seekBy = useCallback((delta: number) => {
-    if (mediaModeRef.current === 'video') {
+    if (reactPlayerRef.current) {
       const newPos = Math.max(0, positionRef.current + delta)
-      if (reactPlayerRef.current) reactPlayerRef.current.currentTime = newPos
+      reactPlayerRef.current.currentTime = newPos
       positionRef.current = newPos
       setPosition(newPos)
     } else {
