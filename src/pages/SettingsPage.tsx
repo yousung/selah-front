@@ -205,7 +205,7 @@ export default function SettingsPage() {
         <div className="card divide-y" style={{ borderColor: 'var(--divider)' }}>
           {[
             { label: '제작', value: '주님의 교회' },
-            { label: '앱 버전', value: 'Selah v1.0' },
+            { label: '앱 버전', value: 'Selah v0.1.0' },
           ].map(({ label, value }) => (
             <div key={label} className="flex items-center justify-between px-4 py-3.5">
               <span className="text-sm" style={{ color: 'var(--ink-2)' }}>{label}</span>
