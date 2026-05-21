@@ -35,7 +35,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'selah-settings',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
     },
   ),
 )
