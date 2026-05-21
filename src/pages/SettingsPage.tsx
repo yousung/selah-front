@@ -1,5 +1,5 @@
 import { useSettingsStore } from '@/store/settingsStore'
-import type { Theme, AudioQuality, AutoNextDelay } from '@/store/settingsStore'
+import type { Theme, AudioQuality, AutoNextDelay, MediaMode } from '@/store/settingsStore'
 
 const QUALITY_OPTIONS: { value: AudioQuality; label: string; desc: string }[] = [
   { value: 'high', label: '고음질', desc: '최대 비트레이트' },
@@ -14,8 +14,13 @@ const AUTO_NEXT_OPTIONS: { value: AutoNextDelay; label: string; desc: string }[]
   { value: 'off', label: '자동 재생 안함', desc: '다음 곡으로 이동하지 않음' },
 ]
 
-export default function MyPage() {
-  const { theme, quality, autoPlayOnDetail, autoNextDelay, setTheme, setQuality, setAutoPlayOnDetail, setAutoNextDelay } = useSettingsStore()
+const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string; desc: string }[] = [
+  { value: 'audio', label: '오디오', desc: '음악만 재생합니다' },
+  { value: 'video', label: '비디오', desc: '영상과 함께 재생합니다' },
+]
+
+export default function SettingsPage() {
+  const { theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay } = useSettingsStore()
 
   return (
     <div className="animate-fade-in">
@@ -60,9 +65,40 @@ export default function MyPage() {
           </div>
         </div>
 
+        {/* Media mode */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>미디어 모드</p>
+          <div className="card overflow-hidden">
+            {MEDIA_MODE_OPTIONS.map((opt, i) => {
+              const active = mediaMode === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setMediaMode(opt.value)}
+                  className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+                  style={{
+                    borderBottom: i < MEDIA_MODE_OPTIONS.length - 1 ? '1px solid var(--divider)' : 'none',
+                    background: active ? 'var(--primary-50)' : 'transparent',
+                  }}
+                >
+                  <div>
+                    <p className="text-sm font-medium text-left" style={{ color: 'var(--ink-0)' }}>{opt.label}</p>
+                    <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>{opt.desc}</p>
+                  </div>
+                  {active && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" style={{ color: 'var(--primary-700)' }}>
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         {/* Audio quality */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>음질</p>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>해상도/음질</p>
           <div className="card overflow-hidden">
             {QUALITY_OPTIONS.map((opt, i) => {
               const active = quality === opt.value

@@ -4,6 +4,7 @@ import { api } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
 import VideoCard from '@/components/VideoCard'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useQueueStore } from '@/store/queueStore'
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 type SortMode = 'chapterAsc' | 'chapterDesc'
@@ -26,6 +27,7 @@ interface VideoPage {
   page: number
   limit: number
   hasMore: boolean
+  playlists: string[]
 }
 
 interface Playlist {
@@ -42,6 +44,7 @@ export default function PlaylistPage() {
   const { playVideo } = useAudio()
 
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
+  const setQueue = useQueueStore((s) => s.setQueue)
 
   const [sortMode, setSortMode] = useState<SortMode>((searchParams.get('sort') as SortMode) ?? 'chapterAsc')
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '')
@@ -135,13 +138,14 @@ export default function PlaylistPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length])
 
   const handlePlay = (v: Video) => {
+    const allIds = data?.pages[0]?.playlists ?? []
+    const idx = allIds.indexOf(v.id)
+    setQueue(allIds, idx)
     playVideo(
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
     )
-    const ctx = new URLSearchParams({ playlistId: id!, sort: sortMode })
-    if (debouncedQuery) ctx.set('search', debouncedQuery)
-    navigate(`/player/${v.id}?${ctx}`)
+    navigate(`/player/${v.id}`)
   }
 
   return (

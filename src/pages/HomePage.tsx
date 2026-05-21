@@ -1,16 +1,12 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { api } from '@/lib/api'
-import { useSettingsStore } from '@/store/settingsStore'
-import VideoCard from '@/components/VideoCard'
-import { useAudio } from '@/contexts/AudioContext'
 
 function useGridLimit() {
   const [limit, setLimit] = useState(() => {
     const w = window.innerWidth
     if (w >= 1024) return 8
-    if (w >= 768)  return 6
+    if (w >= 768) return 6
     return 4
   })
   useEffect(() => {
@@ -25,6 +21,12 @@ function useGridLimit() {
   }, [])
   return limit
 }
+import { api } from '@/lib/api'
+import { useSettingsStore } from '@/store/settingsStore'
+import { useQueueStore } from '@/store/queueStore'
+import VideoCard from '@/components/VideoCard'
+import { useAudio } from '@/contexts/AudioContext'
+
 
 interface Video {
   id: string
@@ -40,6 +42,8 @@ interface Video {
 interface Playlist {
   id: string
   title: string
+  videos: Video[]
+  playlists?: string[]
 }
 
 interface VideoPage {
@@ -48,6 +52,7 @@ interface VideoPage {
   page: number
   limit: number
   hasMore: boolean
+  playlists: string[]
 }
 
 const PAGE_LIMIT = 20
@@ -90,62 +95,34 @@ function useDailyVerse() {
   })
 }
 
-function usePlaylists() {
+function usePlaylists(limit: number) {
   return useQuery({
-    queryKey: ['playlists'],
+    queryKey: ['playlists', limit],
     queryFn: async () => {
-      const { data } = await api.get<Playlist[]>('/playlists')
+      const { data } = await api.get<Playlist[]>('/playlists', { params: { limit } })
       return data
     },
   })
 }
 
-function usePlaylistVideos(playlistId: string, limit: number) {
-  return useQuery({
-    queryKey: ['videos', { playlistId, limit }],
-    queryFn: async () => {
-      const { data } = await api.get<Video[]>('/videos', { params: { playlistId, limit } })
-      return data
-    },
-  })
-}
-
-function PlaylistSection({ playlist, limit }: { playlist: Playlist; limit: number }) {
+function PlaylistSection({ playlist }: { playlist: Playlist }) {
   const navigate = useNavigate()
   const { playVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
-  const { data: videos, isLoading } = usePlaylistVideos(playlist.id, limit)
+  const setQueue = useQueueStore((s) => s.setQueue)
 
   const handlePlay = (v: Video) => {
+    const allIds = playlist.playlists ?? []
+    const idx = allIds.indexOf(v.id)
+    setQueue(allIds, idx)
     playVideo(
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
     )
-    navigate(`/player/${v.id}?playlistId=${playlist.id}&sort=newest`)
+    navigate(`/player/${v.id}`)
   }
 
-  if (isLoading) {
-    return (
-      <section className="mb-8">
-        <div className="px-4 mb-3 flex items-center justify-between">
-          <div className="h-5 w-20 rounded" style={{ background: 'var(--surface-2)' }} />
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-4">
-          {Array.from({ length: limit }).map((_, i) => (
-            <div key={i} className="rounded-[10px] overflow-hidden" style={{ background: 'var(--surface-1)' }}>
-              <div style={{ aspectRatio: '16/9', background: 'var(--surface-2)' }} />
-              <div className="pt-2 space-y-2">
-                <div className="h-3 rounded" style={{ background: 'var(--surface-2)' }} />
-                <div className="h-3 w-2/3 rounded" style={{ background: 'var(--surface-2)' }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-    )
-  }
-
-  if (!videos?.length) return null
+  if (!playlist.videos.length) return null
 
   const today = new Date()
   const subtitle = `${today.getMonth() + 1}월 ${today.getDate()}일 최근 찬양`
@@ -166,7 +143,7 @@ function PlaylistSection({ playlist, limit }: { playlist: Playlist; limit: numbe
         </button>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-4">
-        {videos.map((v) => (
+        {playlist.videos.map((v) => (
           <VideoCard key={v.id} video={v} onClick={() => handlePlay(v)} layout="card" />
         ))}
       </div>
@@ -178,9 +155,10 @@ export default function HomePage() {
   const navigate = useNavigate()
   const { playVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
-  const { data: playlists, isLoading } = usePlaylists()
-  const { data: dailyVerse } = useDailyVerse()
   const limit = useGridLimit()
+  const { data: playlists, isLoading } = usePlaylists(limit)
+  const { data: dailyVerse } = useDailyVerse()
+
 
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -240,8 +218,7 @@ export default function HomePage() {
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
     )
-    const ctx = new URLSearchParams({ sort: 'chapterAsc', search: debouncedQuery, searchField: 'chapter' })
-    navigate(`/player/${v.id}?${ctx}`)
+    navigate(`/player/${v.id}`)
   }
 
   return (
@@ -369,7 +346,7 @@ export default function HomePage() {
                 </svg>
               </div>
             ) : playlists?.length ? (
-              playlists.map((pl) => <PlaylistSection key={pl.id} playlist={pl} limit={limit} />)
+              playlists.map((pl) => <PlaylistSection key={pl.id} playlist={pl} />)
             ) : (
               <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
                 <span className="text-4xl mb-4">📭</span>

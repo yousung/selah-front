@@ -8,7 +8,7 @@ import PlayerPage from '@/pages/PlayerPage'
 import FavoritesPage from '@/pages/FavoritesPage'
 import SearchPage from '@/pages/SearchPage'
 import RecentPage from '@/pages/RecentPage'
-import MyPage from '@/pages/MyPage'
+import SettingsPage from '@/pages/SettingsPage'
 import AdminPage from '@/pages/AdminPage'
 import Layout from '@/components/Layout'
 
@@ -33,7 +33,7 @@ export default function App() {
             <Route path="favorites" element={<FavoritesPage />} />
             <Route path="search" element={<SearchPage />} />
             <Route path="recent" element={<RecentPage />} />
-            <Route path="my" element={<MyPage />} />
+            <Route path="settings" element={<SettingsPage />} />
             <Route path="admin" element={<AdminPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

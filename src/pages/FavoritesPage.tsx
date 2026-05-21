@@ -4,6 +4,7 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useFavoritesStore } from '@/store/favoritesStore'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useQueueStore } from '@/store/queueStore'
 import { useAudio } from '@/contexts/AudioContext'
 import VideoCard from '@/components/VideoCard'
 
@@ -26,6 +27,7 @@ interface VideoPage {
   page: number
   limit: number
   hasMore: boolean
+  playlists: string[]
 }
 
 const PAGE_LIMIT = 20
@@ -35,6 +37,7 @@ export default function FavoritesPage() {
   const { ids: favIds } = useFavoritesStore()
   const { playVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
+  const setQueue = useQueueStore((s) => s.setQueue)
 
   const [sortMode, setSortMode] = useState<SortMode>('chapterAsc')
   const [searchQuery, setSearchQuery] = useState('')
@@ -52,7 +55,7 @@ export default function FavoritesPage() {
     queryKey: ['favorites-videos', sortMode, debouncedQuery, favIds.join(',')],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
-      if (!favIds.length) return { videos: [], total: 0, page: 1, limit: PAGE_LIMIT, hasMore: false }
+      if (!favIds.length) return { videos: [], total: 0, page: 1, limit: PAGE_LIMIT, hasMore: false, playlists: [] }
       const params = new URLSearchParams({
         page: String(pageParam),
         limit: String(PAGE_LIMIT),
@@ -93,14 +96,14 @@ export default function FavoritesPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length])
 
   const handlePlay = (v: Video) => {
+    const allIds = data?.pages[0]?.playlists ?? []
+    const idx = allIds.indexOf(v.id)
+    setQueue(allIds, idx)
     playVideo(
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
     )
-    const ctx = new URLSearchParams({ sort: sortMode })
-    if (debouncedQuery) ctx.set('search', debouncedQuery)
-    if (favIds.length) ctx.set('favIds', favIds.join(','))
-    navigate(`/player/${v.id}?${ctx}`)
+    navigate(`/player/${v.id}`)
   }
 
   return (

@@ -7,6 +7,7 @@ import { useFavoritesStore } from '@/store/favoritesStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import type { PlayMode } from '@/store/settingsStore'
 import { useRecentStore } from '@/store/recentStore'
+import { useQueueStore } from '@/store/queueStore'
 import TagBadge from '@/components/TagBadge'
 
 interface Video {
@@ -187,7 +188,8 @@ export default function PlayerPage() {
   const autoNextDelay = useSettingsStore((s) => s.autoNextDelay)
   const playMode = useSettingsStore((s) => s.playMode)
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
-  const { currentVideo, isPlaying, isLoading, isEnded, position, duration, error, playVideo, togglePlay, seek, seekBy } = useAudio()
+  const mediaMode = useSettingsStore((s) => s.mediaMode)
+  const { currentVideo, isPlaying, isLoading, isEnded, position, duration, error, videoRef, playVideo, togglePlay, seek, seekBy } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [imgErr, setImgErr] = useState(false)
   const [autoProgress, setAutoProgress] = useState<number | null>(null)
@@ -202,6 +204,7 @@ export default function PlayerPage() {
   const autoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const modeTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const recentItems = useRecentStore((s) => s.items)
+  const recentMap = useMemo(() => new Map(recentItems.map(i => [i.id, i])), [recentItems])
 
   const { data: video } = useQuery({
     queryKey: ['video', id],
@@ -215,48 +218,89 @@ export default function PlayerPage() {
   const lyric = video?.lyric ?? null
 
   const recentMode = searchParams.get('recentMode') === '1'
-  const adjacentParams = recentMode ? '' : searchParams.toString()
 
-  // URL 파라미터 없이 직접 진입 시 영상의 플레이리스트를 기본 컨텍스트로 사용
-  const effectiveAdjacentParams = useMemo(() => {
-    if (recentMode) return ''
-    if (adjacentParams) return adjacentParams
-    if (video?.playlist?.id) return `playlistId=${video.playlist.id}`
-    return ''
-  }, [recentMode, adjacentParams, video?.playlist?.id])
+  const queueIds = useQueueStore((s) => s.ids)
+  const queueIndex = useQueueStore((s) => s.index)
+  const setQueue = useQueueStore((s) => s.setQueue)
 
-  const { data: backendAdjacent } = useQuery<Adjacent>({
-    queryKey: ['adjacent', id, effectiveAdjacentParams],
-    queryFn: async () => {
-      const { data } = await api.get<Adjacent>(`/videos/${id}/adjacent?${effectiveAdjacentParams}`)
-      return data
-    },
-    enabled: !!id && !!effectiveAdjacentParams && !recentMode,
-  })
-
-  const recentAdjacent = useMemo<Adjacent | undefined>(() => {
-    if (!recentMode || !id) return undefined
-    const idx = recentItems.findIndex((item) => item.id === id)
-    if (idx === -1) return { prev: null, next: null }
-    const toAdj = (item: typeof recentItems[0] | undefined): AdjacentVideo | null =>
-      item ? { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, chapter: extractChapter(item.title) } : null
-    return {
-      prev: toAdj(recentItems[idx + 1]),
-      next: toAdj(idx > 0 ? recentItems[idx - 1] : undefined),
-    }
+  useEffect(() => {
+    if (!recentMode || !id || !recentItems.length) return
+    const ids = recentItems.map(i => i.id)
+    const idx = ids.indexOf(id)
+    if (idx === -1) return
+    setQueue(ids, idx)
   }, [recentMode, id, recentItems])
 
-  const adjacent = recentMode ? recentAdjacent : backendAdjacent
-  const hasAdjacentCtx = recentMode || !!effectiveAdjacentParams
+  useEffect(() => {
+    if (recentMode || !id || !queueIds.length) return
+    const idx = queueIds.indexOf(id)
+    if (idx !== -1 && idx !== queueIndex) setQueue(queueIds, idx)
+  }, [id, queueIds])
+
+  const prevId = queueIndex > 0 ? queueIds[queueIndex - 1] : undefined
+  const nextId = queueIndex >= 0 && queueIndex < queueIds.length - 1 ? queueIds[queueIndex + 1] : undefined
+  const firstId = queueIds.length > 1 ? queueIds[0] : undefined
+
+  const { data: prevPreview } = useQuery<AdjacentVideo>({
+    queryKey: ['preview', prevId],
+    queryFn: async () => { const { data } = await api.get<AdjacentVideo>(`/videos/${prevId}/preview`); return data },
+    enabled: !!prevId && !recentMode,
+  })
+
+  const { data: nextPreview } = useQuery<AdjacentVideo>({
+    queryKey: ['preview', nextId],
+    queryFn: async () => { const { data } = await api.get<AdjacentVideo>(`/videos/${nextId}/preview`); return data },
+    enabled: !!nextId && !recentMode,
+  })
+
+  const { data: firstPreview } = useQuery<AdjacentVideo>({
+    queryKey: ['preview', firstId],
+    queryFn: async () => { const { data } = await api.get<AdjacentVideo>(`/videos/${firstId}/preview`); return data },
+    enabled: playMode === 'repeat' && !nextId && !!firstId && firstId !== id && !recentMode,
+  })
+
+  const toRecentAdj = useCallback((itemId: string | undefined): AdjacentVideo | null => {
+    if (!itemId) return null
+    const item = recentMap.get(itemId)
+    return item ? { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, chapter: extractChapter(item.title), hymnTitle: item.hymnTitle ?? null } : null
+  }, [recentMap])
+
+  const playlistId = video?.playlist?.id
+
+  useEffect(() => {
+    if (recentMode || !id || !playlistId || (queueIds.length > 0 && queueIds.includes(id))) return
+    api.get<{ playlists: string[] }>(`/playlists/${playlistId}/videos?page=1&limit=1&sort=chapterAsc`)
+      .then(({ data }) => {
+        if (data.playlists.length > 0) {
+          const idx = data.playlists.indexOf(id)
+          setQueue(data.playlists, idx !== -1 ? idx : 0)
+        }
+      })
+      .catch(() => {})
+  }, [recentMode, id, playlistId, queueIds])
+
+  const queueAdjacent = useMemo<Adjacent | undefined>(() => {
+    if (!queueIds.length) return undefined
+    const prev = recentMode ? toRecentAdj(prevId) : (prevPreview ?? null)
+    const next = recentMode ? toRecentAdj(nextId) : (nextPreview ?? null)
+    const first = recentMode ? toRecentAdj(firstId) : (firstPreview ?? null)
+    return { prev, next, first }
+  }, [prevPreview, nextPreview, firstPreview, queueIds.length, recentMode, prevId, nextId, firstId, toRecentAdj])
+
+  const adjacent = queueAdjacent
+  const adjacentRef = useRef(adjacent)
+  useEffect(() => { adjacentRef.current = adjacent }, [adjacent])
+  const hasAdjacentCtx = recentMode || queueIds.length > 0
 
   const handleAdjacentNav = useCallback((target: AdjacentVideo) => {
+    const idx = queueIds.indexOf(target.id)
+    if (idx !== -1) setQueue(queueIds, idx)
     playVideo(
       { id: target.id, title: target.title, thumbnail: target.thumbnail, tag: target.tag, hymnTitle: target.hymnTitle },
       { autoPlay: true, skipRecentAdd: recentMode },
     )
-    const params = recentMode ? '?recentMode=1' : effectiveAdjacentParams ? `?${effectiveAdjacentParams}` : ''
-    navigate(`/player/${target.id}${params}`)
-  }, [effectiveAdjacentParams, recentMode, navigate, playVideo])
+    navigate(`/player/${target.id}${recentMode ? '?recentMode=1' : ''}`)
+  }, [queueIds, setQueue, recentMode, navigate, playVideo])
 
   useEffect(() => {
     if (!video) return
@@ -275,21 +319,20 @@ export default function PlayerPage() {
 
   useEffect(() => {
     if (!isEnded) { cancelAutoNext(); return }
-    if (playMode === 'single') return
-
-    if (playMode === 'loop') {
-      seek(0)
-      togglePlay()
-      return
-    }
-
-    const nextTarget = adjacent?.next ?? (playMode === 'repeat' ? (adjacent?.first ?? null) : null)
-    if (!nextTarget) return
     if (autoNextDelay === 'off') return
 
+    const isLoop = playMode === 'loop'
+    const nextTarget = isLoop ? null : (adjacentRef.current?.next ?? (playMode === 'repeat' ? (adjacentRef.current?.first ?? null) : null))
+    if (!isLoop && !nextTarget) return
+
+    const doNext = () => {
+      if (isLoop) { seek(0); togglePlay() }
+      else handleAdjacentNav(nextTarget!)
+    }
+
     if (autoNextDelay === 'immediate') {
-      handleAdjacentNav(nextTarget)
-      return
+      doNext()
+      return cancelAutoNext
     }
 
     const delayMs = autoNextDelay === '3s' ? 3000 : 5000
@@ -305,12 +348,12 @@ export default function PlayerPage() {
         clearInterval(autoTimerRef.current!)
         autoTimerRef.current = null
         setAutoProgress(null)
-        handleAdjacentNav(nextTarget)
+        doNext()
       }
     }, intervalMs)
 
     return cancelAutoNext
-  }, [isEnded, autoNextDelay, playMode, adjacent, handleAdjacentNav, cancelAutoNext, seek, togglePlay])
+  }, [isEnded, autoNextDelay, playMode, handleAdjacentNav, cancelAutoNext, seek, togglePlay])
 
   const handleRetry = useCallback(() => {
     if (video) playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle })
@@ -332,7 +375,16 @@ export default function PlayerPage() {
         border: '1px solid var(--divider)',
       }}
     >
-      {video?.thumbnail && !imgErr ? (
+      {mediaMode === 'video' ? (
+        <video
+          key={video?.id}
+          ref={videoRef}
+          className="w-full h-full object-cover"
+          controls={false}
+          playsInline
+          style={{ display: 'block' }}
+        />
+      ) : video?.thumbnail && !imgErr ? (
         <img src={video.thumbnail} alt="" className="w-full h-full object-cover" onError={() => setImgErr(true)} />
       ) : (
         <div className="w-full h-full flex items-center justify-center text-5xl" style={{ color: 'var(--ink-3)' }}>🎵</div>
@@ -517,7 +569,7 @@ export default function PlayerPage() {
       <div className="lg:hidden flex-1 px-6 pt-6 pb-8 flex flex-col">
         <div className="mb-8">{Artwork}</div>
         {Controls}
-        <LyricsSection lyric={lyric} />
+        {mediaMode !== 'video' && <LyricsSection lyric={lyric} />}
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
       </div>
 
@@ -527,7 +579,7 @@ export default function PlayerPage() {
           <div className="flex-1">{Artwork}</div>
           <div className="flex-1">{Controls}</div>
         </div>
-        <LyricsSection lyric={lyric} />
+        {mediaMode !== 'video' && <LyricsSection lyric={lyric} />}
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
       </div>
     </div>
