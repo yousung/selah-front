@@ -1,0 +1,2199 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {
+    "hyperedges": [
+      {
+        "id": "he_api_video_workflow",
+        "label": "Video Playback Workflow",
+        "nodes": [
+          "feature_player",
+          "api_videos_detail",
+          "api_stream_audio",
+          "context_audio"
+        ],
+        "description": "Player fetches video detail, retrieves stream URL, manages playback via AudioContext",
+        "confidence": 0.9
+      },
+      {
+        "id": "he_search_browse_workflow",
+        "label": "Search and Browse Workflow",
+        "nodes": [
+          "feature_search",
+          "feature_playlist_detail",
+          "api_videos_list",
+          "api_playlists_detail"
+        ],
+        "description": "User searches videos or explores playlists via API queries",
+        "confidence": 0.9
+      },
+      {
+        "id": "he_user_preferences_workflow",
+        "label": "User Preferences Workflow",
+        "nodes": [
+          "feature_settings",
+          "feature_favorites",
+          "store_zustand",
+          "req_browser_storage"
+        ],
+        "description": "User settings and favorites persisted via Zustand and localStorage",
+        "confidence": 0.85
+      },
+      {
+        "id": "he_admin_management_workflow",
+        "label": "Admin Content Management",
+        "nodes": [
+          "feature_admin",
+          "api_playlists_create",
+          "api_playlists_delete",
+          "api_videos_create",
+          "api_videos_delete"
+        ],
+        "description": "Admin panel manages playlists and videos via create/delete APIs",
+        "confidence": 0.9
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "label": "tailwind.config.js",
+      "file_type": "code",
+      "source_file": "tailwind.config.js",
+      "source_location": "L1",
+      "id": "tailwind_config_js",
+      "community": 21,
+      "norm_label": "tailwind.config.js"
+    },
+    {
+      "label": "vite.config.ts",
+      "file_type": "code",
+      "source_file": "vite.config.ts",
+      "source_location": "L1",
+      "id": "vite_config_ts",
+      "community": 22,
+      "norm_label": "vite.config.ts"
+    },
+    {
+      "label": "postcss.config.js",
+      "file_type": "code",
+      "source_file": "postcss.config.js",
+      "source_location": "L1",
+      "id": "postcss_config_js",
+      "community": 23,
+      "norm_label": "postcss.config.js"
+    },
+    {
+      "label": "App.tsx",
+      "file_type": "code",
+      "source_file": "src/App.tsx",
+      "source_location": "L1",
+      "id": "src_app_tsx",
+      "community": 16,
+      "norm_label": "app.tsx"
+    },
+    {
+      "label": "ThemeApplicator()",
+      "file_type": "code",
+      "source_file": "src/App.tsx",
+      "source_location": "L15",
+      "id": "app_themeapplicator",
+      "community": 16,
+      "norm_label": "themeapplicator()"
+    },
+    {
+      "label": "main.tsx",
+      "file_type": "code",
+      "source_file": "src/main.tsx",
+      "source_location": "L1",
+      "id": "src_main_tsx",
+      "community": 24,
+      "norm_label": "main.tsx"
+    },
+    {
+      "label": "vite-env.d.ts",
+      "file_type": "code",
+      "source_file": "src/vite-env.d.ts",
+      "source_location": "L1",
+      "id": "src_vite_env_d_ts",
+      "community": 25,
+      "norm_label": "vite-env.d.ts"
+    },
+    {
+      "label": "AudioContext.tsx",
+      "file_type": "code",
+      "source_file": "src/contexts/AudioContext.tsx",
+      "source_location": "L1",
+      "id": "src_contexts_audiocontext_tsx",
+      "community": 10,
+      "norm_label": "audiocontext.tsx"
+    },
+    {
+      "label": "AudioProvider()",
+      "file_type": "code",
+      "source_file": "src/contexts/AudioContext.tsx",
+      "source_location": "L42",
+      "id": "audiocontext_audioprovider",
+      "community": 10,
+      "norm_label": "audioprovider()"
+    },
+    {
+      "label": "useAudio()",
+      "file_type": "code",
+      "source_file": "src/contexts/AudioContext.tsx",
+      "source_location": "L260",
+      "id": "audiocontext_useaudio",
+      "community": 10,
+      "norm_label": "useaudio()"
+    },
+    {
+      "label": "TagBadge.tsx",
+      "file_type": "code",
+      "source_file": "src/components/TagBadge.tsx",
+      "source_location": "L1",
+      "id": "src_components_tagbadge_tsx",
+      "community": 26,
+      "norm_label": "tagbadge.tsx"
+    },
+    {
+      "label": "Layout.tsx",
+      "file_type": "code",
+      "source_file": "src/components/Layout.tsx",
+      "source_location": "L1",
+      "id": "src_components_layout_tsx",
+      "community": 11,
+      "norm_label": "layout.tsx"
+    },
+    {
+      "label": "IconHome()",
+      "file_type": "code",
+      "source_file": "src/components/Layout.tsx",
+      "source_location": "L7",
+      "id": "layout_iconhome",
+      "community": 11,
+      "norm_label": "iconhome()"
+    },
+    {
+      "label": "isActive()",
+      "file_type": "code",
+      "source_file": "src/components/Layout.tsx",
+      "source_location": "L86",
+      "id": "layout_isactive",
+      "community": 11,
+      "norm_label": "isactive()"
+    },
+    {
+      "label": "MiniPlayer.tsx",
+      "file_type": "code",
+      "source_file": "src/components/MiniPlayer.tsx",
+      "source_location": "L1",
+      "id": "src_components_miniplayer_tsx",
+      "community": 17,
+      "norm_label": "miniplayer.tsx"
+    },
+    {
+      "label": "fmtTime()",
+      "file_type": "code",
+      "source_file": "src/components/MiniPlayer.tsx",
+      "source_location": "L5",
+      "id": "miniplayer_fmttime",
+      "community": 17,
+      "norm_label": "fmttime()"
+    },
+    {
+      "label": "VideoCard.tsx",
+      "file_type": "code",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L1",
+      "id": "src_components_videocard_tsx",
+      "community": 4,
+      "norm_label": "videocard.tsx"
+    },
+    {
+      "label": "fmtDuration()",
+      "file_type": "code",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L25",
+      "id": "videocard_fmtduration",
+      "community": 4,
+      "norm_label": "fmtduration()"
+    },
+    {
+      "label": "fmtCompactCount()",
+      "file_type": "code",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L32",
+      "id": "videocard_fmtcompactcount",
+      "community": 4,
+      "norm_label": "fmtcompactcount()"
+    },
+    {
+      "label": "fmtReactionCount()",
+      "file_type": "code",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L40",
+      "id": "videocard_fmtreactioncount",
+      "community": 4,
+      "norm_label": "fmtreactioncount()"
+    },
+    {
+      "label": "TagBadge()",
+      "file_type": "code",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L44",
+      "id": "videocard_tagbadge",
+      "community": 4,
+      "norm_label": "tagbadge()"
+    },
+    {
+      "label": "handleFav()",
+      "file_type": "code",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L69",
+      "id": "videocard_handlefav",
+      "community": 4,
+      "norm_label": "handlefav()"
+    },
+    {
+      "label": "useAudioPlayer.ts",
+      "file_type": "code",
+      "source_file": "src/hooks/useAudioPlayer.ts",
+      "source_location": "L1",
+      "id": "src_hooks_useaudioplayer_ts",
+      "community": 18,
+      "norm_label": "useaudioplayer.ts"
+    },
+    {
+      "label": "useAudioPlayer()",
+      "file_type": "code",
+      "source_file": "src/hooks/useAudioPlayer.ts",
+      "source_location": "L5",
+      "id": "useaudioplayer_useaudioplayer",
+      "community": 18,
+      "norm_label": "useaudioplayer()"
+    },
+    {
+      "label": "useVideos.ts",
+      "file_type": "code",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L1",
+      "id": "src_hooks_usevideos_ts",
+      "community": 5,
+      "norm_label": "usevideos.ts"
+    },
+    {
+      "label": "useVideos()",
+      "file_type": "code",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L20",
+      "id": "usevideos_usevideos",
+      "community": 5,
+      "norm_label": "usevideos()"
+    },
+    {
+      "label": "useVideo()",
+      "file_type": "code",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L35",
+      "id": "usevideos_usevideo",
+      "community": 5,
+      "norm_label": "usevideo()"
+    },
+    {
+      "label": "usePlaylists()",
+      "file_type": "code",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L46",
+      "id": "usevideos_useplaylists",
+      "community": 5,
+      "norm_label": "useplaylists()"
+    },
+    {
+      "label": "usePlaylist()",
+      "file_type": "code",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L56",
+      "id": "usevideos_useplaylist",
+      "community": 5,
+      "norm_label": "useplaylist()"
+    },
+    {
+      "label": "useStreamUrl()",
+      "file_type": "code",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L67",
+      "id": "usevideos_usestreamurl",
+      "community": 5,
+      "norm_label": "usestreamurl()"
+    },
+    {
+      "label": "api.ts",
+      "file_type": "code",
+      "source_file": "src/lib/api.ts",
+      "source_location": "L1",
+      "id": "src_lib_api_ts",
+      "community": 27,
+      "norm_label": "api.ts"
+    },
+    {
+      "label": "AdminPage.tsx",
+      "file_type": "code",
+      "source_file": "src/pages/AdminPage.tsx",
+      "source_location": "L1",
+      "id": "src_pages_adminpage_tsx",
+      "community": 12,
+      "norm_label": "adminpage.tsx"
+    },
+    {
+      "label": "handleAddVideo()",
+      "file_type": "code",
+      "source_file": "src/pages/AdminPage.tsx",
+      "source_location": "L53",
+      "id": "adminpage_handleaddvideo",
+      "community": 12,
+      "norm_label": "handleaddvideo()"
+    },
+    {
+      "label": "handleAddPlaylist()",
+      "file_type": "code",
+      "source_file": "src/pages/AdminPage.tsx",
+      "source_location": "L59",
+      "id": "adminpage_handleaddplaylist",
+      "community": 12,
+      "norm_label": "handleaddplaylist()"
+    },
+    {
+      "label": "PlaylistPage.tsx",
+      "file_type": "code",
+      "source_file": "src/pages/PlaylistPage.tsx",
+      "source_location": "L1",
+      "id": "src_pages_playlistpage_tsx",
+      "community": 13,
+      "norm_label": "playlistpage.tsx"
+    },
+    {
+      "label": "handleSortChange()",
+      "file_type": "code",
+      "source_file": "src/pages/PlaylistPage.tsx",
+      "source_location": "L114",
+      "id": "playlistpage_handlesortchange",
+      "community": 13,
+      "norm_label": "handlesortchange()"
+    },
+    {
+      "label": "handlePlay()",
+      "file_type": "code",
+      "source_file": "src/pages/PlaylistPage.tsx",
+      "source_location": "L139",
+      "id": "playlistpage_handleplay",
+      "community": 13,
+      "norm_label": "handleplay()"
+    },
+    {
+      "label": "SettingsPage.tsx",
+      "file_type": "code",
+      "source_file": "src/pages/SettingsPage.tsx",
+      "source_location": "L1",
+      "id": "src_pages_settingspage_tsx",
+      "community": 28,
+      "norm_label": "settingspage.tsx"
+    },
+    {
+      "label": "RecentPage.tsx",
+      "file_type": "code",
+      "source_file": "src/pages/RecentPage.tsx",
+      "source_location": "L1",
+      "id": "src_pages_recentpage_tsx",
+      "community": 19,
+      "norm_label": "recentpage.tsx"
+    },
+    {
+      "label": "handlePlay()",
+      "file_type": "code",
+      "source_file": "src/pages/RecentPage.tsx",
+      "source_location": "L13",
+      "id": "recentpage_handleplay",
+      "community": 19,
+      "norm_label": "handleplay()"
+    },
+    {
+      "label": "FavoritesPage.tsx",
+      "file_type": "code",
+      "source_file": "src/pages/FavoritesPage.tsx",
+      "source_location": "L1",
+      "id": "src_pages_favoritespage_tsx",
+      "community": 20,
+      "norm_label": "favoritespage.tsx"
+    },
+    {
+      "label": "handlePlay()",
+      "file_type": "code",
+      "source_file": "src/pages/FavoritesPage.tsx",
+      "source_location": "L97",
+      "id": "favoritespage_handleplay",
+      "community": 20,
+      "norm_label": "handleplay()"
+    },
+    {
+      "label": "SearchPage.tsx",
+      "file_type": "code",
+      "source_file": "src/pages/SearchPage.tsx",
+      "source_location": "L1",
+      "id": "src_pages_searchpage_tsx",
+      "community": 14,
+      "norm_label": "searchpage.tsx"
+    },
+    {
+      "label": "handlePlay()",
+      "file_type": "code",
+      "source_file": "src/pages/SearchPage.tsx",
+      "source_location": "L120",
+      "id": "searchpage_handleplay",
+      "community": 14,
+      "norm_label": "handleplay()"
+    },
+    {
+      "label": "e()",
+      "file_type": "code",
+      "source_file": "src/pages/SearchPage.tsx",
+      "source_location": "L225",
+      "id": "searchpage_e",
+      "community": 14,
+      "norm_label": "e()"
+    },
+    {
+      "label": "PlayerPage.tsx",
+      "file_type": "code",
+      "source_file": "src/pages/PlayerPage.tsx",
+      "source_location": "L1",
+      "id": "src_pages_playerpage_tsx",
+      "community": 15,
+      "norm_label": "playerpage.tsx"
+    },
+    {
+      "label": "fmtTime()",
+      "file_type": "code",
+      "source_file": "src/pages/PlayerPage.tsx",
+      "source_location": "L43",
+      "id": "playerpage_fmttime",
+      "community": 15,
+      "norm_label": "fmttime()"
+    },
+    {
+      "label": "doNext()",
+      "file_type": "code",
+      "source_file": "src/pages/PlayerPage.tsx",
+      "source_location": "L333",
+      "id": "playerpage_donext",
+      "community": 15,
+      "norm_label": "donext()"
+    },
+    {
+      "label": "HomePage.tsx",
+      "file_type": "code",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L1",
+      "id": "src_pages_homepage_tsx",
+      "community": 2,
+      "norm_label": "homepage.tsx"
+    },
+    {
+      "label": "useGridLimit()",
+      "file_type": "code",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L5",
+      "id": "homepage_usegridlimit",
+      "community": 2,
+      "norm_label": "usegridlimit()"
+    },
+    {
+      "label": "getCachedVerse()",
+      "file_type": "code",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L67",
+      "id": "homepage_getcachedverse",
+      "community": 2,
+      "norm_label": "getcachedverse()"
+    },
+    {
+      "label": "setCachedVerse()",
+      "file_type": "code",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L79",
+      "id": "homepage_setcachedverse",
+      "community": 2,
+      "norm_label": "setcachedverse()"
+    },
+    {
+      "label": "useDailyVerse()",
+      "file_type": "code",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L83",
+      "id": "homepage_usedailyverse",
+      "community": 2,
+      "norm_label": "usedailyverse()"
+    },
+    {
+      "label": "usePlaylists()",
+      "file_type": "code",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L97",
+      "id": "homepage_useplaylists",
+      "community": 2,
+      "norm_label": "useplaylists()"
+    },
+    {
+      "label": "handlePlay()",
+      "file_type": "code",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L113",
+      "id": "homepage_handleplay",
+      "community": 2,
+      "norm_label": "handleplay()"
+    },
+    {
+      "label": "handleSearchPlay()",
+      "file_type": "code",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L215",
+      "id": "homepage_handlesearchplay",
+      "community": 2,
+      "norm_label": "handlesearchplay()"
+    },
+    {
+      "label": "settingsStore.ts",
+      "file_type": "code",
+      "source_file": "src/store/settingsStore.ts",
+      "source_location": "L1",
+      "id": "src_store_settingsstore_ts",
+      "community": 29,
+      "norm_label": "settingsstore.ts"
+    },
+    {
+      "label": "queueStore.ts",
+      "file_type": "code",
+      "source_file": "src/store/queueStore.ts",
+      "source_location": "L1",
+      "id": "src_store_queuestore_ts",
+      "community": 30,
+      "norm_label": "queuestore.ts"
+    },
+    {
+      "label": "recentStore.ts",
+      "file_type": "code",
+      "source_file": "src/store/recentStore.ts",
+      "source_location": "L1",
+      "id": "src_store_recentstore_ts",
+      "community": 31,
+      "norm_label": "recentstore.ts"
+    },
+    {
+      "label": "favoritesStore.ts",
+      "file_type": "code",
+      "source_file": "src/store/favoritesStore.ts",
+      "source_location": "L1",
+      "id": "src_store_favoritesstore_ts",
+      "community": 32,
+      "norm_label": "favoritesstore.ts"
+    },
+    {
+      "label": "playerStore.ts",
+      "file_type": "code",
+      "source_file": "src/store/playerStore.ts",
+      "source_location": "L1",
+      "id": "src_store_playerstore_ts",
+      "community": 33,
+      "norm_label": "playerstore.ts"
+    },
+    {
+      "label": "HTML Root Document",
+      "type": "structural",
+      "attributes": {
+        "lang": "ko",
+        "meta_charset": "UTF-8",
+        "theme_color": "#3B4FA8"
+      },
+      "confidence": 0.95,
+      "id": "html_root",
+      "community": 1,
+      "norm_label": "html root document"
+    },
+    {
+      "label": "Viewport Configuration",
+      "type": "config",
+      "attributes": {
+        "description": "Disables zoom and pinch gestures",
+        "initial_scale": "1.0",
+        "maximum_scale": "1.0",
+        "user_scalable": "no"
+      },
+      "confidence": 0.95,
+      "id": "meta_viewport",
+      "community": 1,
+      "norm_label": "viewport configuration"
+    },
+    {
+      "label": "Selah - YouTube Hymn Player",
+      "type": "project",
+      "attributes": {
+        "korean_name": "\uc140\ub77c",
+        "subtitle": "\uc8fc\ub2d8\uc758 \uad50\ud68c \ucc2c\uc591",
+        "description": "AR/MR accompaniment, favorites, meditation mode support",
+        "base_url": "https://yousung.github.io/selah-front"
+      },
+      "confidence": 0.95,
+      "id": "project_selah",
+      "community": 0,
+      "norm_label": "selah - youtube hymn player"
+    },
+    {
+      "label": "React 18",
+      "type": "technology",
+      "attributes": {
+        "version": "18"
+      },
+      "confidence": 0.95,
+      "id": "tech_react",
+      "community": 0,
+      "norm_label": "react 18"
+    },
+    {
+      "label": "TypeScript",
+      "type": "technology",
+      "attributes": {
+        "enabled": true
+      },
+      "confidence": 0.95,
+      "id": "tech_typescript",
+      "community": 0,
+      "norm_label": "typescript"
+    },
+    {
+      "label": "Vite",
+      "type": "technology",
+      "attributes": {
+        "role": "build_tool"
+      },
+      "confidence": 0.95,
+      "id": "tech_vite",
+      "community": 0,
+      "norm_label": "vite"
+    },
+    {
+      "label": "React Router",
+      "type": "technology",
+      "attributes": {
+        "router_type": "HashRouter",
+        "hash_based": true
+      },
+      "confidence": 0.95,
+      "id": "tech_react_router",
+      "community": 0,
+      "norm_label": "react router"
+    },
+    {
+      "label": "TanStack Query",
+      "type": "technology",
+      "attributes": {
+        "purpose": "data_fetching"
+      },
+      "confidence": 0.95,
+      "id": "tech_tanstack_query",
+      "community": 0,
+      "norm_label": "tanstack query"
+    },
+    {
+      "label": "Zustand",
+      "type": "technology",
+      "attributes": {
+        "purpose": "state_management"
+      },
+      "confidence": 0.95,
+      "id": "tech_zustand",
+      "community": 0,
+      "norm_label": "zustand"
+    },
+    {
+      "label": "Axios",
+      "type": "technology",
+      "attributes": {
+        "purpose": "http_client"
+      },
+      "confidence": 0.95,
+      "id": "tech_axios",
+      "community": 0,
+      "norm_label": "axios"
+    },
+    {
+      "label": "Tailwind CSS",
+      "type": "technology",
+      "attributes": {
+        "purpose": "styling"
+      },
+      "confidence": 0.95,
+      "id": "tech_tailwind",
+      "community": 0,
+      "norm_label": "tailwind css"
+    },
+    {
+      "label": "Home Feed",
+      "type": "feature",
+      "attributes": {
+        "description": "Latest videos by playlist",
+        "route": "/"
+      },
+      "confidence": 0.95,
+      "id": "feature_home_feed",
+      "community": 6,
+      "norm_label": "home feed"
+    },
+    {
+      "label": "Playlist Detail",
+      "type": "feature",
+      "attributes": {
+        "description": "Playlist videos with filters and sorting",
+        "route": "/playlist/:id"
+      },
+      "confidence": 0.95,
+      "id": "feature_playlist_detail",
+      "community": 6,
+      "norm_label": "playlist detail"
+    },
+    {
+      "label": "Audio/Video Player",
+      "type": "feature",
+      "attributes": {
+        "description": "Full-screen player with mini-player support",
+        "route": "/player/:id",
+        "supports": [
+          "audio_stream",
+          "video_playback",
+          "mini_player"
+        ]
+      },
+      "confidence": 0.95,
+      "id": "feature_player",
+      "community": 9,
+      "norm_label": "audio/video player"
+    },
+    {
+      "label": "Favorites",
+      "type": "feature",
+      "attributes": {
+        "description": "Saved videos with filter-based categories",
+        "route": "/favorites",
+        "storage_key": "selah-favorites"
+      },
+      "confidence": 0.95,
+      "id": "feature_favorites",
+      "community": 1,
+      "norm_label": "favorites"
+    },
+    {
+      "label": "Search",
+      "type": "feature",
+      "attributes": {
+        "description": "Video search with sorting and infinite scroll",
+        "route": "/search"
+      },
+      "confidence": 0.95,
+      "id": "feature_search",
+      "community": 6,
+      "norm_label": "search"
+    },
+    {
+      "label": "Settings",
+      "type": "feature",
+      "attributes": {
+        "description": "Theme, quality, auto-play configuration",
+        "route": "/my",
+        "storage_key": "selah-settings"
+      },
+      "confidence": 0.95,
+      "id": "feature_settings",
+      "community": 1,
+      "norm_label": "settings"
+    },
+    {
+      "label": "Admin Panel",
+      "type": "feature",
+      "attributes": {
+        "description": "Add/delete videos and playlists",
+        "route": "/admin"
+      },
+      "confidence": 0.95,
+      "id": "feature_admin",
+      "community": 8,
+      "norm_label": "admin panel"
+    },
+    {
+      "label": "GET /api/playlists",
+      "type": "api_endpoint",
+      "attributes": {
+        "method": "GET",
+        "description": "List all playlists"
+      },
+      "confidence": 0.95,
+      "id": "api_playlists_list",
+      "community": 6,
+      "norm_label": "get /api/playlists"
+    },
+    {
+      "label": "GET /api/playlists/:id",
+      "type": "api_endpoint",
+      "attributes": {
+        "method": "GET",
+        "description": "Playlist detail"
+      },
+      "confidence": 0.95,
+      "id": "api_playlists_detail",
+      "community": 6,
+      "norm_label": "get /api/playlists/:id"
+    },
+    {
+      "label": "POST /api/playlists",
+      "type": "api_endpoint",
+      "attributes": {
+        "method": "POST",
+        "description": "Create playlist"
+      },
+      "confidence": 0.95,
+      "id": "api_playlists_create",
+      "community": 8,
+      "norm_label": "post /api/playlists"
+    },
+    {
+      "label": "DELETE /api/playlists/:id",
+      "type": "api_endpoint",
+      "attributes": {
+        "method": "DELETE",
+        "description": "Delete playlist"
+      },
+      "confidence": 0.95,
+      "id": "api_playlists_delete",
+      "community": 8,
+      "norm_label": "delete /api/playlists/:id"
+    },
+    {
+      "label": "GET /api/videos",
+      "type": "api_endpoint",
+      "attributes": {
+        "method": "GET",
+        "description": "List, search, sort videos",
+        "supports": [
+          "search",
+          "sort",
+          "infinite_scroll"
+        ]
+      },
+      "confidence": 0.95,
+      "id": "api_videos_list",
+      "community": 6,
+      "norm_label": "get /api/videos"
+    },
+    {
+      "label": "GET /api/videos/:id",
+      "type": "api_endpoint",
+      "attributes": {
+        "method": "GET",
+        "description": "Video detail"
+      },
+      "confidence": 0.95,
+      "id": "api_videos_detail",
+      "community": 9,
+      "norm_label": "get /api/videos/:id"
+    },
+    {
+      "label": "POST /api/videos",
+      "type": "api_endpoint",
+      "attributes": {
+        "method": "POST",
+        "description": "Create video"
+      },
+      "confidence": 0.95,
+      "id": "api_videos_create",
+      "community": 8,
+      "norm_label": "post /api/videos"
+    },
+    {
+      "label": "DELETE /api/videos/:id",
+      "type": "api_endpoint",
+      "attributes": {
+        "method": "DELETE",
+        "description": "Delete video"
+      },
+      "confidence": 0.95,
+      "id": "api_videos_delete",
+      "community": 8,
+      "norm_label": "delete /api/videos/:id"
+    },
+    {
+      "label": "GET /api/videos/:id/stream",
+      "type": "api_endpoint",
+      "attributes": {
+        "method": "GET",
+        "description": "Audio stream URL",
+        "response_schema": "{ url, bitrate, encoding? }"
+      },
+      "confidence": 0.95,
+      "id": "api_stream_audio",
+      "community": 9,
+      "norm_label": "get /api/videos/:id/stream"
+    },
+    {
+      "label": "AudioContext",
+      "type": "context",
+      "attributes": {
+        "file": "src/contexts/AudioContext.tsx",
+        "purpose": "Global audio playback state"
+      },
+      "confidence": 0.85,
+      "id": "context_audio",
+      "community": 9,
+      "norm_label": "audiocontext"
+    },
+    {
+      "label": "Zustand Store",
+      "type": "store",
+      "attributes": {
+        "location": "src/store/",
+        "purpose": "Global state management"
+      },
+      "confidence": 0.85,
+      "id": "store_zustand",
+      "community": 1,
+      "norm_label": "zustand store"
+    },
+    {
+      "label": "src/components/",
+      "type": "directory",
+      "attributes": {
+        "purpose": "Shared UI components"
+      },
+      "confidence": 0.95,
+      "id": "dir_components",
+      "community": 0,
+      "norm_label": "src/components/"
+    },
+    {
+      "label": "src/hooks/",
+      "type": "directory",
+      "attributes": {
+        "purpose": "API query hooks"
+      },
+      "confidence": 0.95,
+      "id": "dir_hooks",
+      "community": 0,
+      "norm_label": "src/hooks/"
+    },
+    {
+      "label": "src/lib/",
+      "type": "directory",
+      "attributes": {
+        "purpose": "Axios client, utilities"
+      },
+      "confidence": 0.95,
+      "id": "dir_lib",
+      "community": 0,
+      "norm_label": "src/lib/"
+    },
+    {
+      "label": "src/pages/",
+      "type": "directory",
+      "attributes": {
+        "purpose": "Route-level screens"
+      },
+      "confidence": 0.95,
+      "id": "dir_pages",
+      "community": 0,
+      "norm_label": "src/pages/"
+    },
+    {
+      "label": "Gesture Prevention",
+      "type": "requirement",
+      "attributes": {
+        "description": "Block zoom and multi-touch pinch",
+        "script_location": "index.html",
+        "events": [
+          "gesturestart",
+          "gesturechange",
+          "touchmove"
+        ]
+      },
+      "confidence": 0.95,
+      "id": "req_gesture_prevention",
+      "community": 1,
+      "norm_label": "gesture prevention"
+    },
+    {
+      "label": "Browser Storage",
+      "type": "requirement",
+      "attributes": {
+        "keys": [
+          "selah-favorites",
+          "selah-settings",
+          "selah-auth"
+        ],
+        "purpose": "Persist user state without backend"
+      },
+      "confidence": 0.95,
+      "id": "req_browser_storage",
+      "community": 1,
+      "norm_label": "browser storage"
+    },
+    {
+      "label": "Hash-Based Routing",
+      "type": "requirement",
+      "attributes": {
+        "description": "Static hosting without server rewrites",
+        "router": "HashRouter"
+      },
+      "confidence": 0.95,
+      "id": "req_hash_routing",
+      "community": 0,
+      "norm_label": "hash-based routing"
+    },
+    {
+      "label": "Noto Sans KR",
+      "type": "font",
+      "attributes": {
+        "weights": [
+          300,
+          400,
+          500,
+          600,
+          700
+        ],
+        "source": "Google Fonts"
+      },
+      "confidence": 0.95,
+      "id": "font_noto_sans",
+      "community": 1,
+      "norm_label": "noto sans kr"
+    },
+    {
+      "label": "Noto Serif KR",
+      "type": "font",
+      "attributes": {
+        "weights": [
+          400,
+          500,
+          600
+        ],
+        "source": "Google Fonts"
+      },
+      "confidence": 0.95,
+      "id": "font_noto_serif",
+      "community": 1,
+      "norm_label": "noto serif kr"
+    },
+    {
+      "label": "Open Book",
+      "file_type": "image",
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "icon_open_book",
+      "community": 7,
+      "norm_label": "open book"
+    },
+    {
+      "label": "Musical Note",
+      "file_type": "image",
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "icon_musical_note",
+      "community": 7,
+      "norm_label": "musical note"
+    },
+    {
+      "label": "Plant/Leaf Elements",
+      "file_type": "image",
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "icon_plant_elements",
+      "community": 7,
+      "norm_label": "plant/leaf elements"
+    },
+    {
+      "label": "Warm Gradient Colors",
+      "file_type": "image",
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "icon_warm_gradient",
+      "community": 34,
+      "norm_label": "warm gradient colors"
+    },
+    {
+      "label": "Spirituality",
+      "file_type": "image",
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "icon_spirituality",
+      "community": 7,
+      "norm_label": "spirituality"
+    },
+    {
+      "label": "Music and Worship",
+      "file_type": "image",
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "icon_music_worship",
+      "community": 7,
+      "norm_label": "music and worship"
+    },
+    {
+      "label": "Spiritual Reading Platform",
+      "file_type": "image",
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "icon_spiritual_reading_platform",
+      "community": 7,
+      "norm_label": "spiritual reading platform"
+    },
+    {
+      "label": "App Favicon",
+      "file_type": "image",
+      "source_file": "public/favicon.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "favicon_app_icon",
+      "community": 35,
+      "norm_label": "app favicon"
+    },
+    {
+      "label": "Spiritual Music App UI Mockup",
+      "file_type": "image",
+      "source_file": "public/image.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "ui_mockup_design",
+      "community": 3,
+      "norm_label": "spiritual music app ui mockup"
+    },
+    {
+      "label": "Glowing Musical Note Icon",
+      "file_type": "image",
+      "source_file": "public/image.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "music_icon_element",
+      "community": 3,
+      "norm_label": "glowing musical note icon"
+    },
+    {
+      "label": "Open Book with Botanical Elements",
+      "file_type": "image",
+      "source_file": "public/image.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "book_element",
+      "community": 3,
+      "norm_label": "open book with botanical elements"
+    },
+    {
+      "label": "Nature-Based Design Language",
+      "file_type": "image",
+      "source_file": "public/image.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "nature_aesthetic",
+      "community": 3,
+      "norm_label": "nature-based design language"
+    },
+    {
+      "label": "Left Navigation Sidebar with Icons",
+      "file_type": "image",
+      "source_file": "public/image.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "navigation_sidebar",
+      "community": 3,
+      "norm_label": "left navigation sidebar with icons"
+    },
+    {
+      "label": "Leaf and Plant Visual Elements",
+      "file_type": "image",
+      "source_file": "public/image.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "botanical_elements",
+      "community": 3,
+      "norm_label": "leaf and plant visual elements"
+    },
+    {
+      "label": "Warm Golden Lighting Aesthetic",
+      "file_type": "image",
+      "source_file": "public/image.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "warm_lighting",
+      "community": 3,
+      "norm_label": "warm golden lighting aesthetic"
+    }
+  ],
+  "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.tsx",
+      "source_location": "L15",
+      "weight": 1.0,
+      "_src": "src_app_tsx",
+      "_tgt": "app_themeapplicator",
+      "source": "src_app_tsx",
+      "target": "app_themeapplicator",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/contexts/AudioContext.tsx",
+      "source_location": "L42",
+      "weight": 1.0,
+      "_src": "src_contexts_audiocontext_tsx",
+      "_tgt": "audiocontext_audioprovider",
+      "source": "src_contexts_audiocontext_tsx",
+      "target": "audiocontext_audioprovider",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/contexts/AudioContext.tsx",
+      "source_location": "L260",
+      "weight": 1.0,
+      "_src": "src_contexts_audiocontext_tsx",
+      "_tgt": "audiocontext_useaudio",
+      "source": "src_contexts_audiocontext_tsx",
+      "target": "audiocontext_useaudio",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/Layout.tsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_src": "src_components_layout_tsx",
+      "_tgt": "layout_iconhome",
+      "source": "src_components_layout_tsx",
+      "target": "layout_iconhome",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/Layout.tsx",
+      "source_location": "L86",
+      "weight": 1.0,
+      "_src": "src_components_layout_tsx",
+      "_tgt": "layout_isactive",
+      "source": "src_components_layout_tsx",
+      "target": "layout_isactive",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/MiniPlayer.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_src": "src_components_miniplayer_tsx",
+      "_tgt": "miniplayer_fmttime",
+      "source": "src_components_miniplayer_tsx",
+      "target": "miniplayer_fmttime",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_src": "src_components_videocard_tsx",
+      "_tgt": "videocard_fmtduration",
+      "source": "src_components_videocard_tsx",
+      "target": "videocard_fmtduration",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L32",
+      "weight": 1.0,
+      "_src": "src_components_videocard_tsx",
+      "_tgt": "videocard_fmtcompactcount",
+      "source": "src_components_videocard_tsx",
+      "target": "videocard_fmtcompactcount",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L40",
+      "weight": 1.0,
+      "_src": "src_components_videocard_tsx",
+      "_tgt": "videocard_fmtreactioncount",
+      "source": "src_components_videocard_tsx",
+      "target": "videocard_fmtreactioncount",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L44",
+      "weight": 1.0,
+      "_src": "src_components_videocard_tsx",
+      "_tgt": "videocard_tagbadge",
+      "source": "src_components_videocard_tsx",
+      "target": "videocard_tagbadge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L69",
+      "weight": 1.0,
+      "_src": "src_components_videocard_tsx",
+      "_tgt": "videocard_handlefav",
+      "source": "src_components_videocard_tsx",
+      "target": "videocard_handlefav",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/VideoCard.tsx",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_src": "videocard_fmtreactioncount",
+      "_tgt": "videocard_fmtcompactcount",
+      "source": "videocard_fmtcompactcount",
+      "target": "videocard_fmtreactioncount",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/hooks/useAudioPlayer.ts",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_src": "src_hooks_useaudioplayer_ts",
+      "_tgt": "useaudioplayer_useaudioplayer",
+      "source": "src_hooks_useaudioplayer_ts",
+      "target": "useaudioplayer_useaudioplayer",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_src": "src_hooks_usevideos_ts",
+      "_tgt": "usevideos_usevideos",
+      "source": "src_hooks_usevideos_ts",
+      "target": "usevideos_usevideos",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L35",
+      "weight": 1.0,
+      "_src": "src_hooks_usevideos_ts",
+      "_tgt": "usevideos_usevideo",
+      "source": "src_hooks_usevideos_ts",
+      "target": "usevideos_usevideo",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L46",
+      "weight": 1.0,
+      "_src": "src_hooks_usevideos_ts",
+      "_tgt": "usevideos_useplaylists",
+      "source": "src_hooks_usevideos_ts",
+      "target": "usevideos_useplaylists",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L56",
+      "weight": 1.0,
+      "_src": "src_hooks_usevideos_ts",
+      "_tgt": "usevideos_useplaylist",
+      "source": "src_hooks_usevideos_ts",
+      "target": "usevideos_useplaylist",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/hooks/useVideos.ts",
+      "source_location": "L67",
+      "weight": 1.0,
+      "_src": "src_hooks_usevideos_ts",
+      "_tgt": "usevideos_usestreamurl",
+      "source": "src_hooks_usevideos_ts",
+      "target": "usevideos_usestreamurl",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/AdminPage.tsx",
+      "source_location": "L53",
+      "weight": 1.0,
+      "_src": "src_pages_adminpage_tsx",
+      "_tgt": "adminpage_handleaddvideo",
+      "source": "src_pages_adminpage_tsx",
+      "target": "adminpage_handleaddvideo",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/AdminPage.tsx",
+      "source_location": "L59",
+      "weight": 1.0,
+      "_src": "src_pages_adminpage_tsx",
+      "_tgt": "adminpage_handleaddplaylist",
+      "source": "src_pages_adminpage_tsx",
+      "target": "adminpage_handleaddplaylist",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/PlaylistPage.tsx",
+      "source_location": "L114",
+      "weight": 1.0,
+      "_src": "src_pages_playlistpage_tsx",
+      "_tgt": "playlistpage_handlesortchange",
+      "source": "src_pages_playlistpage_tsx",
+      "target": "playlistpage_handlesortchange",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/PlaylistPage.tsx",
+      "source_location": "L139",
+      "weight": 1.0,
+      "_src": "src_pages_playlistpage_tsx",
+      "_tgt": "playlistpage_handleplay",
+      "source": "src_pages_playlistpage_tsx",
+      "target": "playlistpage_handleplay",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/RecentPage.tsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "_src": "src_pages_recentpage_tsx",
+      "_tgt": "recentpage_handleplay",
+      "source": "src_pages_recentpage_tsx",
+      "target": "recentpage_handleplay",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/FavoritesPage.tsx",
+      "source_location": "L97",
+      "weight": 1.0,
+      "_src": "src_pages_favoritespage_tsx",
+      "_tgt": "favoritespage_handleplay",
+      "source": "src_pages_favoritespage_tsx",
+      "target": "favoritespage_handleplay",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/SearchPage.tsx",
+      "source_location": "L120",
+      "weight": 1.0,
+      "_src": "src_pages_searchpage_tsx",
+      "_tgt": "searchpage_handleplay",
+      "source": "src_pages_searchpage_tsx",
+      "target": "searchpage_handleplay",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/SearchPage.tsx",
+      "source_location": "L225",
+      "weight": 1.0,
+      "_src": "src_pages_searchpage_tsx",
+      "_tgt": "searchpage_e",
+      "source": "src_pages_searchpage_tsx",
+      "target": "searchpage_e",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/PlayerPage.tsx",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_src": "src_pages_playerpage_tsx",
+      "_tgt": "playerpage_fmttime",
+      "source": "src_pages_playerpage_tsx",
+      "target": "playerpage_fmttime",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/PlayerPage.tsx",
+      "source_location": "L333",
+      "weight": 1.0,
+      "_src": "src_pages_playerpage_tsx",
+      "_tgt": "playerpage_donext",
+      "source": "src_pages_playerpage_tsx",
+      "target": "playerpage_donext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_src": "src_pages_homepage_tsx",
+      "_tgt": "homepage_usegridlimit",
+      "source": "src_pages_homepage_tsx",
+      "target": "homepage_usegridlimit",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L67",
+      "weight": 1.0,
+      "_src": "src_pages_homepage_tsx",
+      "_tgt": "homepage_getcachedverse",
+      "source": "src_pages_homepage_tsx",
+      "target": "homepage_getcachedverse",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_src": "src_pages_homepage_tsx",
+      "_tgt": "homepage_setcachedverse",
+      "source": "src_pages_homepage_tsx",
+      "target": "homepage_setcachedverse",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L83",
+      "weight": 1.0,
+      "_src": "src_pages_homepage_tsx",
+      "_tgt": "homepage_usedailyverse",
+      "source": "src_pages_homepage_tsx",
+      "target": "homepage_usedailyverse",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L97",
+      "weight": 1.0,
+      "_src": "src_pages_homepage_tsx",
+      "_tgt": "homepage_useplaylists",
+      "source": "src_pages_homepage_tsx",
+      "target": "homepage_useplaylists",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L113",
+      "weight": 1.0,
+      "_src": "src_pages_homepage_tsx",
+      "_tgt": "homepage_handleplay",
+      "source": "src_pages_homepage_tsx",
+      "target": "homepage_handleplay",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/HomePage.tsx",
+      "source_location": "L215",
+      "weight": 1.0,
+      "_src": "src_pages_homepage_tsx",
+      "_tgt": "homepage_handlesearchplay",
+      "source": "src_pages_homepage_tsx",
+      "target": "homepage_handlesearchplay",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "implements",
+      "confidence": 0.95,
+      "_src": "html_root",
+      "_tgt": "req_gesture_prevention",
+      "source": "html_root",
+      "target": "req_gesture_prevention",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "configures",
+      "confidence": 0.95,
+      "_src": "html_root",
+      "_tgt": "meta_viewport",
+      "source": "html_root",
+      "target": "meta_viewport",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "supports",
+      "confidence": 0.9,
+      "_src": "html_root",
+      "_tgt": "req_browser_storage",
+      "source": "html_root",
+      "target": "req_browser_storage",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "loads",
+      "confidence": 0.95,
+      "_src": "html_root",
+      "_tgt": "font_noto_sans",
+      "source": "html_root",
+      "target": "font_noto_sans",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "loads",
+      "confidence": 0.95,
+      "_src": "html_root",
+      "_tgt": "font_noto_serif",
+      "source": "html_root",
+      "target": "font_noto_serif",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "uses",
+      "confidence": 0.95,
+      "_src": "project_selah",
+      "_tgt": "tech_react",
+      "source": "project_selah",
+      "target": "tech_react",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "uses",
+      "confidence": 0.95,
+      "_src": "project_selah",
+      "_tgt": "tech_typescript",
+      "source": "project_selah",
+      "target": "tech_typescript",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "built_with",
+      "confidence": 0.95,
+      "_src": "project_selah",
+      "_tgt": "tech_vite",
+      "source": "project_selah",
+      "target": "tech_vite",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "uses",
+      "confidence": 0.95,
+      "_src": "project_selah",
+      "_tgt": "tech_react_router",
+      "source": "project_selah",
+      "target": "tech_react_router",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "uses",
+      "confidence": 0.95,
+      "_src": "project_selah",
+      "_tgt": "tech_tanstack_query",
+      "source": "project_selah",
+      "target": "tech_tanstack_query",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "uses",
+      "confidence": 0.95,
+      "_src": "project_selah",
+      "_tgt": "tech_zustand",
+      "source": "project_selah",
+      "target": "tech_zustand",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "uses",
+      "confidence": 0.95,
+      "_src": "project_selah",
+      "_tgt": "tech_axios",
+      "source": "project_selah",
+      "target": "tech_axios",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "uses",
+      "confidence": 0.95,
+      "_src": "project_selah",
+      "_tgt": "tech_tailwind",
+      "source": "project_selah",
+      "target": "tech_tailwind",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "enables",
+      "confidence": 0.95,
+      "_src": "tech_react_router",
+      "_tgt": "req_hash_routing",
+      "source": "tech_react_router",
+      "target": "req_hash_routing",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "implements_routes",
+      "confidence": 0.95,
+      "_src": "dir_pages",
+      "_tgt": "tech_react_router",
+      "source": "tech_react_router",
+      "target": "dir_pages",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "uses",
+      "confidence": 0.85,
+      "_src": "dir_hooks",
+      "_tgt": "tech_tanstack_query",
+      "source": "tech_tanstack_query",
+      "target": "dir_hooks",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "contains",
+      "confidence": 0.85,
+      "_src": "dir_lib",
+      "_tgt": "tech_axios",
+      "source": "tech_axios",
+      "target": "dir_lib",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "styled_with",
+      "confidence": 0.85,
+      "_src": "dir_components",
+      "_tgt": "tech_tailwind",
+      "source": "tech_tailwind",
+      "target": "dir_components",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.9,
+      "_src": "feature_home_feed",
+      "_tgt": "api_playlists_list",
+      "source": "feature_home_feed",
+      "target": "api_playlists_list",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.9,
+      "_src": "feature_home_feed",
+      "_tgt": "api_videos_list",
+      "source": "feature_home_feed",
+      "target": "api_videos_list",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.95,
+      "_src": "feature_playlist_detail",
+      "_tgt": "api_playlists_detail",
+      "source": "feature_playlist_detail",
+      "target": "api_playlists_detail",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.9,
+      "_src": "feature_playlist_detail",
+      "_tgt": "api_videos_list",
+      "source": "feature_playlist_detail",
+      "target": "api_videos_list",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.95,
+      "_src": "feature_player",
+      "_tgt": "api_videos_detail",
+      "source": "feature_player",
+      "target": "api_videos_detail",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.95,
+      "_src": "feature_player",
+      "_tgt": "api_stream_audio",
+      "source": "feature_player",
+      "target": "api_stream_audio",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "manages_state_for",
+      "confidence": 0.85,
+      "_src": "context_audio",
+      "_tgt": "feature_player",
+      "source": "feature_player",
+      "target": "context_audio",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "persists_via",
+      "confidence": 0.95,
+      "_src": "feature_favorites",
+      "_tgt": "req_browser_storage",
+      "source": "feature_favorites",
+      "target": "req_browser_storage",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.95,
+      "_src": "feature_search",
+      "_tgt": "api_videos_list",
+      "source": "feature_search",
+      "target": "api_videos_list",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "persists_via",
+      "confidence": 0.95,
+      "_src": "feature_settings",
+      "_tgt": "req_browser_storage",
+      "source": "feature_settings",
+      "target": "req_browser_storage",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "persists_state_for",
+      "confidence": 0.85,
+      "_src": "store_zustand",
+      "_tgt": "feature_settings",
+      "source": "feature_settings",
+      "target": "store_zustand",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.9,
+      "_src": "feature_admin",
+      "_tgt": "api_playlists_create",
+      "source": "feature_admin",
+      "target": "api_playlists_create",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.9,
+      "_src": "feature_admin",
+      "_tgt": "api_playlists_delete",
+      "source": "feature_admin",
+      "target": "api_playlists_delete",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.9,
+      "_src": "feature_admin",
+      "_tgt": "api_videos_create",
+      "source": "feature_admin",
+      "target": "api_videos_create",
+      "confidence_score": 1.0
+    },
+    {
+      "relationship": "calls",
+      "confidence": 0.9,
+      "_src": "feature_admin",
+      "_tgt": "api_videos_delete",
+      "source": "feature_admin",
+      "target": "api_videos_delete",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "icon_open_book",
+      "_tgt": "icon_spirituality",
+      "source": "icon_open_book",
+      "target": "icon_spirituality"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "icon_musical_note",
+      "_tgt": "icon_music_worship",
+      "source": "icon_musical_note",
+      "target": "icon_music_worship"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "icon_plant_elements",
+      "_tgt": "icon_spirituality",
+      "source": "icon_plant_elements",
+      "target": "icon_spirituality"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "icon_spirituality",
+      "_tgt": "icon_spiritual_reading_platform",
+      "source": "icon_spirituality",
+      "target": "icon_spiritual_reading_platform"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "public/icon.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "icon_music_worship",
+      "_tgt": "icon_spiritual_reading_platform",
+      "source": "icon_music_worship",
+      "target": "icon_spiritual_reading_platform"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/image.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "music_icon_element",
+      "_tgt": "ui_mockup_design",
+      "source": "ui_mockup_design",
+      "target": "music_icon_element"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/image.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "book_element",
+      "_tgt": "ui_mockup_design",
+      "source": "ui_mockup_design",
+      "target": "book_element"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/image.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "navigation_sidebar",
+      "_tgt": "ui_mockup_design",
+      "source": "ui_mockup_design",
+      "target": "navigation_sidebar"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/image.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "nature_aesthetic",
+      "_tgt": "ui_mockup_design",
+      "source": "ui_mockup_design",
+      "target": "nature_aesthetic"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "public/image.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "music_icon_element",
+      "_tgt": "book_element",
+      "source": "music_icon_element",
+      "target": "book_element"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/image.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "botanical_elements",
+      "_tgt": "nature_aesthetic",
+      "source": "nature_aesthetic",
+      "target": "botanical_elements"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/image.png",
+      "source_location": null,
+      "weight": 1.0,
+      "_src": "warm_lighting",
+      "_tgt": "nature_aesthetic",
+      "source": "nature_aesthetic",
+      "target": "warm_lighting"
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "he_api_video_workflow",
+      "label": "Video Playback Workflow",
+      "nodes": [
+        "feature_player",
+        "api_videos_detail",
+        "api_stream_audio",
+        "context_audio"
+      ],
+      "description": "Player fetches video detail, retrieves stream URL, manages playback via AudioContext",
+      "confidence": 0.9
+    },
+    {
+      "id": "he_search_browse_workflow",
+      "label": "Search and Browse Workflow",
+      "nodes": [
+        "feature_search",
+        "feature_playlist_detail",
+        "api_videos_list",
+        "api_playlists_detail"
+      ],
+      "description": "User searches videos or explores playlists via API queries",
+      "confidence": 0.9
+    },
+    {
+      "id": "he_user_preferences_workflow",
+      "label": "User Preferences Workflow",
+      "nodes": [
+        "feature_settings",
+        "feature_favorites",
+        "store_zustand",
+        "req_browser_storage"
+      ],
+      "description": "User settings and favorites persisted via Zustand and localStorage",
+      "confidence": 0.85
+    },
+    {
+      "id": "he_admin_management_workflow",
+      "label": "Admin Content Management",
+      "nodes": [
+        "feature_admin",
+        "api_playlists_create",
+        "api_playlists_delete",
+        "api_videos_create",
+        "api_videos_delete"
+      ],
+      "description": "Admin panel manages playlists and videos via create/delete APIs",
+      "confidence": 0.9
+    }
+  ]
+}

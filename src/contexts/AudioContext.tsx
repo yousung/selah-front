@@ -54,11 +54,17 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [volume, setVolume] = useState(1)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const isPlayingRef = useRef(false)
+  useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
 
   const qualityRef = useRef(quality)
   useEffect(() => { qualityRef.current = quality }, [quality])
   const mediaModeRef = useRef(mediaMode)
   useEffect(() => { mediaModeRef.current = mediaMode }, [mediaMode])
+
+  useEffect(() => {
+    if (reactPlayerRef.current) reactPlayerRef.current.volume = volume
+  }, [volume])
   const isMountedRef = useRef(false)
   useEffect(() => {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
@@ -121,6 +127,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         setVideoUrl(data.url)
         setIsPlaying(autoPlay)
         if (!autoPlay) setIsLoading(false)
+        if (reactPlayerRef.current) {
+          reactPlayerRef.current.muted = false
+          reactPlayerRef.current.volume = volume
+        }
       } else {
         setVideoUrl(null)
         const audio = audioRef.current
@@ -205,9 +215,21 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setVolume(v)
   }, [])
 
-  const onVideoReady = useCallback(() => setIsLoading(false), [])
+  const onVideoReady = useCallback(() => {
+    setIsLoading(false)
+    if (reactPlayerRef.current) {
+      reactPlayerRef.current.muted = false
+      reactPlayerRef.current.volume = volume
+    }
+  }, [volume])
   const onVideoWaiting = useCallback(() => setIsLoading(true), [])
-  const onVideoCanPlay = useCallback(() => setIsLoading(false), [])
+  const onVideoCanPlay = useCallback(() => {
+    setIsLoading(false)
+    if (reactPlayerRef.current) {
+      reactPlayerRef.current.muted = false
+      reactPlayerRef.current.volume = volume
+    }
+  }, [volume])
   const onVideoTimeUpdate = useCallback((e: SyntheticEvent<HTMLVideoElement>) => {
     const t = e.currentTarget.currentTime
     positionRef.current = t

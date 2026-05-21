@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useState, useMemo, useRef } from 'react'
 import ReactPlayer from 'react-player'
+
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -191,7 +192,7 @@ export default function PlayerPage() {
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const {
-    currentVideo, isPlaying, isLoading, isEnded, position, duration, error, volume,
+    currentVideo, isPlaying, isLoading, isEnded, position, duration, error,
     videoUrl, reactPlayerRef,
     playVideo, togglePlay, seek, seekBy,
     onVideoReady, onVideoWaiting, onVideoCanPlay, onVideoTimeUpdate, onVideoLoadedMetadata, onVideoEnded, onVideoError,
@@ -383,16 +384,13 @@ export default function PlayerPage() {
     >
       {mediaMode === 'video' ? (
         <ReactPlayer
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ref={reactPlayerRef as any}
+          ref={reactPlayerRef as React.RefObject<HTMLVideoElement>}
           src={videoUrl ?? undefined}
           playing={isPlaying}
-          volume={volume}
-          width="100%"
-          height="100%"
+          volume={null as unknown as number}
+          muted={false}
           playsInline
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' } as any}
+          style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
           onReady={onVideoReady}
           onWaiting={onVideoWaiting}
           onCanPlay={onVideoCanPlay}
