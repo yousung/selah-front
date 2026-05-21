@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState, useMemo, useRef } from 'react'
+import ReactPlayer from 'react-player'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -189,7 +190,12 @@ export default function PlayerPage() {
   const playMode = useSettingsStore((s) => s.playMode)
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
-  const { currentVideo, isPlaying, isLoading, isEnded, position, duration, error, videoRef, playVideo, togglePlay, seek, seekBy } = useAudio()
+  const {
+    currentVideo, isPlaying, isLoading, isEnded, position, duration, error, volume,
+    videoUrl, reactPlayerRef,
+    playVideo, togglePlay, seek, seekBy,
+    onVideoReady, onVideoWaiting, onVideoCanPlay, onVideoTimeUpdate, onVideoLoadedMetadata, onVideoEnded, onVideoError,
+  } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [imgErr, setImgErr] = useState(false)
   const [autoProgress, setAutoProgress] = useState<number | null>(null)
@@ -376,13 +382,24 @@ export default function PlayerPage() {
       }}
     >
       {mediaMode === 'video' ? (
-        <video
-          key={video?.id}
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          controls={false}
+        <ReactPlayer
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ref={reactPlayerRef as any}
+          src={videoUrl ?? undefined}
+          playing={isPlaying}
+          volume={volume}
+          width="100%"
+          height="100%"
           playsInline
-          style={{ display: 'block' }}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' } as any}
+          onReady={onVideoReady}
+          onWaiting={onVideoWaiting}
+          onCanPlay={onVideoCanPlay}
+          onTimeUpdate={onVideoTimeUpdate}
+          onLoadedMetadata={onVideoLoadedMetadata}
+          onEnded={onVideoEnded}
+          onError={onVideoError}
         />
       ) : video?.thumbnail && !imgErr ? (
         <img src={video.thumbnail} alt="" className="w-full h-full object-cover" onError={() => setImgErr(true)} />
