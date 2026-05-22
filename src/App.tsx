@@ -9,8 +9,13 @@ import FavoritesPage from '@/pages/FavoritesPage'
 import SearchPage from '@/pages/SearchPage'
 import RecentPage from '@/pages/RecentPage'
 import SettingsPage from '@/pages/SettingsPage'
-import AdminPage from '@/pages/AdminPage'
+import LoginPage from '@/pages/LoginPage'
+import CategoriesPage from '@/pages/admin/CategoriesPage'
+import VideosPage from '@/pages/admin/VideosPage'
+import UsersPage from '@/pages/admin/UsersPage'
 import Layout from '@/components/Layout'
+import { AdminLayout } from '@/layouts/AdminLayout'
+import { PrivateRoute } from '@/components/PrivateRoute'
 
 function ThemeApplicator() {
   const theme = useSettingsStore((s) => s.theme)
@@ -26,6 +31,20 @@ export default function App() {
       <HashRouter>
         <ThemeApplicator />
         <Routes>
+          <Route path="/admin/login" element={<LoginPage />} />
+          <Route
+            path="/admin"
+            element={
+              <PrivateRoute>
+                <AdminLayout />
+              </PrivateRoute>
+            }
+          >
+            <Route index element={<Navigate to="/admin/categories" replace />} />
+            <Route path="categories" element={<CategoriesPage />} />
+            <Route path="videos" element={<VideosPage />} />
+            <Route path="users" element={<UsersPage />} />
+          </Route>
           <Route path="/" element={<Layout />}>
             <Route index element={<HomePage />} />
             <Route path="playlist/:id" element={<PlaylistPage />} />
@@ -34,7 +53,6 @@ export default function App() {
             <Route path="search" element={<SearchPage />} />
             <Route path="recent" element={<RecentPage />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="admin" element={<AdminPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
