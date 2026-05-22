@@ -1,6 +1,4 @@
 import { useEffect, useCallback, useState, useMemo, useRef } from 'react'
-import ReactPlayer from 'react-player'
-
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -195,7 +193,7 @@ export default function PlayerPage() {
     currentVideo, isPlaying, isLoading, isEnded, position, duration, error,
     videoUrl, reactPlayerRef,
     playVideo, togglePlay, seek, seekBy,
-    onVideoReady, onVideoWaiting, onVideoCanPlay, onVideoTimeUpdate, onVideoLoadedMetadata, onVideoEnded, onVideoError,
+    onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay, onVideoTimeUpdate, onVideoLoadedMetadata, onVideoEnded, onVideoError,
   } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [imgErr, setImgErr] = useState(false)
@@ -383,15 +381,13 @@ export default function PlayerPage() {
       }}
     >
       {mediaMode === 'video' ? (
-        <ReactPlayer
+        <video
           ref={reactPlayerRef as React.RefObject<HTMLVideoElement>}
           src={videoUrl ?? undefined}
-          playing={isPlaying}
-          volume={null as unknown as number}
-          muted={false}
           playsInline
           style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
-          onReady={onVideoReady}
+          onPlay={onVideoPlay}
+          onPause={onVideoPause}
           onWaiting={onVideoWaiting}
           onCanPlay={onVideoCanPlay}
           onTimeUpdate={onVideoTimeUpdate}
@@ -580,19 +576,11 @@ export default function PlayerPage() {
         </div>
       </header>
 
-      {/* Mobile / Tablet: single column */}
-      <div className="lg:hidden flex-1 px-6 pt-6 pb-8 flex flex-col">
-        <div className="mb-8">{Artwork}</div>
-        {Controls}
-        {mediaMode !== 'video' && <LyricsSection lyric={lyric} />}
-        <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
-      </div>
-
-      {/* Desktop: two columns */}
-      <div className="hidden lg:block flex-1 px-16 py-12" style={{ maxWidth: 1000, margin: '0 auto', width: '100%' }}>
-        <div className="flex items-center gap-12">
-          <div className="flex-1">{Artwork}</div>
-          <div className="flex-1">{Controls}</div>
+      {/* Unified layout: single column on mobile, two columns on desktop */}
+      <div className="flex-1 px-6 pt-6 pb-8 lg:px-16 lg:py-12" style={{ maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:gap-12">
+          <div className="w-full lg:flex-1 mb-8 lg:mb-0">{Artwork}</div>
+          <div className="w-full lg:flex-1">{Controls}</div>
         </div>
         {mediaMode !== 'video' && <LyricsSection lyric={lyric} />}
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />

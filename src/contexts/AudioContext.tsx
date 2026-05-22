@@ -28,7 +28,8 @@ interface AudioContextValue {
   seek: (seconds: number) => void
   seekBy: (delta: number) => void
   setVolume: (v: number) => void
-  onVideoReady: () => void
+  onVideoPlay: () => void
+  onVideoPause: () => void
   onVideoWaiting: () => void
   onVideoCanPlay: () => void
   onVideoTimeUpdate: (e: SyntheticEvent<HTMLVideoElement>) => void
@@ -56,19 +57,19 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const isPlayingRef = useRef(false)
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
+  const pendingAutoPlayRef = useRef(false)
 
   const qualityRef = useRef(quality)
   useEffect(() => { qualityRef.current = quality }, [quality])
   const mediaModeRef = useRef(mediaMode)
   useEffect(() => { mediaModeRef.current = mediaMode }, [mediaMode])
 
-  useEffect(() => {
-    if (reactPlayerRef.current) reactPlayerRef.current.volume = volume
-  }, [volume])
   const isMountedRef = useRef(false)
   useEffect(() => {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
+    if (reactPlayerRef.current) { reactPlayerRef.current.pause(); reactPlayerRef.current.src = '' }
+    pendingAutoPlayRef.current = false
     setVideoUrl(null)
     setCurrentVideo(null)
     setIsPlaying(false)
@@ -121,16 +122,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       const streamPath = isVideoMode ? `/videos/${video.id}/stream` : `/audios/${video.id}/stream`
       const { data } = await api.get<{ url: string; bitrate: number; encoding?: string }>(
         streamPath,
-        { params: { quality: qualityRef.current } },
+        isVideoMode ? undefined : { params: { quality: qualityRef.current } },
       )
       if (isVideoMode) {
+        pendingAutoPlayRef.current = autoPlay
         setVideoUrl(data.url)
-        setIsPlaying(autoPlay)
         if (!autoPlay) setIsLoading(false)
-        if (reactPlayerRef.current) {
-          reactPlayerRef.current.muted = false
-          reactPlayerRef.current.volume = volume
-        }
       } else {
         setVideoUrl(null)
         const audio = audioRef.current
@@ -155,7 +152,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [volume])
 
   const stop = useCallback(() => {
+    pendingAutoPlayRef.current = false
     if (mediaModeRef.current === 'video') {
+      const video = reactPlayerRef.current
+      if (video) { video.pause(); video.src = ''; video.load() }
       setVideoUrl(null)
     } else {
       const audio = audioRef.current
@@ -173,7 +173,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const togglePlay = useCallback(() => {
     if (mediaModeRef.current === 'video') {
-      setIsPlaying(p => !p)
+      const video = reactPlayerRef.current
+      if (!video) return
+      if (video.paused || video.ended) video.play().catch(() => {})
+      else video.pause()
     } else {
       const audio = audioRef.current
       if (!audio) return
@@ -183,12 +186,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const seek = useCallback((seconds: number) => {
-    if (reactPlayerRef.current) {
+    const video = reactPlayerRef.current
+    if (mediaModeRef.current === 'video' && video) {
       const clamped = Math.max(0, seconds)
-      reactPlayerRef.current.currentTime = clamped
+      video.currentTime = clamped
       positionRef.current = clamped
       setPosition(clamped)
       setIsEnded(false)
+      if (video.paused && isPlayingRef.current) {
+        video.play().catch(() => {})
+      }
     } else {
       const audio = audioRef.current
       if (!audio) return
@@ -198,11 +205,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const seekBy = useCallback((delta: number) => {
-    if (reactPlayerRef.current) {
+    const video = reactPlayerRef.current
+    if (mediaModeRef.current === 'video' && video) {
       const newPos = Math.max(0, positionRef.current + delta)
-      reactPlayerRef.current.currentTime = newPos
+      video.currentTime = newPos
       positionRef.current = newPos
       setPosition(newPos)
+      setIsEnded(false)
+      if (video.paused && isPlayingRef.current) {
+        video.play().catch(() => {})
+      }
     } else {
       const audio = audioRef.current
       if (!audio) return
@@ -212,33 +224,46 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const handleSetVolume = useCallback((v: number) => {
     if (audioRef.current) audioRef.current.volume = v
+    if (reactPlayerRef.current) reactPlayerRef.current.volume = v
     setVolume(v)
   }, [])
 
-  const onVideoReady = useCallback(() => {
+  const onVideoPlay = useCallback(() => {
+    setIsPlaying(true)
     setIsLoading(false)
-    if (reactPlayerRef.current) {
-      reactPlayerRef.current.muted = false
-      reactPlayerRef.current.volume = volume
-    }
-  }, [volume])
+  }, [])
+
+  const onVideoPause = useCallback(() => {
+    setIsPlaying(false)
+  }, [])
+
   const onVideoWaiting = useCallback(() => setIsLoading(true), [])
+
   const onVideoCanPlay = useCallback(() => {
     setIsLoading(false)
-    if (reactPlayerRef.current) {
-      reactPlayerRef.current.muted = false
-      reactPlayerRef.current.volume = volume
+    const video = reactPlayerRef.current
+    if (video) video.volume = volume
+    if (pendingAutoPlayRef.current) {
+      pendingAutoPlayRef.current = false
+      video?.play().catch(() => setIsLoading(false))
     }
   }, [volume])
+
   const onVideoTimeUpdate = useCallback((e: SyntheticEvent<HTMLVideoElement>) => {
     const t = e.currentTarget.currentTime
     positionRef.current = t
     setPosition(t)
   }, [])
+
   const onVideoLoadedMetadata = useCallback((e: SyntheticEvent<HTMLVideoElement>) => {
     setDuration(e.currentTarget.duration)
   }, [])
-  const onVideoEnded = useCallback(() => { setIsPlaying(false); setIsEnded(true) }, [])
+
+  const onVideoEnded = useCallback(() => {
+    setIsPlaying(false)
+    setIsEnded(true)
+  }, [])
+
   const onVideoError = useCallback(() => { setError('비디오 재생 오류가 발생했습니다.'); setIsLoading(false) }, [])
 
   return (
@@ -246,7 +271,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       currentVideo, isPlaying, isLoading, isEnded, position, duration, error, volume,
       videoUrl, reactPlayerRef,
       playVideo, stop, togglePlay, seek, seekBy, setVolume: handleSetVolume,
-      onVideoReady, onVideoWaiting, onVideoCanPlay,
+      onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
       onVideoTimeUpdate, onVideoLoadedMetadata, onVideoEnded, onVideoError,
     }}>
       {children}

@@ -97,34 +97,40 @@ export default function SettingsPage() {
         </div>
 
         {/* Audio quality */}
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>해상도/음질</p>
-          <div className="card overflow-hidden">
-            {QUALITY_OPTIONS.map((opt, i) => {
-              const active = quality === opt.value
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => setQuality(opt.value)}
-                  className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
-                  style={{
-                    borderBottom: i < QUALITY_OPTIONS.length - 1 ? '1px solid var(--divider)' : 'none',
-                    background: active ? 'var(--primary-50)' : 'transparent',
-                  }}
-                >
-                  <div>
-                    <p className="text-sm font-medium text-left" style={{ color: 'var(--ink-0)' }}>{opt.label}</p>
-                    <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>{opt.desc}</p>
-                  </div>
-                  {active && (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" style={{ color: 'var(--primary-700)' }}>
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                  )}
-                </button>
-              )
-            })}
-          </div>
+        <div style={{ opacity: mediaMode === 'video' ? 0.5 : 1 }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>음질</p>
+          {mediaMode === 'video' ? (
+            <div className="card px-4 py-3.5">
+              <p className="text-sm" style={{ color: 'var(--ink-2)' }}>비디오는 현재 해상도 모드를 조절할 수 없습니다.</p>
+            </div>
+          ) : (
+            <div className="card overflow-hidden">
+              {QUALITY_OPTIONS.map((opt, i) => {
+                const active = quality === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setQuality(opt.value)}
+                    className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+                    style={{
+                      borderBottom: i < QUALITY_OPTIONS.length - 1 ? '1px solid var(--divider)' : 'none',
+                      background: active ? 'var(--primary-50)' : 'transparent',
+                    }}
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-left" style={{ color: 'var(--ink-0)' }}>{opt.label}</p>
+                      <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>{opt.desc}</p>
+                    </div>
+                    {active && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" style={{ color: 'var(--primary-700)' }}>
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Playback */}
