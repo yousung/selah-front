@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode, RefObject, SyntheticEvent } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useRecentStore } from '@/store/recentStore'
+import { useDurationStore } from '@/store/durationStore'
 import { api } from '@/lib/api'
 
 interface VideoInfo {
@@ -34,6 +35,7 @@ interface AudioContextValue {
   onVideoCanPlay: () => void
   onVideoTimeUpdate: (e: SyntheticEvent<HTMLVideoElement>) => void
   onVideoLoadedMetadata: (e: SyntheticEvent<HTMLVideoElement>) => void
+  onVideoDurationChange: (e: SyntheticEvent<HTMLVideoElement>) => void
   onVideoEnded: () => void
   onVideoError: () => void
 }
@@ -58,6 +60,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const isPlayingRef = useRef(false)
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
   const pendingAutoPlayRef = useRef(false)
+  const currentVideoIdRef = useRef<string | null>(null)
+
+  const updateActualDuration = useCallback((durationSeconds: number) => {
+    const id = currentVideoIdRef.current
+    if (!id || !Number.isFinite(durationSeconds) || durationSeconds <= 0) return
+    setDuration(durationSeconds)
+    useDurationStore.getState().setDuration(id, durationSeconds)
+  }, [])
 
   const qualityRef = useRef(quality)
   useEffect(() => { qualityRef.current = quality }, [quality])
@@ -72,6 +82,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     pendingAutoPlayRef.current = false
     setVideoUrl(null)
     setCurrentVideo(null)
+    currentVideoIdRef.current = null
     setIsPlaying(false)
     setIsLoading(false)
     setIsEnded(false)
@@ -87,7 +98,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     audioRef.current = audio
 
     const handlers: [string, EventListener][] = [
-      ['loadedmetadata', () => setDuration(audio.duration)],
+      ['loadedmetadata', () => updateActualDuration(audio.duration)],
+      ['durationchange', () => updateActualDuration(audio.duration)],
       ['timeupdate', () => { positionRef.current = audio.currentTime; setPosition(audio.currentTime) }],
       ['play', () => { setIsPlaying(true); setIsLoading(false) }],
       ['pause', () => setIsPlaying(false)],
@@ -103,13 +115,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       audio.pause()
       audio.src = ''
     }
-  }, [])
+  }, [updateActualDuration])
 
   const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean }) => {
     const autoPlay = options?.autoPlay ?? true
     const isVideoMode = mediaModeRef.current === 'video'
 
     setCurrentVideo(video)
+    currentVideoIdRef.current = video.id
     if (!options?.skipRecentAdd) useRecentStore.getState().add(video)
     setIsLoading(true)
     setError(null)
@@ -162,6 +175,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (audio) { audio.pause(); audio.src = '' }
     }
     setCurrentVideo(null)
+    currentVideoIdRef.current = null
     setIsPlaying(false)
     setIsLoading(false)
     setIsEnded(false)
@@ -256,8 +270,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const onVideoLoadedMetadata = useCallback((e: SyntheticEvent<HTMLVideoElement>) => {
-    setDuration(e.currentTarget.duration)
-  }, [])
+    updateActualDuration(e.currentTarget.duration)
+  }, [updateActualDuration])
+
+  const onVideoDurationChange = useCallback((e: SyntheticEvent<HTMLVideoElement>) => {
+    updateActualDuration(e.currentTarget.duration)
+  }, [updateActualDuration])
 
   const onVideoEnded = useCallback(() => {
     setIsPlaying(false)
@@ -272,7 +290,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       videoUrl, reactPlayerRef,
       playVideo, stop, togglePlay, seek, seekBy, setVolume: handleSetVolume,
       onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
-      onVideoTimeUpdate, onVideoLoadedMetadata, onVideoEnded, onVideoError,
+      onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
     }}>
       {children}
     </AudioCtx.Provider>

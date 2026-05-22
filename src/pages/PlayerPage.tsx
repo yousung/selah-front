@@ -193,7 +193,7 @@ export default function PlayerPage() {
     currentVideo, isPlaying, isLoading, isEnded, position, duration, error,
     videoUrl, reactPlayerRef,
     playVideo, togglePlay, seek, seekBy,
-    onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay, onVideoTimeUpdate, onVideoLoadedMetadata, onVideoEnded, onVideoError,
+    onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay, onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
   } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [imgErr, setImgErr] = useState(false)
@@ -392,6 +392,7 @@ export default function PlayerPage() {
           onCanPlay={onVideoCanPlay}
           onTimeUpdate={onVideoTimeUpdate}
           onLoadedMetadata={onVideoLoadedMetadata}
+          onDurationChange={onVideoDurationChange}
           onEnded={onVideoEnded}
           onError={onVideoError}
         />

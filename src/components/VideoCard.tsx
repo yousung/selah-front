@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useFavoritesStore } from '@/store/favoritesStore'
+import { useDurationStore } from '@/store/durationStore'
 
 interface Video {
   id: string
@@ -61,9 +62,10 @@ function stripBrackets(s: string) {
 
 export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
   const { has, toggle } = useFavoritesStore()
+  const actualDuration = useDurationStore((s) => s.byId[video.id])
   const isFav = has(video.id)
   const [imgErr, setImgErr] = useState(false)
-  const dur = fmtDuration(video.duration)
+  const dur = fmtDuration(actualDuration ?? video.duration)
   const views = fmtCompactCount(video.viewCount)
   const likes = fmtReactionCount(video.likeCount)
   const mainTitle = video.hymnTitle ?? ''
