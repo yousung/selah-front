@@ -9,12 +9,26 @@ function fmtTime(s: number) {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
+function stripBrackets(s: string) {
+  return s.replace(/\[.*?\]/g, '').trim()
+}
+
 interface Props {
   onDismiss?: () => void
 }
 
 export default function MiniPlayer({ onDismiss }: Props) {
-  const { currentVideo, isPlaying, isLoading, position, duration, togglePlay, seek } = useAudio()
+  const {
+    currentVideo,
+    isPlaying,
+    isLoading,
+    position,
+    duration,
+    autoNextProgress,
+    cancelAutoNext,
+    togglePlay,
+    seek,
+  } = useAudio()
   const navigate = useNavigate()
   const [dragValue, setDragValue] = useState<number | null>(null)
 
@@ -73,7 +87,9 @@ export default function MiniPlayer({ onDismiss }: Props) {
 
         {/* Title + time */}
         <div className="flex-1 min-w-0">
-          <p className="line-clamp-1 text-sm font-semibold leading-tight" style={{ color: 'var(--ink-0)' }}>{currentVideo.title}</p>
+          <p className="line-clamp-1 text-sm font-semibold leading-tight" style={{ color: 'var(--ink-0)' }}>
+            {stripBrackets(currentVideo.title)}
+          </p>
           {currentVideo.hymnTitle && (
             <p className="line-clamp-1 text-[11px] leading-tight" style={{ color: 'var(--ink-2)' }}>{currentVideo.hymnTitle}</p>
           )}
@@ -84,10 +100,42 @@ export default function MiniPlayer({ onDismiss }: Props) {
 
         {/* Play/pause */}
         <button
-          className="flex items-center justify-center rounded-full flex-shrink-0 transition-all"
+          className="relative flex items-center justify-center rounded-full flex-shrink-0 transition-all"
           style={{ width: 38, height: 38, background: 'var(--primary-700)', color: 'var(--white)' }}
-          onClick={(e) => { e.stopPropagation(); togglePlay() }}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (autoNextProgress !== null) cancelAutoNext()
+            else togglePlay()
+          }}
         >
+          {autoNextProgress !== null && (
+            <svg
+              className="absolute inset-[-4px] -rotate-90"
+              viewBox="0 0 46 46"
+              aria-hidden="true"
+            >
+              <circle
+                cx="23"
+                cy="23"
+                r="20"
+                fill="none"
+                stroke="var(--accent-100)"
+                strokeWidth="3"
+              />
+              <circle
+                cx="23"
+                cy="23"
+                r="20"
+                fill="none"
+                stroke="var(--accent-500)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 20}`}
+                strokeDashoffset={`${2 * Math.PI * 20 * (1 - autoNextProgress)}`}
+                style={{ transition: 'stroke-dashoffset 28ms linear' }}
+              />
+            </svg>
+          )}
           {isLoading ? (
             <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <circle cx="12" cy="12" r="10" strokeOpacity={0.25} />

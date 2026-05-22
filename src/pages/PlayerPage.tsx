@@ -185,19 +185,17 @@ export default function PlayerPage() {
   const [searchParams] = useSearchParams()
   const { has, toggle } = useFavoritesStore()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
-  const autoNextDelay = useSettingsStore((s) => s.autoNextDelay)
   const playMode = useSettingsStore((s) => s.playMode)
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const {
-    currentVideo, isPlaying, isLoading, isEnded, position, duration, error,
+    currentVideo, isPlaying, isLoading, position, duration, autoNextProgress, error,
     videoUrl, reactPlayerRef,
-    playVideo, togglePlay, seek, seekBy,
+    playVideo, togglePlay, seek, seekBy, cancelAutoNext,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay, onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
   } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [imgErr, setImgErr] = useState(false)
-  const [autoProgress, setAutoProgress] = useState<number | null>(null)
   const isDraggingRef = useRef(false)
 
   useEffect(() => {
@@ -206,7 +204,6 @@ export default function PlayerPage() {
   }, [id])
 
   const [showModeTooltip, setShowModeTooltip] = useState(false)
-  const autoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const modeTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const recentItems = useRecentStore((s) => s.items)
   const recentMap = useMemo(() => new Map(recentItems.map(i => [i.id, i])), [recentItems])
@@ -293,8 +290,6 @@ export default function PlayerPage() {
   }, [prevPreview, nextPreview, firstPreview, queueIds.length, recentMode, prevId, nextId, firstId, toRecentAdj])
 
   const adjacent = queueAdjacent
-  const adjacentRef = useRef(adjacent)
-  useEffect(() => { adjacentRef.current = adjacent }, [adjacent])
   const hasAdjacentCtx = recentMode || queueIds.length > 0
 
   const handleAdjacentNav = useCallback((target: AdjacentVideo) => {
@@ -316,49 +311,6 @@ export default function PlayerPage() {
       )
     }
   }, [autoPlayOnDetail, currentVideo?.id, playVideo, video])
-
-  const cancelAutoNext = useCallback(() => {
-    if (autoTimerRef.current) { clearInterval(autoTimerRef.current); autoTimerRef.current = null }
-    setAutoProgress(null)
-  }, [])
-
-  useEffect(() => {
-    if (!isEnded) { cancelAutoNext(); return }
-    if (autoNextDelay === 'off') return
-
-    const isLoop = playMode === 'loop'
-    const nextTarget = isLoop ? null : (adjacentRef.current?.next ?? (playMode === 'repeat' ? (adjacentRef.current?.first ?? null) : null))
-    if (!isLoop && !nextTarget) return
-
-    const doNext = () => {
-      if (isLoop) { seek(0); togglePlay() }
-      else handleAdjacentNav(nextTarget!)
-    }
-
-    if (autoNextDelay === 'immediate') {
-      doNext()
-      return cancelAutoNext
-    }
-
-    const delayMs = autoNextDelay === '3s' ? 3000 : 5000
-    const STEPS = 100
-    const intervalMs = delayMs / STEPS
-    let step = 0
-    setAutoProgress(0)
-
-    autoTimerRef.current = setInterval(() => {
-      step++
-      setAutoProgress(step / STEPS)
-      if (step >= STEPS) {
-        clearInterval(autoTimerRef.current!)
-        autoTimerRef.current = null
-        setAutoProgress(null)
-        doNext()
-      }
-    }, intervalMs)
-
-    return cancelAutoNext
-  }, [isEnded, autoNextDelay, playMode, handleAdjacentNav, cancelAutoNext, seek, togglePlay])
 
   const handleRetry = useCallback(() => {
     if (video) playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle })
@@ -537,7 +489,7 @@ export default function PlayerPage() {
   return (
     <div className="flex flex-col min-h-dvh animate-fade-in" style={{ background: 'var(--surface-0)' }}>
       {/* Auto-next progress bar */}
-      {autoProgress !== null && (
+      {autoNextProgress !== null && (
         <div
           className="fixed top-0 left-0 right-0 z-[100] cursor-pointer"
           style={{ height: 3, background: 'var(--divider)' }}
@@ -546,7 +498,7 @@ export default function PlayerPage() {
         >
           <div style={{
             height: '100%',
-            width: `${autoProgress * 100}%`,
+            width: `${autoNextProgress * 100}%`,
             background: 'var(--primary-700)',
             transition: 'width 28ms linear',
           }} />

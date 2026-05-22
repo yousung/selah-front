@@ -65,7 +65,7 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
   const actualDuration = useDurationStore((s) => s.byId[video.id])
   const isFav = has(video.id)
   const [imgErr, setImgErr] = useState(false)
-  const dur = fmtDuration(actualDuration ?? video.duration)
+  const dur = fmtDuration(actualDuration)
   const views = fmtCompactCount(video.viewCount)
   const likes = fmtReactionCount(video.likeCount)
   const mainTitle = video.hymnTitle ?? ''
