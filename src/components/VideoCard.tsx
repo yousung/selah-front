@@ -41,6 +41,23 @@ function fmtReactionCount(n?: number | null) {
   return fmtCompactCount(n)?.replace(/회$/, '')
 }
 
+function isNewVideo(publishedAt?: string | null) {
+  if (!publishedAt) return false
+  const diff = Date.now() - new Date(publishedAt).getTime()
+  return diff <= 7 * 24 * 60 * 60 * 1000
+}
+
+function NewBadge() {
+  return (
+    <span
+      className="absolute top-1.5 right-1.5 text-white text-[9px] font-bold px-1.5 rounded select-none"
+      style={{ background: 'var(--accent-500)', lineHeight: '16px', letterSpacing: '0.04em' }}
+    >
+      NEW
+    </span>
+  )
+}
+
 function ChapterBadge({ chapter }: { chapter: number }) {
   return (
     <span
@@ -64,6 +81,7 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
   const { has, toggle } = useFavoritesStore()
   const actualDuration = useDurationStore((s) => s.byId[video.id])
   const isFav = has(video.id)
+  const isNew = isNewVideo(video.publishedAt)
   const [imgErr, setImgErr] = useState(false)
   const dur = fmtDuration(actualDuration)
   const views = fmtCompactCount(video.viewCount)
@@ -102,6 +120,7 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
             </span>
           )}
           {video.chapter != null && <ChapterBadge chapter={video.chapter} />}
+          {isNew && <NewBadge />}
         </div>
 
         {/* Meta */}
@@ -148,6 +167,7 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
           </span>
         )}
         {video.chapter != null && <ChapterBadge chapter={video.chapter} />}
+        {isNew && <NewBadge />}
       </div>
       <div className="pt-2 pb-1">
         <p className="line-clamp-1 text-sm font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>{mainTitle}</p>

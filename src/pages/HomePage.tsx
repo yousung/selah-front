@@ -36,6 +36,7 @@ interface Video {
   chapter?: number | null
   hymnTitle?: string | null
   publishedAt?: string | null
+  createdAt?: string | null
   duration?: number | null
 }
 
@@ -56,6 +57,20 @@ interface VideoPage {
 }
 
 const PAGE_LIMIT = 20
+
+function hasVideoToday(playlists?: Playlist[]): boolean {
+  if (!playlists?.length) return false
+  const now = new Date()
+  const y = now.getFullYear(), mo = now.getMonth(), d = now.getDate()
+  return playlists.some((pl) =>
+    pl.videos.some((v) => {
+      const raw = v.createdAt ?? v.publishedAt
+      if (!raw) return false
+      const dt = new Date(raw)
+      return dt.getFullYear() === y && dt.getMonth() === mo && dt.getDate() === d
+    }),
+  )
+}
 
 interface BibleVerse {
   id: string
@@ -328,13 +343,15 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Notification strip */}
-          <div className="mx-4 mb-5 px-4 py-3 rounded-[10px]" style={{ background: 'var(--surface-1)' }}>
-            <p className="text-sm" style={{ color: 'var(--ink-1)' }}>
-              <span style={{ color: '#C9A84C', marginRight: 6 }}>●</span>
-              오늘 묵상할 영상이 새로 등록되어 있어요.
-            </p>
-          </div>
+          {/* Notification strip — 오늘 등록 영상 있을 때만 노출 */}
+          {hasVideoToday(playlists) && (
+            <div className="mx-4 mb-5 px-4 py-3 rounded-[10px]" style={{ background: 'var(--surface-1)' }}>
+              <p className="text-sm" style={{ color: 'var(--ink-1)' }}>
+                <span style={{ color: '#C9A84C', marginRight: 6 }}>●</span>
+                오늘 묵상할 영상이 새로 등록되어 있어요.
+              </p>
+            </div>
+          )}
 
           {/* Feed */}
           <div className="pt-6">
