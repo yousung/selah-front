@@ -365,6 +365,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [applySeek])
 
   const playQueuedVideo = useCallback(async (targetId: string, targetIndex: number) => {
+    // 같은 곡이면 백엔드 요청 없이 처음부터 재생
+    if (targetId === currentVideoIdRef.current) {
+      setIsEnded(false)
+      positionRef.current = 0
+      pendingSeekRef.current = null
+      setPosition(0)
+      setQueue(queueIds, targetIndex)
+      restartCurrentMedia()
+      return
+    }
     try {
       // 1) 동기 reset 먼저 (isEnded=false를 보장)
       setIsEnded(false)
@@ -389,7 +399,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     } catch {
       setError('다음 곡을 불러올 수 없습니다.')
     }
-  }, [playVideo, queueIds, setQueue])
+  }, [playVideo, queueIds, restartCurrentMedia, setQueue])
 
   useEffect(() => {
     if (!isEnded) {
