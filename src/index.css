@@ -41,6 +41,18 @@
     --font-serif: 'Noto Serif KR', serif;
   }
 
+  .admin-root {
+    --surface-0: #F5F5F5;
+    --surface-1: #F3F4F6;
+    --surface-2: #E5E7EB;
+    --surface-3: #D1D5DB;
+    --divider: #E2E8F0;
+    --ink-0: #111827;
+    --ink-1: #374151;
+    --ink-2: #6B7280;
+    --ink-3: #9CA3AF;
+  }
+
   html.dark {
     --primary-50: #1A2E1C;
     --primary-100: #1F3822;

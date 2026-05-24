@@ -17,13 +17,13 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      navigate('/admin')
+      navigate('/admin/thelc')
     } catch (err: any) {
       const statusCode = err.status || err.response?.status
       if (statusCode === 401) {
         setError('이메일 또는 비밀번호가 올바르지 않습니다.')
       } else if (statusCode === 403) {
-        setError('이 계정은 관리자 접근이 제한되어 있습니다.')
+        setError('관리자 접근이 제한되어 있습니다.')
       } else if (statusCode === 500) {
         setError('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
       } else if (!statusCode) {
@@ -37,46 +37,52 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--surface-0)' }}>
-      <div className="card w-full max-w-md p-8">
-        <h1 className="text-heading mb-8" style={{ color: 'var(--ink-0)' }}>
-          관리자 로그인
-        </h1>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#F5F5F5' }}>
+      <div style={{ background: 'white', borderRadius: 12, border: '1px solid #E2E8F0', padding: '2rem', width: '100%', maxWidth: 400, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div className="mb-8">
+          <h1 className="text-lg font-bold" style={{ color: '#111827' }}>The LC</h1>
+          <p className="text-sm mt-1" style={{ color: '#6B7280' }}>관리자 로그인</p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: '#374151' }}>이메일</label>
             <input
               type="email"
-              placeholder="이메일"
+              placeholder="이메일을 입력하세요"
               className="input-field"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
               required
+              autoComplete="email"
             />
           </div>
 
           <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: '#374151' }}>비밀번호</label>
             <input
               type="password"
-              placeholder="비밀번호"
+              placeholder="비밀번호를 입력하세요"
               className="input-field"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
               required
+              autoComplete="current-password"
             />
           </div>
 
           {error && (
-            <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: 'var(--error)', color: 'var(--white)' }}>
+            <p className="text-xs py-2 px-3 rounded-lg" style={{ color: '#DC2626', background: '#FEF2F2' }}>
               {error}
-            </div>
+            </p>
           )}
 
           <button
             type="submit"
-            className="btn-primary w-full"
+            className="w-full py-2.5 text-sm font-medium rounded-lg text-white transition-colors disabled:opacity-60"
+            style={{ background: '#3D6B44' }}
             disabled={isLoading}
           >
             {isLoading ? '로그인 중...' : '로그인'}

@@ -69,7 +69,7 @@ api.interceptors.response.use(
       pendingRequests.forEach(({ reject }) => reject(refreshError))
       pendingRequests = []
       await useAuthStore.getState().logout()
-      window.location.hash = '/admin/login'
+      window.location.hash = '/admin/thelc/login'
       return Promise.reject(refreshError)
     } finally {
       isRefreshing = false

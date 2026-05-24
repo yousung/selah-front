@@ -13,6 +13,7 @@ import LoginPage from '@/pages/LoginPage'
 import CategoriesPage from '@/pages/admin/CategoriesPage'
 import VideosPage from '@/pages/admin/VideosPage'
 import UsersPage from '@/pages/admin/UsersPage'
+import { DashboardPage } from '@/pages/admin/DashboardPage'
 import Layout from '@/components/Layout'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { PrivateRoute } from '@/components/PrivateRoute'
@@ -31,16 +32,16 @@ export default function App() {
       <HashRouter>
         <ThemeApplicator />
         <Routes>
-          <Route path="/admin/login" element={<LoginPage />} />
+          <Route path="/admin/thelc/login" element={<LoginPage />} />
           <Route
-            path="/admin"
+            path="/admin/thelc"
             element={
               <PrivateRoute>
                 <AdminLayout />
               </PrivateRoute>
             }
           >
-            <Route index element={<Navigate to="/admin/categories" replace />} />
+            <Route index element={<DashboardPage />} />
             <Route path="categories" element={<CategoriesPage />} />
             <Route path="videos" element={<VideosPage />} />
             <Route path="users" element={<UsersPage />} />
