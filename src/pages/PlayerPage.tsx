@@ -1,7 +1,8 @@
-import { useEffect, useCallback, useState, useMemo, useRef } from 'react'
+import React, { useEffect, useCallback, useState, useMemo, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { getSelahMenu, clearSelahMenu } from '@/lib/selahMenu'
 import { useAudio } from '@/contexts/AudioContext'
 import { useFavoritesStore } from '@/store/favoritesStore'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -182,6 +183,11 @@ function extractChapter(title: string): number {
 export default function PlayerPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const handleBack = () => {
+    const menu = getSelahMenu()
+    clearSelahMenu()
+    navigate(menu ?? '/')
+  }
   const [searchParams] = useSearchParams()
   const { has, toggle } = useFavoritesStore()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
@@ -190,9 +196,7 @@ export default function PlayerPage() {
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const {
     currentVideo, isPlaying, isLoading, position, duration, autoNextProgress, error,
-    videoUrl, reactPlayerRef,
-    playVideo, togglePlay, seek, seekBy, cancelAutoNext,
-    onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay, onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
+    playVideo, togglePlay, seek, seekBy, cancelAutoNext, videoSlotRef,
   } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [imgErr, setImgErr] = useState(false)
@@ -235,11 +239,25 @@ export default function PlayerPage() {
     setQueue(ids, idx)
   }, [recentMode, id, recentItems])
 
+  // id(URL)가 바뀔 때만 실행 — queueIds 변경(auto-next 등)에는 반응하지 않음
   useEffect(() => {
-    if (recentMode || !id || !queueIds.length) return
-    const idx = queueIds.indexOf(id)
-    if (idx !== -1 && idx !== queueIndex) setQueue(queueIds, idx)
-  }, [id, queueIds])
+    if (recentMode || !id) return
+    const { ids, index, setQueue: sq } = useQueueStore.getState()
+    if (!ids.length) return
+    const idx = ids.indexOf(id)
+    if (idx !== -1 && idx !== index) sq(ids, idx)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, recentMode])
+
+  // auto-advance URL 동기화: 다음 곡이 재생되면 URL도 해당 곡으로 이동
+  useEffect(() => {
+    if (recentMode || !currentVideo?.id || currentVideo.id === id) return
+    const { ids, index } = useQueueStore.getState()
+    // queueStore.index가 현재 재생 중인 곡을 가리킬 때만 navigate (queue-driven)
+    if (index < 0 || ids[index] !== currentVideo.id) return
+    navigate(`/player/${currentVideo.id}`, { replace: true })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentVideo?.id])
 
   const prevId = queueIndex > 0 ? queueIds[queueIndex - 1] : undefined
   const nextId = queueIndex >= 0 && queueIndex < queueIds.length - 1 ? queueIds[queueIndex + 1] : undefined
@@ -273,11 +291,13 @@ export default function PlayerPage() {
 
   useEffect(() => {
     if (recentMode || !id || !playlistId || (queueIds.length > 0 && queueIds.includes(id))) return
-    api.get<{ playlists: string[] }>(`/playlists/${playlistId}/videos?page=1&limit=500&sort=chapterAsc`)
+    api.get<{ playlists: { id: string; title: string; thumbnail: string | null; tag: string | null }[] }>(`/playlists/${playlistId}/videos?page=1&limit=500&sort=chapterAsc`)
       .then(({ data }) => {
         if (data.playlists.length > 0) {
-          const idx = data.playlists.indexOf(id)
-          setQueue(data.playlists, idx !== -1 ? idx : 0)
+          const ids = data.playlists.map(p => p.id)
+          const idx = ids.indexOf(id)
+          const metas = data.playlists.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null }))
+          setQueue(ids, idx !== -1 ? idx : 0, metas)
         }
       })
       .catch(() => {})
@@ -337,21 +357,7 @@ export default function PlayerPage() {
       }}
     >
       {mediaMode === 'video' ? (
-        <video
-          ref={reactPlayerRef as React.RefObject<HTMLVideoElement>}
-          src={videoUrl ?? undefined}
-          playsInline
-          style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
-          onPlay={onVideoPlay}
-          onPause={onVideoPause}
-          onWaiting={onVideoWaiting}
-          onCanPlay={onVideoCanPlay}
-          onTimeUpdate={onVideoTimeUpdate}
-          onLoadedMetadata={onVideoLoadedMetadata}
-          onDurationChange={onVideoDurationChange}
-          onEnded={onVideoEnded}
-          onError={onVideoError}
-        />
+        <div ref={videoSlotRef as React.RefObject<HTMLDivElement>} style={{ display: 'block', width: '100%', height: '100%' }} />
       ) : video?.thumbnail && !imgErr ? (
         <img src={video.thumbnail} alt="" className="w-full h-full object-cover" onError={() => setImgErr(true)} />
       ) : (
@@ -514,14 +520,14 @@ export default function PlayerPage() {
         style={{ height: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         <button
-          className="flex items-center gap-1 px-2 py-2 rounded-full transition-colors hover:bg-surface-1"
-          style={{ color: 'var(--ink-0)' }}
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
+          className="p-2 flex items-center gap-1"
+          style={{ color: 'var(--ink-2)', fontSize: 13 }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path d="M19 12H5M12 5l-7 7 7 7" />
           </svg>
-          <span className="text-sm">돌아가기</span>
+          돌아가기
         </button>
         <div className="flex items-center gap-2">
           {id && (

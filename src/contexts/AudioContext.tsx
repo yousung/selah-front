@@ -34,6 +34,7 @@ interface AudioContextValue {
   volume: number
   videoUrl: string | null
   reactPlayerRef: RefObject<HTMLVideoElement | null>
+  videoSlotRef: RefObject<HTMLDivElement | null>
   playVideo: (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean }) => Promise<void>
   stop: () => void
   togglePlay: () => void
@@ -57,6 +58,7 @@ const AudioCtx = createContext<AudioContextValue | null>(null)
 export function AudioProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const reactPlayerRef = useRef<HTMLVideoElement | null>(null)
+  const videoSlotRef = useRef<HTMLDivElement | null>(null)
   const quality = useSettingsStore((s) => s.quality)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const autoNextDelay = useSettingsStore((s) => s.autoNextDelay)
@@ -364,13 +366,18 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const playQueuedVideo = useCallback(async (targetId: string, targetIndex: number) => {
     try {
+      // 1) 동기 reset 먼저 (isEnded=false를 보장)
+      setIsEnded(false)
       positionRef.current = 0
       pendingSeekRef.current = null
       setPosition(0)
-      setDuration(useDurationStore.getState().byId[targetId] ?? 0)
-      setIsEnded(false)
       setIsLoading(true)
+
+      // 2) async 작업
       const { data } = await api.get<VideoDetail>(`/videos/${targetId}`)
+      setDuration(useDurationStore.getState().byId[targetId] ?? 0)
+
+      // 3) setQueue 및 playVideo (이미 isEnded=false가 committed)
       setQueue(queueIds, targetIndex)
       await playVideo({
         id: data.id,
@@ -450,7 +457,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   return (
     <AudioCtx.Provider value={{
       currentVideo, isPlaying, isLoading, isEnded, position, duration, autoNextProgress, error, volume,
-      videoUrl, reactPlayerRef,
+      videoUrl, reactPlayerRef, videoSlotRef,
       playVideo, stop, togglePlay, seek, seekBy, cancelAutoNext, setVolume: handleSetVolume,
       onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
       onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,

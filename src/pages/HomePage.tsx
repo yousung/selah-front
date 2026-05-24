@@ -22,6 +22,7 @@ function useGridLimit() {
   return limit
 }
 import { api } from '@/lib/api'
+import { setSelahMenu } from '@/lib/selahMenu'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
 import VideoCard from '@/components/VideoCard'
@@ -40,11 +41,18 @@ interface Video {
   duration?: number | null
 }
 
+interface PlaylistMeta {
+  id: string
+  title: string
+  thumbnail: string | null
+  tag: string | null
+}
+
 interface Playlist {
   id: string
   title: string
   videos: Video[]
-  playlists?: string[]
+  playlists?: PlaylistMeta[]
 }
 
 interface VideoPage {
@@ -120,14 +128,39 @@ function usePlaylists(limit: number) {
   })
 }
 
-function PlaylistSection({ playlist }: { playlist: Playlist }) {
+function useRecentPlaylist(limit: number) {
+  return useQuery({
+    queryKey: ['playlists-recent', limit],
+    queryFn: async () => {
+      const { data } = await api.get<Playlist>('/playlists/recent', { params: { limit } })
+      return data
+    },
+  })
+}
+
+function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: Playlist; subtitle?: string }) {
   const navigate = useNavigate()
-  const { playVideo } = useAudio()
+  const { playVideo, currentVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const setQueue = useQueueStore((s) => s.setQueue)
 
   const handlePlay = (v: Video) => {
-    setQueue([], -1)
+    setSelahMenu('/')
+    if (currentVideo?.id === v.id) {
+      navigate(`/player/${v.id}`)
+      return
+    }
+    const allItems = playlist.playlists ?? []
+    const allIds = allItems.map(p => p.id)
+    const idx = allIds.indexOf(v.id)
+    const allVideos = allItems.map(p => ({
+      id: p.id,
+      title: p.title,
+      thumbnail: p.thumbnail,
+      tag: p.tag,
+      hymnTitle: null as string | null,
+    }))
+    setQueue(allIds, idx, allVideos)
     playVideo(
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
@@ -138,7 +171,7 @@ function PlaylistSection({ playlist }: { playlist: Playlist }) {
   if (!playlist.videos.length) return null
 
   const today = new Date()
-  const subtitle = `${today.getMonth() + 1}월 ${today.getDate()}일 최근 찬양`
+  const subtitle = subtitleOverride ?? `${today.getMonth() + 1}월 ${today.getDate()}일 최근 찬양`
 
   return (
     <section className="mb-8 animate-fade-up">
@@ -166,10 +199,11 @@ function PlaylistSection({ playlist }: { playlist: Playlist }) {
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const { playVideo } = useAudio()
+  const { playVideo, currentVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const limit = useGridLimit()
   const { data: playlists, isLoading } = usePlaylists(limit)
+  const { data: recentPlaylist } = useRecentPlaylist(limit)
   const { data: dailyVerse } = useDailyVerse()
 
 
@@ -227,6 +261,11 @@ export default function HomePage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, searchVideos.length])
 
   const handleSearchPlay = (v: Video) => {
+    setSelahMenu('/')
+    if (currentVideo?.id === v.id) {
+      navigate(`/player/${v.id}`)
+      return
+    }
     playVideo(
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
@@ -361,7 +400,12 @@ export default function HomePage() {
                 </svg>
               </div>
             ) : playlists?.length ? (
-              playlists.map((pl) => <PlaylistSection key={pl.id} playlist={pl} />)
+              <>
+                {recentPlaylist && recentPlaylist.videos.length > 0 && (
+                  <PlaylistSection playlist={recentPlaylist} subtitle="최근 7일 내 등록된 찬양" />
+                )}
+                {playlists.map((pl) => <PlaylistSection key={pl.id} playlist={pl} />)}
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
                 <span className="text-4xl mb-4">📭</span>

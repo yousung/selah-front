@@ -1,7 +1,10 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import MiniPlayer from './MiniPlayer'
+import QueuePanel from './QueuePanel'
 import { useAudio } from '@/contexts/AudioContext'
-import { useState, useEffect } from 'react'
+import { useSettingsStore } from '@/store/settingsStore'
+import { useQueueStore } from '@/store/queueStore'
+import React, { useState, useEffect } from 'react'
 
 /* ─── Icons ─────────────────────────────────────────── */
 function IconHome({ active }: { active: boolean }) {
@@ -72,14 +75,41 @@ function Logo({ size = 'md' }: { size?: 'sm' | 'md' }) {
 
 /* ─── Layout ─────────────────────────────────────────── */
 export default function Layout() {
-  const { currentVideo, stop } = useAudio()
+  const {
+    currentVideo, stop,
+    reactPlayerRef, videoUrl, videoSlotRef,
+    onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
+    onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange,
+    onVideoEnded, onVideoError,
+  } = useAudio()
+  const mediaMode = useSettingsStore((s) => s.mediaMode)
+  const queueIds = useQueueStore((s) => s.ids)
   const location = useLocation()
   const isPlayerPage = location.pathname.startsWith('/player/')
   const [miniDismissed, setMiniDismissed] = useState(false)
+  const [queueOpen, setQueueOpen] = useState(false)
+  const [videoRect, setVideoRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
 
   useEffect(() => {
     if (currentVideo) setMiniDismissed(false)
   }, [currentVideo?.id])
+
+  useEffect(() => {
+    if (!isPlayerPage || mediaMode !== 'video') { setVideoRect(null); return }
+    const update = () => {
+      const slot = videoSlotRef.current
+      if (!slot) { setVideoRect(null); return }
+      const r = slot.getBoundingClientRect()
+      setVideoRect(prev =>
+        prev && prev.left === r.left && prev.top === r.top && prev.width === r.width && prev.height === r.height
+          ? prev : { left: r.left, top: r.top, width: r.width, height: r.height }
+      )
+    }
+    update()
+    const id = setInterval(update, 200)
+    window.addEventListener('resize', update)
+    return () => { clearInterval(id); window.removeEventListener('resize', update); setVideoRect(null) }
+  }, [isPlayerPage, mediaMode, videoSlotRef])
 
   const showMini = !isPlayerPage && !!currentVideo && !miniDismissed
 
@@ -141,6 +171,44 @@ export default function Layout() {
           )}
         </main>
 
+        {/* ── Persistent Video Element (video mode navigation persistence) ── */}
+        {mediaMode === 'video' && (
+          <video
+            ref={reactPlayerRef as React.RefObject<HTMLVideoElement>}
+            src={videoUrl ?? undefined}
+            playsInline
+            style={videoRect ? {
+              position: 'fixed',
+              left: videoRect.left,
+              top: videoRect.top,
+              width: videoRect.width,
+              height: videoRect.height,
+              zIndex: 20,
+              objectFit: 'cover',
+              display: 'block',
+              borderRadius: 20,
+              pointerEvents: 'none',
+            } : {
+              position: 'fixed',
+              left: -9999,
+              top: 0,
+              width: 1,
+              height: 1,
+              display: 'block',
+              pointerEvents: 'none',
+            }}
+            onPlay={onVideoPlay}
+            onPause={onVideoPause}
+            onWaiting={onVideoWaiting}
+            onCanPlay={onVideoCanPlay}
+            onTimeUpdate={onVideoTimeUpdate}
+            onLoadedMetadata={onVideoLoadedMetadata}
+            onDurationChange={onVideoDurationChange}
+            onEnded={onVideoEnded}
+            onError={onVideoError}
+          />
+        )}
+
         {/* ── Universal Floating MiniPlayer ── */}
         {showMini && (
           <div
@@ -150,6 +218,38 @@ export default function Layout() {
             <MiniPlayer onDismiss={() => { stop(); setMiniDismissed(true) }} />
           </div>
         )}
+
+        {/* ── Queue FAB ── */}
+        {queueIds.length > 0 && (
+          <button
+            className="fixed z-50 flex items-center justify-center rounded-full transition-transform active:scale-95"
+            style={{
+              right: 16,
+              bottom: showMini ? 170 : 80,
+              width: 46,
+              height: 46,
+              background: 'var(--primary-700)',
+              color: 'var(--white)',
+              boxShadow: '0 4px 16px rgba(61,107,68,0.35)',
+            }}
+            onClick={() => setQueueOpen((v) => !v)}
+            aria-label="재생목록 열기"
+          >
+              <svg
+                width="18" height="18" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" strokeWidth={2.2}
+                strokeLinecap="round" strokeLinejoin="round"
+              >
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="15" y2="18" />
+                <polyline points="17 15 21 18 17 21" />
+              </svg>
+            </button>
+        )}
+
+        {/* ── Queue Panel ── */}
+        <QueuePanel isOpen={queueOpen} onClose={() => setQueueOpen(false)} />
 
         {/* ── Mobile + Tablet Bottom Nav ── */}
         <nav

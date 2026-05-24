@@ -4,6 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './index.css'
 
+// Record current app version
+localStorage.setItem('selah-version', __APP_VERSION__)
+
 // Apply saved theme before first paint to prevent flash
 try {
   const saved = JSON.parse(localStorage.getItem('selah-settings') ?? '{}')

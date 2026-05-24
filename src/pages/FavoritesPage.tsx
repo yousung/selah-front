@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { setSelahMenu } from '@/lib/selahMenu'
 import { useFavoritesStore } from '@/store/favoritesStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
@@ -27,7 +28,7 @@ interface VideoPage {
   page: number
   limit: number
   hasMore: boolean
-  playlists: string[]
+  playlists: { id: string; title: string; thumbnail: string | null; tag: string | null }[]
 }
 
 const PAGE_LIMIT = 20
@@ -35,7 +36,7 @@ const PAGE_LIMIT = 20
 export default function FavoritesPage() {
   const navigate = useNavigate()
   const { ids: favIds } = useFavoritesStore()
-  const { playVideo } = useAudio()
+  const { playVideo, currentVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const setQueue = useQueueStore((s) => s.setQueue)
 
@@ -96,9 +97,16 @@ export default function FavoritesPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length])
 
   const handlePlay = (v: Video) => {
-    const allIds = data?.pages[0]?.playlists ?? []
+    setSelahMenu('/favorites')
+    if (currentVideo?.id === v.id) {
+      navigate(`/player/${v.id}`)
+      return
+    }
+    const allItems = data?.pages[0]?.playlists ?? []
+    const allIds = allItems.map(p => p.id)
     const idx = allIds.indexOf(v.id)
-    setQueue(allIds, idx)
+    const allMetas = allItems.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null }))
+    setQueue(allIds, idx, allMetas)
     playVideo(
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },

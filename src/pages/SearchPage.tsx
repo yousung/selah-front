@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { setSelahMenu } from '@/lib/selahMenu'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import VideoCard from '@/components/VideoCard'
@@ -46,7 +47,7 @@ const TAG_FILTERS: { value: TagFilter; label: string }[] = [
 export default function SearchPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { playVideo } = useAudio()
+  const { playVideo, currentVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
 
   const initialQuery = searchParams.get('q') ?? ''
@@ -118,16 +119,21 @@ export default function SearchPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length])
 
   const handlePlay = (v: Video) => {
-    playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
-      { autoPlay: autoPlayOnDetail },
-    )
+    setSelahMenu('/search')
     const ctx = new URLSearchParams({ sort: sortMode })
     if (debouncedQuery) {
       ctx.set('search', debouncedQuery)
       ctx.set('searchField', searchField)
     }
     if (tagFilter) ctx.set('tag', tagFilter)
+    if (currentVideo?.id === v.id) {
+      navigate(`/player/${v.id}?${ctx}`)
+      return
+    }
+    playVideo(
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
+      { autoPlay: autoPlayOnDetail },
+    )
     navigate(`/player/${v.id}?${ctx}`)
   }
 

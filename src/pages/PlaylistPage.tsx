@@ -27,7 +27,7 @@ interface VideoPage {
   page: number
   limit: number
   hasMore: boolean
-  playlists: string[]
+  playlists: { id: string; title: string; thumbnail: string | null; tag: string | null }[]
 }
 
 interface Playlist {
@@ -138,9 +138,11 @@ export default function PlaylistPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length])
 
   const handlePlay = (v: Video) => {
-    const allIds = data?.pages[0]?.playlists ?? []
+    const allItems = data?.pages[0]?.playlists ?? []
+    const allIds = allItems.map(p => p.id)
     const idx = allIds.indexOf(v.id)
-    setQueue(allIds, idx)
+    const allMetas = allItems.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null }))
+    setQueue(allIds, idx, allMetas)
     playVideo(
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },

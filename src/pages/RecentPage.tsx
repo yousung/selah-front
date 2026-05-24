@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { setSelahMenu } from '@/lib/selahMenu'
 import { useRecentStore, type RecentItem } from '@/store/recentStore'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -7,10 +8,15 @@ import VideoCard from '@/components/VideoCard'
 export default function RecentPage() {
   const navigate = useNavigate()
   const { items, clear } = useRecentStore()
-  const { playVideo } = useAudio()
+  const { playVideo, currentVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
 
   const handlePlay = (item: RecentItem) => {
+    setSelahMenu('/recent')
+    if (currentVideo?.id === item.id) {
+      navigate(`/player/${item.id}?recentMode=1`)
+      return
+    }
     playVideo(
       { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, hymnTitle: item.hymnTitle },
       { autoPlay: autoPlayOnDetail, skipRecentAdd: true },
