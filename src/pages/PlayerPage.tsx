@@ -197,10 +197,12 @@ export default function PlayerPage() {
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [imgErr, setImgErr] = useState(false)
   const isDraggingRef = useRef(false)
+  const hasPlayedRef = useRef(false)
 
   useEffect(() => {
     setDragValue(null)
     setImgErr(false)
+    hasPlayedRef.current = false
   }, [id])
 
   const [showModeTooltip, setShowModeTooltip] = useState(false)
@@ -271,7 +273,7 @@ export default function PlayerPage() {
 
   useEffect(() => {
     if (recentMode || !id || !playlistId || (queueIds.length > 0 && queueIds.includes(id))) return
-    api.get<{ playlists: string[] }>(`/playlists/${playlistId}/videos?page=1&limit=1&sort=chapterAsc`)
+    api.get<{ playlists: string[] }>(`/playlists/${playlistId}/videos?page=1&limit=500&sort=chapterAsc`)
       .then(({ data }) => {
         if (data.playlists.length > 0) {
           const idx = data.playlists.indexOf(id)
@@ -304,7 +306,9 @@ export default function PlayerPage() {
 
   useEffect(() => {
     if (!video) return
+    if (hasPlayedRef.current) return
     if (currentVideo?.id !== video.id) {
+      hasPlayedRef.current = true
       playVideo(
         { id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle },
         { autoPlay: autoPlayOnDetail },

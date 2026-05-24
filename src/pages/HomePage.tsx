@@ -127,9 +127,7 @@ function PlaylistSection({ playlist }: { playlist: Playlist }) {
   const setQueue = useQueueStore((s) => s.setQueue)
 
   const handlePlay = (v: Video) => {
-    const allIds = playlist.playlists ?? []
-    const idx = allIds.indexOf(v.id)
-    setQueue(allIds, idx)
+    setQueue([], -1)
     playVideo(
       { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
       { autoPlay: autoPlayOnDetail },
