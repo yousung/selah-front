@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode, RefObject, SyntheticEvent } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useRecentStore } from '@/store/recentStore'
-import { useDurationStore } from '@/store/durationStore'
 import { useQueueStore } from '@/store/queueStore'
 import { api } from '@/lib/api'
 
@@ -11,6 +10,7 @@ interface VideoInfo {
   thumbnail: string | null
   tag: string | null
   hymnTitle?: string | null
+  duration?: number | null
 }
 
 interface VideoDetail {
@@ -19,6 +19,7 @@ interface VideoDetail {
   thumbnail: string | null
   tag: string | null
   hymnTitle?: string | null
+  duration?: number | null
   lyric?: { hymnTitle?: string | null } | null
 }
 
@@ -87,10 +88,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   useEffect(() => { durationRef.current = duration }, [duration])
 
   const updateActualDuration = useCallback((durationSeconds: number) => {
-    const id = currentVideoIdRef.current
-    if (!id || !Number.isFinite(durationSeconds) || durationSeconds <= 0) return
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return
     setDuration(durationSeconds)
-    useDurationStore.getState().setDuration(id, durationSeconds)
   }, [])
 
   const getKnownDuration = useCallback((mediaDuration: number) => {
@@ -199,7 +198,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     positionRef.current = 0
     pendingSeekRef.current = null
     setPosition(0)
-    setDuration(useDurationStore.getState().byId[video.id] ?? 0)
+    setDuration(video.duration ?? 0)
 
     try {
       const streamPath = isVideoMode ? `/videos/${video.id}/stream` : `/audios/${video.id}/stream`
@@ -385,7 +384,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
       // 2) async 작업
       const { data } = await api.get<VideoDetail>(`/videos/${targetId}`)
-      setDuration(useDurationStore.getState().byId[targetId] ?? 0)
+      setDuration(data.duration ?? 0)
 
       // 3) setQueue 및 playVideo (이미 isEnded=false가 committed)
       setQueue(queueIds, targetIndex)
