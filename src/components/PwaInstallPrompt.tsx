@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 const DISMISSED_KEY = 'selah-pwa-install-dismissed'
+const DISMISSED_MAX_AGE = 60 * 60 * 24 * 365 * 20
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -14,13 +15,28 @@ function isStandalone() {
   )
 }
 
+function isIos() {
+  const ua = window.navigator.userAgent
+  return /iPad|iPhone|iPod/.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1)
+}
+
+function persistDismissed() {
+  localStorage.setItem(DISMISSED_KEY, '1')
+  document.cookie = `${DISMISSED_KEY}=1; Max-Age=${DISMISSED_MAX_AGE}; Path=/; SameSite=Lax`
+}
+
+function hasDismissedInstallPrompt() {
+  return localStorage.getItem(DISMISSED_KEY) === '1' || document.cookie.includes(`${DISMISSED_KEY}=1`)
+}
+
 export default function PwaInstallPrompt() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [visible, setVisible] = useState(false)
   const [manualHint, setManualHint] = useState(false)
 
   useEffect(() => {
-    if (isStandalone() || localStorage.getItem(DISMISSED_KEY) === '1') return
+    if (isIos()) return
+    if (isStandalone() || hasDismissedInstallPrompt()) return
     setVisible(true)
 
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -29,7 +45,7 @@ export default function PwaInstallPrompt() {
       setVisible(true)
     }
     const handleAppInstalled = () => {
-      localStorage.setItem(DISMISSED_KEY, '1')
+      persistDismissed()
       setVisible(false)
     }
 
@@ -44,22 +60,20 @@ export default function PwaInstallPrompt() {
   if (!visible) return null
 
   const handleInstall = async () => {
+    persistDismissed()
+    setVisible(false)
+
     if (!installPrompt) {
-      setManualHint(true)
       return
     }
 
     await installPrompt.prompt()
-    const choice = await installPrompt.userChoice
+    await installPrompt.userChoice
     setInstallPrompt(null)
-    if (choice.outcome === 'accepted') {
-      localStorage.setItem(DISMISSED_KEY, '1')
-      setVisible(false)
-    }
   }
 
   const handleNeverShow = () => {
-    localStorage.setItem(DISMISSED_KEY, '1')
+    persistDismissed()
     setVisible(false)
   }
 
