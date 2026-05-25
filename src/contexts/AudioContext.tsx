@@ -56,12 +56,18 @@ interface AudioContextValue {
 
 const AudioCtx = createContext<AudioContextValue | null>(null)
 
+function stripBrackets(title: string) {
+  return title.replace(/\[.*?\]/g, '').trim()
+}
+
 function updateMediaSessionMetadata(video: VideoInfo) {
   if (!('mediaSession' in navigator) || !('MediaMetadata' in window)) return
+  const subtitle = stripBrackets(video.title)
+  const title = video.hymnTitle?.trim() || subtitle || video.title
 
   navigator.mediaSession.metadata = new MediaMetadata({
-    title: video.hymnTitle ?? video.title,
-    artist: video.tag ?? '주님의 교회',
+    title,
+    artist: subtitle || '주님의 교회',
     album: 'Selah',
     artwork: video.thumbnail
       ? [
@@ -80,6 +86,10 @@ function clearMediaSessionMetadata() {
   if (!('mediaSession' in navigator)) return
   navigator.mediaSession.metadata = null
   navigator.mediaSession.playbackState = 'none'
+}
+
+function normalizeDbDuration(duration?: number | null) {
+  return typeof duration === 'number' && Number.isFinite(duration) && duration > 0 ? duration : null
 }
 
 export function AudioProvider({ children }: { children: ReactNode }) {
@@ -114,18 +124,37 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const autoNextTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const currentVideoIdRef = useRef<string | null>(null)
   const durationRef = useRef(0)
+  const hasAuthoritativeDurationRef = useRef(false)
   const pendingSeekRef = useRef<number | null>(null)
   useEffect(() => { durationRef.current = duration }, [duration])
 
   const updateActualDuration = useCallback((durationSeconds: number) => {
+    if (hasAuthoritativeDurationRef.current) return
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return
     setDuration(durationSeconds)
   }, [])
 
   const getKnownDuration = useCallback((mediaDuration: number) => {
-    if (Number.isFinite(mediaDuration) && mediaDuration > 0) return mediaDuration
     if (Number.isFinite(durationRef.current) && durationRef.current > 0) return durationRef.current
+    if (Number.isFinite(mediaDuration) && mediaDuration > 0) return mediaDuration
     return null
+  }, [])
+
+  const syncPosition = useCallback((media: HTMLMediaElement) => {
+    const knownDuration = durationRef.current
+    const currentTime = media.currentTime
+
+    if (hasAuthoritativeDurationRef.current && knownDuration > 0 && currentTime >= knownDuration) {
+      media.pause()
+      positionRef.current = knownDuration
+      setPosition(knownDuration)
+      setIsPlaying(false)
+      setIsEnded(true)
+      return
+    }
+
+    positionRef.current = currentTime
+    setPosition(currentTime)
   }, [])
 
   const applySeek = useCallback((media: HTMLMediaElement, seconds: number) => {
@@ -179,6 +208,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setVideoUrl(null)
     setCurrentVideo(null)
     currentVideoIdRef.current = null
+    hasAuthoritativeDurationRef.current = false
     setIsPlaying(false)
     setIsLoading(false)
     setIsEnded(false)
@@ -198,7 +228,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       ['durationchange', () => updateActualDuration(audio.duration)],
       ['loadedmetadata', () => applyPendingSeek(audio)],
       ['durationchange', () => applyPendingSeek(audio)],
-      ['timeupdate', () => { positionRef.current = audio.currentTime; setPosition(audio.currentTime) }],
+      ['timeupdate', () => syncPosition(audio)],
       ['play', () => { setIsPlaying(true); setIsLoading(false) }],
       ['pause', () => setIsPlaying(false)],
       ['waiting', () => setIsLoading(true)],
@@ -213,7 +243,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       audio.pause()
       audio.src = ''
     }
-  }, [applyPendingSeek, updateActualDuration])
+  }, [applyPendingSeek, syncPosition, updateActualDuration])
 
   const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean }) => {
     const autoPlay = options?.autoPlay ?? true
@@ -230,14 +260,21 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     positionRef.current = 0
     pendingSeekRef.current = null
     setPosition(0)
-    setDuration(video.duration ?? 0)
+    const dbDuration = normalizeDbDuration(video.duration)
+    hasAuthoritativeDurationRef.current = dbDuration != null
+    setDuration(dbDuration ?? 0)
 
     try {
       const streamPath = isVideoMode ? `/videos/${video.id}/stream` : `/audios/${video.id}/stream`
-      const { data } = await api.get<{ url: string; bitrate: number; encoding?: string }>(
+      const { data } = await api.get<{ url: string; bitrate: number; encoding?: string; duration?: number | null }>(
         streamPath,
         isVideoMode ? undefined : { params: { quality: qualityRef.current } },
       )
+      const streamDuration = normalizeDbDuration(data.duration)
+      if (streamDuration != null) {
+        hasAuthoritativeDurationRef.current = true
+        setDuration(streamDuration)
+      }
       if (isVideoMode) {
         pendingAutoPlayRef.current = autoPlay
         setVideoUrl(data.url)
@@ -279,6 +316,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setCurrentVideo(null)
     clearMediaSessionMetadata()
     currentVideoIdRef.current = null
+    hasAuthoritativeDurationRef.current = false
     setIsPlaying(false)
     setIsLoading(false)
     setIsEnded(false)
@@ -361,10 +399,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [applyPendingSeek, volume])
 
   const onVideoTimeUpdate = useCallback((e: SyntheticEvent<HTMLVideoElement>) => {
-    const t = e.currentTarget.currentTime
-    positionRef.current = t
-    setPosition(t)
-  }, [])
+    syncPosition(e.currentTarget)
+  }, [syncPosition])
 
   const onVideoLoadedMetadata = useCallback((e: SyntheticEvent<HTMLVideoElement>) => {
     updateActualDuration(e.currentTarget.duration)
@@ -417,7 +453,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
       // 2) async 작업
       const { data } = await api.get<VideoDetail>(`/videos/${targetId}`)
-      setDuration(data.duration ?? 0)
+      const dbDuration = normalizeDbDuration(data.duration)
+      hasAuthoritativeDurationRef.current = dbDuration != null
+      setDuration(dbDuration ?? 0)
 
       // 3) setQueue 및 playVideo (이미 isEnded=false가 committed)
       setQueue(queueIds, targetIndex)
@@ -427,6 +465,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         thumbnail: data.thumbnail,
         tag: data.tag,
         hymnTitle: data.lyric?.hymnTitle ?? data.hymnTitle,
+        duration: data.duration,
       }, { autoPlay: true })
     } catch {
       setError('다음 곡을 불러올 수 없습니다.')

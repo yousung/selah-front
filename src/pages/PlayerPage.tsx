@@ -16,6 +16,7 @@ interface Video {
   title: string
   thumbnail: string | null
   tag: string | null
+  duration?: number | null
   chapter?: number | null
   hymnTitle?: string | null
   playlist?: { id: string; title: string }
@@ -128,6 +129,7 @@ interface AdjacentVideo {
   tag: string | null
   chapter: number
   hymnTitle?: string | null
+  duration?: number | null
 }
 
 interface Adjacent {
@@ -284,19 +286,19 @@ export default function PlayerPage() {
   const toRecentAdj = useCallback((itemId: string | undefined): AdjacentVideo | null => {
     if (!itemId) return null
     const item = recentMap.get(itemId)
-    return item ? { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, chapter: extractChapter(item.title), hymnTitle: item.hymnTitle ?? null } : null
+    return item ? { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, chapter: extractChapter(item.title), hymnTitle: item.hymnTitle ?? null, duration: item.duration } : null
   }, [recentMap])
 
   const playlistId = video?.playlist?.id
 
   useEffect(() => {
     if (recentMode || !id || !playlistId || (queueIds.length > 0 && queueIds.includes(id))) return
-    api.get<{ playlists: { id: string; title: string; thumbnail: string | null; tag: string | null }[] }>(`/playlists/${playlistId}/videos?page=1&limit=500&sort=chapterAsc`)
+    api.get<{ playlists: { id: string; title: string; thumbnail: string | null; tag: string | null; duration?: number | null }[] }>(`/playlists/${playlistId}/videos?page=1&limit=500&sort=chapterAsc`)
       .then(({ data }) => {
         if (data.playlists.length > 0) {
           const ids = data.playlists.map(p => p.id)
           const idx = ids.indexOf(id)
-          const metas = data.playlists.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null }))
+          const metas = data.playlists.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null, duration: p.duration }))
           setQueue(ids, idx !== -1 ? idx : 0, metas)
         }
       })
@@ -318,7 +320,7 @@ export default function PlayerPage() {
     const idx = queueIds.indexOf(target.id)
     if (idx !== -1) setQueue(queueIds, idx)
     playVideo(
-      { id: target.id, title: target.title, thumbnail: target.thumbnail, tag: target.tag, hymnTitle: target.hymnTitle },
+      { id: target.id, title: target.title, thumbnail: target.thumbnail, tag: target.tag, hymnTitle: target.hymnTitle, duration: target.duration },
       { autoPlay: true, skipRecentAdd: recentMode },
     )
     navigate(`/player/${target.id}${recentMode ? '?recentMode=1' : ''}`)
@@ -330,14 +332,14 @@ export default function PlayerPage() {
     if (currentVideo?.id !== video.id) {
       hasPlayedRef.current = true
       playVideo(
-        { id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle },
+        { id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle, duration: video.duration },
         { autoPlay: autoPlayOnDetail },
       )
     }
   }, [autoPlayOnDetail, currentVideo?.id, playVideo, video])
 
   const handleRetry = useCallback(() => {
-    if (video) playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle })
+    if (video) playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle, duration: video.duration })
   }, [video])
 
   const progress = dragValue !== null ? dragValue : (duration > 0 ? position / duration : 0)

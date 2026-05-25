@@ -7,6 +7,7 @@ export interface RecentItem {
   thumbnail: string | null
   tag: string | null
   hymnTitle?: string | null
+  duration?: number | null
   playedAt: number
 }
 

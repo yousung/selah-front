@@ -3,6 +3,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import type { Theme, AudioQuality, AutoNextDelay, MediaMode } from '@/store/settingsStore'
 
 const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-favorites', 'selah-settings'])
+const CACHE_BUST_PARAM = 'selah-cache-bust'
 
 function clearLocalStorageExcept(keysToKeep: Set<string>) {
   Object.keys(localStorage).forEach((key) => {
@@ -58,6 +59,12 @@ async function clearAppCache() {
   }
 }
 
+function forceReloadApp() {
+  const url = new URL(window.location.href)
+  url.searchParams.set(CACHE_BUST_PARAM, Date.now().toString())
+  window.location.replace(url.toString())
+}
+
 const QUALITY_OPTIONS: { value: AudioQuality; label: string; desc: string }[] = [
   { value: 'high', label: '고음질', desc: '최대 비트레이트' },
   { value: 'medium', label: '보통', desc: '균형 잡힌 품질' },
@@ -86,7 +93,7 @@ export default function SettingsPage() {
     await clearAppCache()
     setClearing(false)
     setCleared(true)
-    setTimeout(() => setCleared(false), 2500)
+    setTimeout(forceReloadApp, 300)
   }
 
   return (
@@ -290,7 +297,7 @@ export default function SettingsPage() {
                   {cleared ? '캐시가 삭제되었습니다' : clearing ? '삭제 중...' : '캐시 삭제'}
                 </p>
                 <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>
-                  재생 기록, 대기열 등 임시 데이터를 삭제합니다. 즐겨찾기는 유지됩니다.
+                  재생 기록, 대기열 등 임시 데이터를 삭제하고 새로고침합니다. 즐겨찾기는 유지됩니다.
                 </p>
               </div>
               {!cleared && (

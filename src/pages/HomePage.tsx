@@ -46,6 +46,7 @@ interface PlaylistMeta {
   title: string
   thumbnail: string | null
   tag: string | null
+  duration?: number | null
 }
 
 interface Playlist {
@@ -159,10 +160,11 @@ function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: P
       thumbnail: p.thumbnail,
       tag: p.tag,
       hymnTitle: null as string | null,
+      duration: p.duration,
     }))
     setQueue(allIds, idx, allVideos)
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle, duration: v.duration },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}`)
@@ -267,7 +269,7 @@ export default function HomePage() {
       return
     }
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle, duration: v.duration },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}`)

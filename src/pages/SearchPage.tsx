@@ -131,7 +131,7 @@ export default function SearchPage() {
       return
     }
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle, duration: v.duration },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}?${ctx}`)

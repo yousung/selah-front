@@ -28,7 +28,7 @@ interface VideoPage {
   page: number
   limit: number
   hasMore: boolean
-  playlists: { id: string; title: string; thumbnail: string | null; tag: string | null }[]
+  playlists: { id: string; title: string; thumbnail: string | null; tag: string | null; duration?: number | null }[]
 }
 
 const PAGE_LIMIT = 20
@@ -105,10 +105,10 @@ export default function FavoritesPage() {
     const allItems = data?.pages[0]?.playlists ?? []
     const allIds = allItems.map(p => p.id)
     const idx = allIds.indexOf(v.id)
-    const allMetas = allItems.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null }))
+    const allMetas = allItems.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null, duration: p.duration }))
     setQueue(allIds, idx, allMetas)
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle, duration: v.duration },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}`)

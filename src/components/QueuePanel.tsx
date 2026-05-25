@@ -88,7 +88,7 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
         setQueue(newIds, newNextIdx, newVideos)
         if (nextMeta) {
           void playVideo(
-            { id: nextMeta.id, title: nextMeta.title, thumbnail: nextMeta.thumbnail, tag: nextMeta.tag ?? null, hymnTitle: nextMeta.hymnTitle ?? null },
+            { id: nextMeta.id, title: nextMeta.title, thumbnail: nextMeta.thumbnail, tag: nextMeta.tag ?? null, hymnTitle: nextMeta.hymnTitle ?? null, duration: nextMeta.duration },
             { autoPlay: true },
           )
           navigate(`/player/${nextId}`)
@@ -118,7 +118,7 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
     setQueue(ids, idx)
     if (meta) {
       void playVideo(
-        { id: meta.id, title: meta.title, thumbnail: meta.thumbnail, tag: meta.tag ?? null, hymnTitle: meta.hymnTitle ?? null },
+        { id: meta.id, title: meta.title, thumbnail: meta.thumbnail, tag: meta.tag ?? null, hymnTitle: meta.hymnTitle ?? null, duration: meta.duration },
         { autoPlay: true },
       )
     }
