@@ -1,5 +1,62 @@
+import { useState } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
 import type { Theme, AudioQuality, AutoNextDelay, MediaMode } from '@/store/settingsStore'
+
+const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-favorites', 'selah-settings'])
+
+function clearLocalStorageExcept(keysToKeep: Set<string>) {
+  Object.keys(localStorage).forEach((key) => {
+    if (!keysToKeep.has(key)) {
+      localStorage.removeItem(key)
+    }
+  })
+}
+
+function clearCookies() {
+  if (!document.cookie) return
+
+  const cookieNames = document.cookie
+    .split(';')
+    .map((cookie) => cookie.trim().split('=')[0])
+    .filter(Boolean)
+
+  const pathSegments = window.location.pathname.split('/').filter(Boolean)
+  const pathCandidates = new Set([
+    '/',
+    ...pathSegments.map((_, index) => `/${pathSegments.slice(0, index + 1).join('/')}`),
+  ])
+
+  const hostname = window.location.hostname
+  const domainCandidates = hostname === 'localhost' || /^[\d.]+$/.test(hostname)
+    ? ['']
+    : ['', hostname, `.${hostname}`]
+
+  cookieNames.forEach((name) => {
+    pathCandidates.forEach((path) => {
+      domainCandidates.forEach((domain) => {
+        document.cookie = [
+          `${name}=`,
+          'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+          'Max-Age=0',
+          `Path=${path}`,
+          domain ? `Domain=${domain}` : '',
+          'SameSite=Lax',
+        ].filter(Boolean).join('; ')
+      })
+    })
+  })
+}
+
+async function clearAppCache() {
+  clearLocalStorageExcept(LOCAL_STORAGE_KEYS_TO_KEEP)
+  clearCookies()
+
+  // 서비스 워커 캐시 삭제
+  if ('caches' in window) {
+    const cacheNames = await caches.keys()
+    await Promise.all(cacheNames.map((name) => caches.delete(name)))
+  }
+}
 
 const QUALITY_OPTIONS: { value: AudioQuality; label: string; desc: string }[] = [
   { value: 'high', label: '고음질', desc: '최대 비트레이트' },
@@ -21,6 +78,16 @@ const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string; desc: string }[] = 
 
 export default function SettingsPage() {
   const { theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay } = useSettingsStore()
+  const [clearing, setClearing] = useState(false)
+  const [cleared, setCleared] = useState(false)
+
+  const handleClearCache = async () => {
+    setClearing(true)
+    await clearAppCache()
+    setClearing(false)
+    setCleared(true)
+    setTimeout(() => setCleared(false), 2500)
+  }
 
   return (
     <div className="animate-fade-in">
@@ -204,6 +271,42 @@ export default function SettingsPage() {
                 </button>
               )
             })}
+          </div>
+        </div>
+
+        {/* Cache */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>데이터 관리</p>
+          <div className="card overflow-hidden">
+            <button
+              type="button"
+              onClick={handleClearCache}
+              disabled={clearing}
+              className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+              style={{ background: 'transparent' }}
+            >
+              <div>
+                <p className="text-sm font-medium text-left" style={{ color: cleared ? 'var(--accent-500)' : 'var(--ink-0)' }}>
+                  {cleared ? '캐시가 삭제되었습니다' : clearing ? '삭제 중...' : '캐시 삭제'}
+                </p>
+                <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>
+                  재생 기록, 대기열 등 임시 데이터를 삭제합니다. 즐겨찾기는 유지됩니다.
+                </p>
+              </div>
+              {!cleared && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--ink-3)', flexShrink: 0 }}>
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  <path d="M10 11v6M14 11v6" />
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                </svg>
+              )}
+              {cleared && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" style={{ color: 'var(--accent-500)', flexShrink: 0 }}>
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
 
