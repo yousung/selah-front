@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import MiniPlayer from './MiniPlayer'
 import QueuePanel from './QueuePanel'
+import PwaInstallPrompt from './PwaInstallPrompt'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
@@ -250,6 +251,8 @@ export default function Layout() {
 
         {/* ── Queue Panel ── */}
         <QueuePanel isOpen={queueOpen} onClose={() => setQueueOpen(false)} />
+
+        <PwaInstallPrompt />
 
         {/* ── Mobile + Tablet Bottom Nav ── */}
         <nav
