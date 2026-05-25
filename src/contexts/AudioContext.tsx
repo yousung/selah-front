@@ -56,6 +56,32 @@ interface AudioContextValue {
 
 const AudioCtx = createContext<AudioContextValue | null>(null)
 
+function updateMediaSessionMetadata(video: VideoInfo) {
+  if (!('mediaSession' in navigator) || !('MediaMetadata' in window)) return
+
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: video.hymnTitle ?? video.title,
+    artist: video.tag ?? '주님의 교회',
+    album: 'Selah',
+    artwork: video.thumbnail
+      ? [
+          { src: video.thumbnail, sizes: '96x96' },
+          { src: video.thumbnail, sizes: '128x128' },
+          { src: video.thumbnail, sizes: '192x192' },
+          { src: video.thumbnail, sizes: '256x256' },
+          { src: video.thumbnail, sizes: '384x384' },
+          { src: video.thumbnail, sizes: '512x512' },
+        ]
+      : undefined,
+  })
+}
+
+function clearMediaSessionMetadata() {
+  if (!('mediaSession' in navigator)) return
+  navigator.mediaSession.metadata = null
+  navigator.mediaSession.playbackState = 'none'
+}
+
 export function AudioProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const reactPlayerRef = useRef<HTMLVideoElement | null>(null)
@@ -80,6 +106,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const isPlayingRef = useRef(false)
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !currentVideo) return
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
+  }, [currentVideo, isPlaying])
   const pendingAutoPlayRef = useRef(false)
   const autoNextTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const currentVideoIdRef = useRef<string | null>(null)
@@ -142,6 +172,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
     if (reactPlayerRef.current) { reactPlayerRef.current.pause(); reactPlayerRef.current.src = '' }
+    clearMediaSessionMetadata()
     cancelAutoNext()
     pendingAutoPlayRef.current = false
     pendingSeekRef.current = null
@@ -190,6 +221,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
     cancelAutoNext()
     setCurrentVideo(video)
+    updateMediaSessionMetadata(video)
     currentVideoIdRef.current = video.id
     if (!options?.skipRecentAdd) useRecentStore.getState().add(video)
     setIsLoading(true)
@@ -245,6 +277,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (audio) { audio.pause(); audio.src = '' }
     }
     setCurrentVideo(null)
+    clearMediaSessionMetadata()
     currentVideoIdRef.current = null
     setIsPlaying(false)
     setIsLoading(false)
