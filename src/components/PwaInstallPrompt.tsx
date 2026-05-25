@@ -15,9 +15,9 @@ function isStandalone() {
   )
 }
 
-function isIos() {
+function isApplePlatform() {
   const ua = window.navigator.userAgent
-  return /iPad|iPhone|iPod/.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1)
+  return /iPad|iPhone|iPod|Macintosh/.test(ua)
 }
 
 function persistDismissed() {
@@ -32,15 +32,14 @@ function hasDismissedInstallPrompt() {
 export default function PwaInstallPrompt() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [visible, setVisible] = useState(false)
-  const [manualHint, setManualHint] = useState(false)
 
   useEffect(() => {
-    if (isIos()) return
+    if (isApplePlatform()) return
     if (isStandalone() || hasDismissedInstallPrompt()) return
-    setVisible(true)
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault()
+      if (hasDismissedInstallPrompt()) return
       setInstallPrompt(event as BeforeInstallPromptEvent)
       setVisible(true)
     }
@@ -95,7 +94,7 @@ export default function PwaInstallPrompt() {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold" style={{ color: 'var(--ink-0)' }}>셀라 앱으로 열기</p>
             <p className="mt-0.5 text-xs leading-5" style={{ color: 'var(--ink-2)' }}>
-              {manualHint ? '브라우저 메뉴에서 홈 화면에 추가를 선택하세요.' : '홈 화면에 설치하면 더 빠르게 찬양을 재생할 수 있습니다.'}
+              홈 화면에 설치하면 더 빠르게 찬양을 재생할 수 있습니다.
             </p>
           </div>
         </div>
