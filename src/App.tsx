@@ -9,8 +9,24 @@ import FavoritesPage from '@/pages/FavoritesPage'
 import SearchPage from '@/pages/SearchPage'
 import RecentPage from '@/pages/RecentPage'
 import SettingsPage from '@/pages/SettingsPage'
-import AdminPage from '@/pages/AdminPage'
 import Layout from '@/components/Layout'
+import AdminLoginPage from '@/pages/admin/AdminLoginPage'
+import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
+import AdminLayout from '@/components/admin/AdminLayout'
+import AdminGuard from '@/components/admin/AdminGuard'
+import PlaylistsListPage from '@/pages/admin/playlists/PlaylistsListPage'
+import PlaylistDetailPage from '@/pages/admin/playlists/PlaylistDetailPage'
+import PlaylistFormPage from '@/pages/admin/playlists/PlaylistFormPage'
+import VideosListPage from '@/pages/admin/videos/VideosListPage'
+import VideoDetailPage from '@/pages/admin/videos/VideoDetailPage'
+import VideoFormPage from '@/pages/admin/videos/VideoFormPage'
+import BibleVersesListPage from '@/pages/admin/bible-verses/BibleVersesListPage'
+import BibleVerseDetailPage from '@/pages/admin/bible-verses/BibleVerseDetailPage'
+import BibleVerseFormPage from '@/pages/admin/bible-verses/BibleVerseFormPage'
+import LyricsListPage from '@/pages/admin/lyrics/LyricsListPage'
+import LyricDetailPage from '@/pages/admin/lyrics/LyricDetailPage'
+import LyricFormPage from '@/pages/admin/lyrics/LyricFormPage'
+import UsersListPage from '@/pages/admin/users/UsersListPage'
 
 function ThemeApplicator() {
   const theme = useSettingsStore((s) => s.theme)
@@ -34,8 +50,41 @@ export default function App() {
             <Route path="search" element={<SearchPage />} />
             <Route path="recent" element={<RecentPage />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="admin" element={<AdminPage />} />
           </Route>
+
+          {/* Admin Routes */}
+          <Route path="/admin/thelc/login" element={<AdminLoginPage />} />
+          <Route
+            path="/admin/thelc"
+            element={
+              <AdminGuard>
+                <AdminLayout />
+              </AdminGuard>
+            }
+          >
+            <Route index element={<AdminDashboardPage />} />
+            <Route path="playlists" element={<PlaylistsListPage />} />
+            <Route path="playlists/new" element={<PlaylistFormPage />} />
+            <Route path="playlists/:id" element={<PlaylistDetailPage />} />
+            <Route path="playlists/:id/edit" element={<PlaylistFormPage />} />
+            <Route path="videos" element={<VideosListPage />} />
+            <Route path="videos/new" element={<VideoFormPage />} />
+            <Route path="videos/:id" element={<VideoDetailPage />} />
+            <Route path="videos/:id/edit" element={<VideoFormPage />} />
+            <Route path="bible-verses" element={<BibleVersesListPage />} />
+            <Route path="bible-verses/new" element={<BibleVerseFormPage />} />
+            <Route path="bible-verses/:id" element={<BibleVerseDetailPage />} />
+            <Route path="bible-verses/:id/edit" element={<BibleVerseFormPage />} />
+            <Route path="lyrics" element={<LyricsListPage />} />
+            <Route path="lyrics/new" element={<LyricFormPage />} />
+            <Route path="lyrics/:id" element={<LyricDetailPage />} />
+            <Route path="lyrics/:id/edit" element={<LyricFormPage />} />
+            <Route path="users" element={<UsersListPage />} />
+          </Route>
+
+          {/* /admin 및 /admin/thelc 외 경로 → 루트로 */}
+          <Route path="/admin" element={<Navigate to="/" replace />} />
+          <Route path="/admin/*" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </HashRouter>
