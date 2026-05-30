@@ -11,6 +11,7 @@ interface VideoInfo {
   tag: string | null
   hymnTitle?: string | null
   duration?: number | null
+  chapter?: number | null
 }
 
 interface VideoDetail {
@@ -19,6 +20,7 @@ interface VideoDetail {
   thumbnail: string | null
   tag: string | null
   hymnTitle?: string | null
+  chapter?: number | null
   duration?: number | null
   lyric?: { hymnTitle?: string | null } | null
 }
@@ -253,7 +255,15 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setCurrentVideo(video)
     updateMediaSessionMetadata(video)
     currentVideoIdRef.current = video.id
-    if (!options?.skipRecentAdd) useRecentStore.getState().add(video)
+    if (!options?.skipRecentAdd) useRecentStore.getState().add({
+      id: video.id,
+      title: video.title,
+      thumbnail: video.thumbnail,
+      tag: video.tag,
+      hymnTitle: video.hymnTitle ?? null,
+      duration: video.duration ?? null,
+      chapter: video.chapter ?? null,
+    })
     setIsLoading(true)
     setError(null)
     setIsEnded(false)
@@ -466,6 +476,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         tag: data.tag,
         hymnTitle: data.lyric?.hymnTitle ?? data.hymnTitle,
         duration: data.duration,
+        chapter: data.chapter,
       }, { autoPlay: true })
     } catch {
       setError('다음 곡을 불러올 수 없습니다.')

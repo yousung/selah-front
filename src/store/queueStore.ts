@@ -8,6 +8,7 @@ export interface VideoMeta {
   tag: string | null
   hymnTitle?: string | null
   duration?: number | null
+  chapter?: number | null
 }
 
 interface QueueState {

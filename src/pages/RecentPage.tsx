@@ -18,7 +18,7 @@ export default function RecentPage() {
       return
     }
     playVideo(
-      { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, hymnTitle: item.hymnTitle, duration: item.duration },
+      { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, hymnTitle: item.hymnTitle, duration: item.duration, chapter: item.chapter },
       { autoPlay: autoPlayOnDetail, skipRecentAdd: true },
     )
     navigate(`/player/${item.id}?recentMode=1`)

@@ -5,7 +5,8 @@ import { useSettingsStore } from '@/store/settingsStore'
 import HomePage from '@/pages/HomePage'
 import PlaylistPage from '@/pages/PlaylistPage'
 import PlayerPage from '@/pages/PlayerPage'
-import FavoritesPage from '@/pages/FavoritesPage'
+import MyPlaylistsPage from '@/pages/MyPlaylistsPage'
+import MyPlaylistDetailPage from '@/pages/MyPlaylistDetailPage'
 import SearchPage from '@/pages/SearchPage'
 import RecentPage from '@/pages/RecentPage'
 import SettingsPage from '@/pages/SettingsPage'
@@ -50,7 +51,8 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="playlist/:id" element={<PlaylistPage />} />
             <Route path="player/:id" element={<PlayerPage />} />
-            <Route path="favorites" element={<FavoritesPage />} />
+            <Route path="my-playlists" element={<MyPlaylistsPage />} />
+            <Route path="my-playlists/:id" element={<MyPlaylistDetailPage />} />
             <Route path="search" element={<SearchPage />} />
             <Route path="recent" element={<RecentPage />} />
             <Route path="settings" element={<SettingsPage />} />

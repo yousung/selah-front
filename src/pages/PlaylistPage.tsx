@@ -144,7 +144,7 @@ export default function PlaylistPage() {
     const allMetas = allItems.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null, duration: p.duration }))
     setQueue(allIds, idx, allMetas)
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle, duration: v.duration },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle, duration: v.duration, chapter: v.chapter },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}`)

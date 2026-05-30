@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { getSelahMenu, clearSelahMenu } from '@/lib/selahMenu'
 import { useAudio } from '@/contexts/AudioContext'
-import { useFavoritesStore } from '@/store/favoritesStore'
+import { usePlaylistStore } from '@/store/playlistStore'
+import PlaylistBottomSheet from '@/components/PlaylistBottomSheet'
 import { useSettingsStore } from '@/store/settingsStore'
 import type { PlayMode } from '@/store/settingsStore'
 import { useRecentStore } from '@/store/recentStore'
@@ -191,7 +192,8 @@ export default function PlayerPage() {
     navigate(menu ?? '/')
   }
   const [searchParams] = useSearchParams()
-  const { has, toggle } = useFavoritesStore()
+  const isInAnyPlaylist = usePlaylistStore((s) => s.isInAnyPlaylist)
+  const [playlistSheetOpen, setPlaylistSheetOpen] = useState(false)
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const playMode = useSettingsStore((s) => s.playMode)
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
@@ -320,7 +322,7 @@ export default function PlayerPage() {
     const idx = queueIds.indexOf(target.id)
     if (idx !== -1) setQueue(queueIds, idx)
     playVideo(
-      { id: target.id, title: target.title, thumbnail: target.thumbnail, tag: target.tag, hymnTitle: target.hymnTitle, duration: target.duration },
+      { id: target.id, title: target.title, thumbnail: target.thumbnail, tag: target.tag, hymnTitle: target.hymnTitle, duration: target.duration, chapter: target.chapter },
       { autoPlay: true, skipRecentAdd: recentMode },
     )
     navigate(`/player/${target.id}${recentMode ? '?recentMode=1' : ''}`)
@@ -332,7 +334,7 @@ export default function PlayerPage() {
     if (currentVideo?.id !== video.id) {
       hasPlayedRef.current = true
       playVideo(
-        { id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle, duration: video.duration },
+        { id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle, duration: video.duration, chapter: video.chapter },
         { autoPlay: autoPlayOnDetail },
       )
     }
@@ -343,7 +345,7 @@ export default function PlayerPage() {
   }, [video])
 
   const progress = dragValue !== null ? dragValue : (duration > 0 ? position / duration : 0)
-  const isFav = id ? has(id) : false
+  const isFav = id ? isInAnyPlaylist(id) : false
 
   /* ── Shared sub-components ── */
   const Artwork = (
@@ -533,7 +535,7 @@ export default function PlayerPage() {
         </button>
         <div className="flex items-center gap-2">
           {id && (
-            <button onClick={() => toggle(id)} className="p-2 transition-transform hover:scale-110"
+            <button onClick={() => setPlaylistSheetOpen(true)} className="p-2 transition-transform hover:scale-110"
               style={{ fontSize: 20, color: isFav ? 'var(--accent-500)' : 'var(--ink-3)' }}>
               {isFav ? '★' : '☆'}
             </button>
@@ -550,6 +552,17 @@ export default function PlayerPage() {
         {mediaMode !== 'video' && <LyricsSection lyric={lyric} />}
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
       </div>
+      {playlistSheetOpen && id && (
+        <PlaylistBottomSheet
+          videoId={id}
+          videoTitle={video?.title ?? ''}
+          videoThumbnail={video?.thumbnail ?? null}
+          videoTag={video?.tag ?? null}
+          videoHymnTitle={video?.lyric?.hymnTitle ?? null}
+          videoDuration={video?.duration ?? null}
+          onClose={() => setPlaylistSheetOpen(false)}
+        />
+      )}
     </div>
   )
 }
