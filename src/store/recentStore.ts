@@ -8,6 +8,7 @@ export interface RecentItem {
   tag: string | null
   hymnTitle?: string | null
   duration?: number | null
+  chapter?: number | null
   playedAt: number
 }
 

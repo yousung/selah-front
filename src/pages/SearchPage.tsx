@@ -17,6 +17,7 @@ interface Video {
   thumbnail: string | null
   tag: string | null
   hymnTitle?: string | null
+  chapter?: number | null
   publishedAt?: string | null
   duration?: number | null
 }
@@ -131,7 +132,7 @@ export default function SearchPage() {
       return
     }
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle, duration: v.duration },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}?${ctx}`)

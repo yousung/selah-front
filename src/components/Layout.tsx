@@ -53,9 +53,10 @@ function IconSearch({ active }: { active: boolean }) {
   )
 }
 
+
 const navItems = [
   { to: '/', label: '홈', Icon: IconHome },
-  { to: '/favorites', label: '즐겨찾기', Icon: IconStar },
+  { to: '/my-playlists', label: '내 목록', Icon: IconStar },
   { to: '/search', label: '검색', Icon: IconSearch },
   { to: '/recent', label: '최근', Icon: IconClock },
   { to: '/settings', label: '설정', Icon: IconSettings },
@@ -236,17 +237,17 @@ export default function Layout() {
             onClick={() => setQueueOpen((v) => !v)}
             aria-label="재생목록 열기"
           >
-              <svg
-                width="18" height="18" viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" strokeWidth={2.2}
-                strokeLinecap="round" strokeLinejoin="round"
-              >
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="15" y2="18" />
-                <polyline points="17 15 21 18 17 21" />
-              </svg>
-            </button>
+            <svg
+              width="18" height="18" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth={2.2}
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="15" y2="18" />
+              <polyline points="17 15 21 18 17 21" />
+            </svg>
+          </button>
         )}
 
         {/* ── Queue Panel ── */}
