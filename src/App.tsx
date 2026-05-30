@@ -27,6 +27,10 @@ import LyricsListPage from '@/pages/admin/lyrics/LyricsListPage'
 import LyricDetailPage from '@/pages/admin/lyrics/LyricDetailPage'
 import LyricFormPage from '@/pages/admin/lyrics/LyricFormPage'
 import UsersListPage from '@/pages/admin/users/UsersListPage'
+import AdminsListPage from '@/pages/admin/admins/AdminsListPage'
+import AdminDetailPage from '@/pages/admin/admins/AdminDetailPage'
+import AdminFormPage from '@/pages/admin/admins/AdminFormPage'
+import ProfilePage from '@/pages/admin/profile/ProfilePage'
 
 function ThemeApplicator() {
   const theme = useSettingsStore((s) => s.theme)
@@ -80,6 +84,11 @@ export default function App() {
             <Route path="lyrics/:id" element={<LyricDetailPage />} />
             <Route path="lyrics/:id/edit" element={<LyricFormPage />} />
             <Route path="users" element={<UsersListPage />} />
+            <Route path="admins" element={<AdminsListPage />} />
+            <Route path="admins/new" element={<AdminFormPage />} />
+            <Route path="admins/:id" element={<AdminDetailPage />} />
+            <Route path="admins/:id/edit" element={<AdminFormPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
 
           {/* /admin 및 /admin/thelc 외 경로 → 루트로 */}
