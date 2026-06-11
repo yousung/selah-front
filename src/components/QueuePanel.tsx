@@ -56,6 +56,26 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
     })
   }
 
+  const handleShuffle = () => {
+    if (ids.length === 0) return
+    const indices = ids.map((_, i) => i)
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[indices[i], indices[j]] = [indices[j], indices[i]]
+    }
+    const newIds = indices.map(i => ids[i])
+    const newVideos = indices.map(i => videos[i])
+    setQueue(newIds, 0, newVideos)
+    const first = newVideos[0]
+    if (first) {
+      void playVideo(
+        { id: first.id, title: first.title, thumbnail: first.thumbnail, tag: first.tag ?? null, hymnTitle: first.hymnTitle ?? null, duration: first.duration, chapter: first.chapter ?? null },
+        { autoPlay: true },
+      )
+      navigate(`/player/${first.id}`)
+    }
+  }
+
   const handleDeleteSelected = () => {
     if (!someSelected) return
 
@@ -189,6 +209,29 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
                   </svg>
                 )}
                 전체
+              </button>
+
+              {/* 랜덤 재생 */}
+              <button
+                onClick={handleShuffle}
+                disabled={ids.length === 0}
+                className="flex items-center justify-center"
+                style={{
+                  color: ids.length > 0 ? 'var(--ink-2)' : 'var(--ink-3)',
+                  opacity: ids.length > 0 ? 1 : 0.35,
+                  width: 32,
+                  height: 32,
+                  cursor: ids.length > 0 ? 'pointer' : 'default',
+                }}
+                aria-label="랜덤 재생"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="16 3 21 3 21 8" />
+                  <line x1="4" y1="20" x2="21" y2="3" />
+                  <polyline points="21 16 21 21 16 21" />
+                  <line x1="15" y1="15" x2="21" y2="21" />
+                  <line x1="4" y1="4" x2="9" y2="9" />
+                </svg>
               </button>
 
               {/* 선택 삭제 */}
