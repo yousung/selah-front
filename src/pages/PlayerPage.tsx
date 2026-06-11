@@ -424,14 +424,26 @@ export default function PlayerPage() {
       </div>
 
       {/* Play controls */}
-      <div className="flex items-center justify-center gap-8 mt-4">
+      <div className="flex items-center justify-center gap-5 mt-4">
+        {/* 이전곡 */}
+        <button
+          onClick={() => adjacent?.prev && handleAdjacentNav(adjacent.prev)}
+          disabled={!adjacent?.prev}
+          className="flex items-center justify-center transition-opacity active:scale-95"
+          style={{ color: adjacent?.prev ? 'var(--ink-1)' : 'var(--ink-3)', opacity: adjacent?.prev ? 1 : 0.3, width: 36, height: 36 }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+          </svg>
+        </button>
+
         {/* -15s */}
         <button
           onClick={() => seekBy(-15)}
-          className="flex flex-col items-center gap-1.5 transition-opacity hover:opacity-60 active:scale-95"
+          className="transition-opacity hover:opacity-60 active:scale-95"
         >
-          <div className="relative flex items-center justify-center" style={{ width: 44, height: 44 }}>
-            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" style={{ color: 'var(--ink-1)' }}>
+          <div className="relative flex items-center justify-center" style={{ width: 40, height: 40 }}>
+            <svg width="40" height="40" viewBox="0 0 44 44" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" style={{ color: 'var(--ink-1)' }}>
               <path d="M22 8 A14 14 0 1 0 36 22" />
               <polyline points="17,4 22,8 18,13" />
             </svg>
@@ -461,15 +473,34 @@ export default function PlayerPage() {
         {/* +15s */}
         <button
           onClick={() => seekBy(15)}
-          className="flex flex-col items-center gap-1.5 transition-opacity hover:opacity-60 active:scale-95"
+          className="transition-opacity hover:opacity-60 active:scale-95"
         >
-          <div className="relative flex items-center justify-center" style={{ width: 44, height: 44 }}>
-            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" style={{ color: 'var(--ink-1)' }}>
+          <div className="relative flex items-center justify-center" style={{ width: 40, height: 40 }}>
+            <svg width="40" height="40" viewBox="0 0 44 44" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" style={{ color: 'var(--ink-1)' }}>
               <path d="M22 8 A14 14 0 1 1 8 22" />
               <polyline points="27,4 22,8 26,13" />
             </svg>
             <span className="absolute text-[10px] font-bold" style={{ color: 'var(--ink-1)', letterSpacing: '-0.5px' }}>15</span>
           </div>
+        </button>
+
+        {/* 다음곡 */}
+        <button
+          onClick={() => {
+            const target = adjacent?.next ?? (playMode === 'repeat' ? adjacent?.first : null)
+            if (target) handleAdjacentNav(target)
+          }}
+          disabled={!adjacent?.next && !(playMode === 'repeat' && adjacent?.first)}
+          className="flex items-center justify-center transition-opacity active:scale-95"
+          style={{
+            color: (adjacent?.next || (playMode === 'repeat' && adjacent?.first)) ? 'var(--ink-1)' : 'var(--ink-3)',
+            opacity: (adjacent?.next || (playMode === 'repeat' && adjacent?.first)) ? 1 : 0.3,
+            width: 36, height: 36,
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z" />
+          </svg>
         </button>
       </div>
 
@@ -549,7 +580,7 @@ export default function PlayerPage() {
           <div className="w-full lg:flex-1 mb-8 lg:mb-0">{Artwork}</div>
           <div className="w-full lg:flex-1">{Controls}</div>
         </div>
-        {mediaMode !== 'video' && <LyricsSection lyric={lyric} />}
+        <LyricsSection lyric={lyric} />
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
       </div>
       {playlistSheetOpen && id && (
