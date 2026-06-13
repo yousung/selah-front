@@ -102,6 +102,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const autoNextDelay = useSettingsStore((s) => s.autoNextDelay)
   const playMode = useSettingsStore((s) => s.playMode)
+  const playbackRate = useSettingsStore((s) => s.playbackRate)
   const queueIds = useQueueStore((s) => s.ids)
   const queueIndex = useQueueStore((s) => s.index)
   const setQueue = useQueueStore((s) => s.setQueue)
@@ -129,6 +130,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const hasAuthoritativeDurationRef = useRef(false)
   const pendingSeekRef = useRef<number | null>(null)
   useEffect(() => { durationRef.current = duration }, [duration])
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = playbackRate
+    if (reactPlayerRef.current) reactPlayerRef.current.playbackRate = playbackRate
+  }, [playbackRate])
 
   const updateActualDuration = useCallback((durationSeconds: number) => {
     if (hasAuthoritativeDurationRef.current) return

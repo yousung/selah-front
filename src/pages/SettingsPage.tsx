@@ -2,6 +2,13 @@ import { useState } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
 import type { Theme, AudioQuality, AutoNextDelay, MediaMode } from '@/store/settingsStore'
 
+const PLAYBACK_RATE_OPTIONS: { value: number; label: string }[] = [
+  { value: 0.5, label: '0.5x' },
+  { value: 0.7, label: '0.7x' },
+  { value: 1, label: '1x' },
+  { value: 2, label: '2x' },
+]
+
 const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings'])
 const CACHE_BUST_PARAM = 'selah-cache-bust'
 
@@ -84,7 +91,7 @@ const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string; desc: string }[] = 
 ]
 
 export default function SettingsPage() {
-  const { theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay } = useSettingsStore()
+  const { theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, playbackRate, setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay, setPlaybackRate } = useSettingsStore()
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
 
@@ -247,6 +254,33 @@ export default function SettingsPage() {
                 />
               </span>
             </button>
+          </div>
+        </div>
+
+        {/* Playback rate */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>배속</p>
+          <div className="card overflow-hidden">
+            <div className="flex" style={{ borderBottom: 'none' }}>
+              {PLAYBACK_RATE_OPTIONS.map((opt, i) => {
+                const active = playbackRate === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setPlaybackRate(opt.value)}
+                    className="flex-1 flex items-center justify-center py-3 text-sm font-medium transition-colors"
+                    style={{
+                      borderRight: i < PLAYBACK_RATE_OPTIONS.length - 1 ? '1px solid var(--divider)' : 'none',
+                      background: active ? 'var(--primary-50)' : 'transparent',
+                      color: active ? 'var(--primary-700)' : 'var(--ink-1)',
+                      fontWeight: active ? 700 : 500,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 
