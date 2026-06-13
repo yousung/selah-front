@@ -13,6 +13,7 @@ export default function NaverAnalyticsTracker() {
   const location = useLocation()
 
   useEffect(() => {
+    if (import.meta.env.DEV) return
     if (!window.wcs || !window.wcs_do) return
     if (!window.wcs_add) window.wcs_add = {}
     window.wcs_add['url'] = location.pathname + location.search
