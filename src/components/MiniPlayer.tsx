@@ -71,7 +71,7 @@ export default function MiniPlayer({ onDismiss }: Props) {
       <div
         className="flex items-center gap-3 px-4 cursor-pointer"
         style={{ height: 68 }}
-        onClick={() => navigate(`/player/${currentVideo.id}`)}
+        onClick={() => navigate(currentVideo.playerPath ?? `/player/${currentVideo.id}`)}
       >
         {/* Thumbnail */}
         <div

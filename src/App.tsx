@@ -12,6 +12,9 @@ import SearchPage from '@/pages/SearchPage'
 import RecentPage from '@/pages/RecentPage'
 import SettingsPage from '@/pages/SettingsPage'
 import Layout from '@/components/Layout'
+import SermonPage from '@/pages/sermon/SermonPage'
+import CatechismPage from '@/pages/CatechismPage'
+import MyPage from '@/pages/MyPage'
 import AdminLoginPage from '@/pages/admin/AdminLoginPage'
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
 import AdminLayout from '@/components/admin/AdminLayout'
@@ -58,6 +61,9 @@ export default function App() {
             <Route path="search" element={<SearchPage />} />
             <Route path="recent" element={<RecentPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="sermon" element={<SermonPage />} />
+            <Route path="catechism" element={<CatechismPage />} />
+            <Route path="my" element={<MyPage />} />
           </Route>
 
           {/* Admin Routes */}

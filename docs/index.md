@@ -28,6 +28,7 @@ AI 개발 시 전체 스캔 없이 이 파일로 탐색 시작.
 
 ## 빠른 참조
 
+**설교 mock 데이터**: `src/data/sermonsMock.ts` — 하드코딩 시리즈/설교 (백엔드 미연동)  
 **진입점**: `src/App.tsx` (라우트), `src/main.tsx` (React 마운트)  
 **전역 재생**: `src/contexts/AudioContext.tsx` → `useAudio()` 훅  
 **전역 설정**: `src/store/settingsStore.ts` → `useSettingsStore()`  

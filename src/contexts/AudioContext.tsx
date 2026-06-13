@@ -12,6 +12,7 @@ interface VideoInfo {
   hymnTitle?: string | null
   duration?: number | null
   chapter?: number | null
+  playerPath?: string
 }
 
 interface VideoDetail {

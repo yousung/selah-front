@@ -14,8 +14,13 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 | `/search` | `SearchPage` | 검색 |
 | `/recent` | `RecentPage` | 최근 재생 |
 | `/settings` | `SettingsPage` | 설정 |
+| `/sermon` | `SermonPage` | 설교 시리즈 목록 (2열 그리드) |
+| `/sermon/series/:id` | `SermonSeriesPage` | 시리즈별 설교 목록 + 설교자 필터 칩 |
+| `/sermon/player/:id` | `SermonPlayerPage` | 설교 플레이어 (YouTube iframe, 영상/음성 전환) |
+| `/catechism` | `CatechismPage` | 교리서 (준비 중 placeholder) |
+| `/my` | `MyPage` | MY 허브 — 내 재생목록/최근/검색/설정 링크 모음 |
 
-`Layout` 컴포넌트: BottomNav + MiniPlayer 공통 렌더.
+`Layout` 컴포넌트: BottomNav(4탭) + MiniPlayer 공통 렌더.
 
 ## 관리자 라우트 (`AdminGuard` → `AdminLayout`)
 

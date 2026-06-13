@@ -8,58 +8,51 @@ import { useQueueStore } from '@/store/queueStore'
 import React, { useState, useEffect } from 'react'
 
 /* ─── Icons ─────────────────────────────────────────── */
-function IconHome({ active }: { active: boolean }) {
-  const c = active ? 'var(--primary-700)' : 'var(--ink-3)'
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? c : 'none'} stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z" />
-      <path d="M9 21V12h6v9" />
-    </svg>
-  )
-}
-function IconStar({ active }: { active: boolean }) {
-  const c = active ? 'var(--primary-700)' : 'var(--ink-3)'
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? c : 'none'} stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-    </svg>
-  )
-}
-function IconClock({ active }: { active: boolean }) {
+function IconNote({ active }: { active: boolean }) {
   const c = active ? 'var(--primary-700)' : 'var(--ink-3)'
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" fill={active ? c : 'none'} />
+      <circle cx="18" cy="16" r="3" fill={active ? c : 'none'} />
     </svg>
   )
 }
-function IconSettings({ active }: { active: boolean }) {
+function IconMic({ active }: { active: boolean }) {
   const c = active ? 'var(--primary-700)' : 'var(--ink-3)'
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      <rect x="9" y="2" width="6" height="11" rx="3" fill={active ? c : 'none'} />
+      <path d="M5 10a7 7 0 0 0 14 0" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="9" y1="23" x2="15" y2="23" />
     </svg>
   )
 }
-function IconSearch({ active }: { active: boolean }) {
+function IconBook({ active }: { active: boolean }) {
   const c = active ? 'var(--primary-700)' : 'var(--ink-3)'
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" />
-      <path d="M21 21l-4.35-4.35" />
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill={active ? c : 'none'} />
     </svg>
   )
 }
-
+function IconPerson({ active }: { active: boolean }) {
+  const c = active ? 'var(--primary-700)' : 'var(--ink-3)'
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" fill={active ? c : 'none'} />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  )
+}
 
 const navItems = [
-  { to: '/', label: '홈', Icon: IconHome },
-  { to: '/my-playlists', label: '내 목록', Icon: IconStar },
-  { to: '/search', label: '검색', Icon: IconSearch },
-  { to: '/recent', label: '최근', Icon: IconClock },
-  { to: '/settings', label: '설정', Icon: IconSettings },
+  { to: '/', label: '찬송', Icon: IconNote },
+  { to: '/sermon', label: '설교', Icon: IconMic },
+  { to: '/catechism', label: '교리서', Icon: IconBook },
+  { to: '/my', label: 'MY', Icon: IconPerson },
 ]
 
 /* ─── Logo ───────────────────────────────────────────── */
@@ -87,7 +80,8 @@ export default function Layout() {
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const queueIds = useQueueStore((s) => s.ids)
   const location = useLocation()
-  const isPlayerPage = location.pathname.startsWith('/player/')
+  const isHymnPlayerPage = location.pathname.startsWith('/player/')
+  const isPlayerPage = isHymnPlayerPage || location.pathname.startsWith('/sermon/player/')
   const [miniDismissed, setMiniDismissed] = useState(false)
   const [queueOpen, setQueueOpen] = useState(false)
   const [videoRect, setVideoRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
@@ -97,7 +91,7 @@ export default function Layout() {
   }, [currentVideo?.id])
 
   useEffect(() => {
-    if (!isPlayerPage || mediaMode !== 'video') { setVideoRect(null); return }
+    if (!isHymnPlayerPage || mediaMode !== 'video') { setVideoRect(null); return }
     const update = () => {
       const slot = videoSlotRef.current
       if (!slot) { setVideoRect(null); return }
@@ -111,12 +105,16 @@ export default function Layout() {
     const id = setInterval(update, 200)
     window.addEventListener('resize', update)
     return () => { clearInterval(id); window.removeEventListener('resize', update); setVideoRect(null) }
-  }, [isPlayerPage, mediaMode, videoSlotRef])
+  }, [isHymnPlayerPage, mediaMode, videoSlotRef])
 
   const showMini = !isPlayerPage && !!currentVideo && !miniDismissed
 
-  const isActive = (to: string) =>
-    to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
+  const isActive = (to: string) => {
+    const p = location.pathname
+    if (to === '/') return p === '/' || p.startsWith('/playlist/') || p.startsWith('/player/')
+    if (to === '/my') return p.startsWith('/my') || p === '/recent' || p === '/settings' || p === '/search'
+    return p.startsWith(to)
+  }
 
   return (
     <div className="flex min-h-dvh" style={{ background: 'var(--surface-0)' }}>
