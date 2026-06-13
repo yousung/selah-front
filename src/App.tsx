@@ -14,6 +14,7 @@ import SettingsPage from '@/pages/SettingsPage'
 import Layout from '@/components/Layout'
 import SermonPage from '@/pages/sermon/SermonPage'
 import CatechismPage from '@/pages/CatechismPage'
+import CatechismDetailPage from '@/pages/CatechismDetailPage'
 import MyPage from '@/pages/MyPage'
 import AdminLoginPage from '@/pages/admin/AdminLoginPage'
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="sermon" element={<SermonPage />} />
             <Route path="catechism" element={<CatechismPage />} />
+            <Route path="catechism/:code" element={<CatechismDetailPage />} />
             <Route path="my" element={<MyPage />} />
           </Route>
 

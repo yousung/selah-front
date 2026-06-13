@@ -83,7 +83,8 @@ export default function Layout() {
   const isHymnPlayerPage = location.pathname.startsWith('/player/')
   const isPlayerPage = isHymnPlayerPage || location.pathname.startsWith('/sermon/player/')
   const [miniDismissed, setMiniDismissed] = useState(false)
-  const [queueOpen, setQueueOpen] = useState(false)
+  const queueOpen = useQueueStore((s) => s.isOpen)
+  const toggleQueue = useQueueStore((s) => s.toggleQueue)
   const [videoRect, setVideoRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
 
   useEffect(() => {
@@ -115,6 +116,8 @@ export default function Layout() {
     if (to === '/my') return p.startsWith('/my') || p === '/recent' || p === '/settings' || p === '/search'
     return p.startsWith(to)
   }
+
+  const isHymnTab = isActive('/')
 
   return (
     <div className="flex min-h-dvh" style={{ background: 'var(--surface-0)' }}>
@@ -219,8 +222,8 @@ export default function Layout() {
           </div>
         )}
 
-        {/* ── Queue FAB ── */}
-        {queueIds.length > 0 && (
+        {/* ── Queue FAB (Hymn tab only) ── */}
+        {isHymnTab && queueIds.length > 0 && (
           <button
             className="fixed z-50 flex items-center justify-center rounded-full transition-transform active:scale-95"
             style={{
@@ -232,7 +235,7 @@ export default function Layout() {
               color: 'var(--white)',
               boxShadow: '0 4px 16px rgba(61,107,68,0.35)',
             }}
-            onClick={() => setQueueOpen((v) => !v)}
+            onClick={() => toggleQueue()}
             aria-label="재생목록 열기"
           >
             <svg
@@ -249,7 +252,7 @@ export default function Layout() {
         )}
 
         {/* ── Queue Panel ── */}
-        <QueuePanel isOpen={queueOpen} onClose={() => setQueueOpen(false)} />
+        <QueuePanel isOpen={queueOpen} onClose={() => useQueueStore.setState({ isOpen: false })} />
 
         <PwaInstallPrompt />
 
