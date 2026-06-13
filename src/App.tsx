@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
+import NaverAnalyticsTracker from '@/components/NaverAnalyticsTracker'
 import { AudioProvider } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import HomePage from '@/pages/HomePage'
@@ -46,6 +47,7 @@ export default function App() {
     <AudioProvider>
       <HashRouter>
         <ThemeApplicator />
+        <NaverAnalyticsTracker />
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<HomePage />} />
