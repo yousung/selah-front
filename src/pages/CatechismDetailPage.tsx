@@ -558,7 +558,7 @@ export default function CatechismDetailPage() {
       )}
 
       {/* Content Wrapper with Desktop TOC */}
-      <div style={{ display: 'flex', minHeight: 'calc(100dvh - 56px)', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', minHeight: 'calc(100dvh - 56px)' }}>
         {/* Desktop TOC Sidebar */}
         {isDesktop && hasHeadings && (
           <aside
@@ -568,7 +568,7 @@ export default function CatechismDetailPage() {
               background: 'var(--surface-0)',
               padding: '24px 16px',
               position: 'sticky',
-              top: 0,
+              top: 56,
               height: 'fit-content',
               maxHeight: 'calc(100dvh - 56px)',
               overflowY: 'auto',
