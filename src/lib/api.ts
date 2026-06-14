@@ -35,6 +35,7 @@ export interface Section {
   content: string
   scripture: string | null
   tags: Tag[]
+  majorSection: string | null
 }
 
 export interface ConfessionDetail {
