@@ -30,7 +30,28 @@ function groupConfessions(confessions: ConfessionListItem[]): ConfessionGroup[] 
   return groupOrder.map(code => groupMap.get(code)!)
 }
 
+function getBadgeLabel(type: string, sectionCount: number): string | null {
+  // Hide badge for CREED or single items
+  if (type === 'CREED' || sectionCount <= 1) {
+    return null
+  }
+
+  // Type-specific labels
+  switch (type) {
+    case 'CATECHISM':
+      return `${sectionCount}문답`
+    case 'CONFESSION':
+      return `${sectionCount}조항`
+    case 'ORDER':
+      return `${sectionCount}조항`
+    default:
+      return null
+  }
+}
+
 function ConfessionCard({ confession, onClick }: { confession: ConfessionListItem; onClick: () => void }) {
+  const badgeLabel = getBadgeLabel(confession.type, confession.sectionCount)
+
   return (
     <button
       onClick={onClick}
@@ -74,7 +95,7 @@ function ConfessionCard({ confession, onClick }: { confession: ConfessionListIte
         {confession.description || '설명이 없습니다'}
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {confession.sectionCount > 0 && (
+        {badgeLabel && (
           <div
             style={{
               fontSize: 11,
@@ -85,21 +106,7 @@ function ConfessionCard({ confession, onClick }: { confession: ConfessionListIte
               color: 'var(--primary-700)',
             }}
           >
-            {confession.sectionCount}개 문답
-          </div>
-        )}
-        {confession.type && (
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              padding: '4px 10px',
-              borderRadius: 14,
-              background: 'var(--surface-1)',
-              color: 'var(--ink-1)',
-            }}
-          >
-            {confession.type}
+            {badgeLabel}
           </div>
         )}
       </div>
