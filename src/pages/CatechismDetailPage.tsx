@@ -2,13 +2,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useState, useMemo, useEffect } from 'react'
 import { getConfession, Section } from '@/lib/api'
-import SpeedDialFab, { SpeedDialAction } from '@/components/SpeedDialFab'
 import { useAudio } from '@/contexts/AudioContext'
-import { useQueueStore } from '@/store/queueStore'
 
 interface TocGroup {
   majorSection: string | null
-  items: { number: string | null; heading: string | null; sectionId: string }[]
+  items: { number: string | null; heading: string | null; sectionId: string; numberEnd?: string | null }[]
 }
 
 interface TocListProps {
@@ -86,7 +84,11 @@ function TocList({ tocGroups, sectionAnchors, onItemClick, isMobile }: TocListPr
                     e.currentTarget.style.color = 'var(--ink-0)'
                   }}
                 >
-                  {item.number && <span style={{ fontWeight: 600, color: 'var(--primary-700)', marginRight: 8 }}>제{item.number}{item.heading ? '문' : '조'}</span>}
+                  {item.number && (
+                    <span style={{ fontWeight: 600, color: 'var(--primary-700)', marginRight: 8 }}>
+                      제{item.numberEnd ? `${item.number}-${item.numberEnd}` : item.number}{item.heading ? '문' : '조'}
+                    </span>
+                  )}
                   {item.heading}
                 </button>
               ) : null
@@ -223,8 +225,6 @@ export default function CatechismDetailPage() {
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
   const { currentVideo } = useAudio()
-  const openQueue = useQueueStore((s) => s.openQueue)
-  const queueIds = useQueueStore((s) => s.ids)
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null)
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
   const [tocOpen, setTocOpen] = useState(false)
@@ -247,6 +247,17 @@ export default function CatechismDetailPage() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // Handle jump input debounce (0.5s auto-jump)
+  useEffect(() => {
+    if (!jumpOpen || !jumpInput.trim()) return
+
+    const timer = setTimeout(() => {
+      handleJump(jumpInput)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [jumpInput, jumpOpen])
 
   const { data: confession, isLoading, error } = useQuery({
     queryKey: ['confession', code],
@@ -305,11 +316,37 @@ export default function CatechismDetailPage() {
 
       // Add section to group (only if it has a heading or number for TOC display)
       if (section.heading || section.number) {
-        currentGroup.items.push({
+        const newItem = {
           number: section.number,
           heading: section.heading,
           sectionId: section.id,
-        })
+          numberEnd: null as string | null,
+        }
+
+        // Check if we can merge with the last item (same heading, consecutive numbers)
+        const lastItem = currentGroup.items[currentGroup.items.length - 1]
+        if (
+          lastItem &&
+          lastItem.heading === newItem.heading &&
+          lastItem.number &&
+          newItem.number &&
+          !lastItem.numberEnd
+        ) {
+          // Convert last item to a range merge
+          lastItem.numberEnd = newItem.number
+        } else if (
+          lastItem &&
+          lastItem.heading === newItem.heading &&
+          lastItem.number &&
+          newItem.number &&
+          lastItem.numberEnd
+        ) {
+          // Extend the range in the last item
+          lastItem.numberEnd = newItem.number
+        } else {
+          // No merge, add as new item
+          currentGroup.items.push(newItem)
+        }
       }
     })
 
@@ -343,41 +380,6 @@ export default function CatechismDetailPage() {
   }
 
   const showMini = !!currentVideo
-  const speedDialActions: SpeedDialAction[] = useMemo(() => {
-    const actions: SpeedDialAction[] = []
-
-    // Jump action (only if document has numbers)
-    if (hasNumbers) {
-      actions.push({
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
-        ),
-        label: '점프',
-        onClick: () => setJumpOpen(true),
-      })
-    }
-
-    // Playlist action (only if queue has items)
-    if (queueIds.length > 0) {
-      actions.push({
-        icon: (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="15" y2="18" />
-            <polyline points="17 15 21 18 17 21" />
-          </svg>
-        ),
-        label: '재생목록',
-        onClick: () => openQueue(),
-      })
-    }
-
-    return actions
-  }, [hasNumbers, queueIds.length, openQueue])
 
   return (
     <div style={{ background: 'var(--surface-0)', minHeight: '100dvh' }}>
@@ -686,12 +688,44 @@ export default function CatechismDetailPage() {
         </div>
       </div>
 
-      {/* ─── Speed Dial FAB ─── */}
-      <SpeedDialFab
-        actions={speedDialActions}
-        mainLabel="작업"
-        offsetBottom={showMini ? 170 : 80}
-      />
+      {/* ─── Magnifier Jump FAB ─── */}
+      {hasNumbers && (
+        <button
+          onClick={() => setJumpOpen(true)}
+          style={{
+            position: 'fixed',
+            right: 16,
+            bottom: showMini ? 170 : 80,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            background: 'var(--primary-700)',
+            color: 'var(--white)',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 4px 16px rgba(61, 107, 68, 0.35)',
+            zIndex: 50,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.05)'
+            e.currentTarget.style.boxShadow = '0 6px 20px rgba(61, 107, 68, 0.4)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)'
+            e.currentTarget.style.boxShadow = '0 4px 16px rgba(61, 107, 68, 0.35)'
+          }}
+          aria-label="문 번호로 이동"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+        </button>
+      )}
 
       {/* ─── Jump Modal (Bottom Sheet on Mobile, Dialog on Desktop) ─── */}
       {jumpOpen && (
@@ -737,11 +771,6 @@ export default function CatechismDetailPage() {
                   placeholder="문 번호 입력"
                   value={jumpInput}
                   onChange={(e) => setJumpInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleJump(jumpInput)
-                    }
-                  }}
                   autoFocus
                   style={{
                     flex: 1,
@@ -753,54 +782,9 @@ export default function CatechismDetailPage() {
                   }}
                 />
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => setJumpOpen(false)}
-                  style={{
-                    flex: 1,
-                    padding: '10px 16px',
-                    borderRadius: 8,
-                    background: 'var(--surface-1)',
-                    color: 'var(--ink-0)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--surface-2)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'var(--surface-1)'
-                  }}
-                >
-                  취소
-                </button>
-                <button
-                  onClick={() => handleJump(jumpInput)}
-                  style={{
-                    flex: 1,
-                    padding: '10px 16px',
-                    borderRadius: 8,
-                    background: 'var(--primary-700)',
-                    color: 'var(--white)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--primary-800)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'var(--primary-700)'
-                  }}
-                >
-                  이동
-                </button>
-              </div>
+              <p style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 12, textAlign: 'center' }}>
+                숫자를 입력하면 자동으로 이동합니다
+              </p>
             </div>
           </div>
         </div>
