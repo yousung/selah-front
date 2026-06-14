@@ -6,16 +6,132 @@ import SpeedDialFab, { SpeedDialAction } from '@/components/SpeedDialFab'
 import { useAudio } from '@/contexts/AudioContext'
 import { useQueueStore } from '@/store/queueStore'
 
-function SectionRenderer({ section, onTagClick, headingIndex }: { section: Section; onTagClick: (tag: string) => void; headingIndex?: string }) {
-  const hasQuestion = section.question && section.question.trim().length > 0
+interface TocGroup {
+  majorSection: string | null
+  items: { number: string | null; heading: string | null; sectionId: string }[]
+}
 
-  // Build id: include both heading anchor and number anchor if available
-  const ids: string[] = []
-  if (headingIndex) ids.push(`heading-${headingIndex}`)
-  if (section.number) ids.push(`section-${section.number}`)
+interface TocListProps {
+  tocGroups: TocGroup[]
+  sectionAnchors: Map<string, string>
+  onItemClick: () => void
+  isMobile?: boolean
+}
+
+function TocList({ tocGroups, sectionAnchors, onItemClick, isMobile }: TocListProps) {
+  const [expanded, setExpanded] = useState(true)
+
+  const totalItems = tocGroups.reduce((sum, g) => sum + g.items.length, 0)
+  const itemsToShow = expanded ? totalItems : Math.min(totalItems, 5)
+  let itemCount = 0
+
+  const handleItemClick = (sectionId: string) => {
+    const anchor = sectionAnchors.get(sectionId)
+    if (anchor) {
+      const target = document.getElementById(anchor)
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+    onItemClick()
+  }
 
   return (
-    <div style={{ marginBottom: 28, scrollMarginTop: 56 }} id={ids[0] || undefined}>
+    <>
+      {tocGroups.map((group, groupIdx) => (
+        <div key={groupIdx} style={{ marginBottom: isMobile ? 16 : 12 }}>
+          {group.majorSection && (
+            <div
+              style={{
+                fontSize: isMobile ? 12 : 11,
+                fontWeight: 700,
+                color: 'var(--ink-2)',
+                padding: isMobile ? '8px 12px' : '8px 12px',
+                marginBottom: 8,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                borderBottom: '1px solid var(--divider)',
+              }}
+            >
+              {group.majorSection}
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 8 : 8 }}>
+            {group.items.map((item) => {
+              itemCount++
+              const shouldShow = itemCount <= itemsToShow
+
+              return shouldShow ? (
+                <button
+                  key={item.sectionId}
+                  onClick={() => handleItemClick(item.sectionId)}
+                  style={{
+                    padding: isMobile ? '8px 12px' : '8px 12px',
+                    borderRadius: 6,
+                    background: 'var(--surface-1)',
+                    color: 'var(--ink-0)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: isMobile ? 13 : 12,
+                    textAlign: 'left',
+                    transition: 'all 0.2s ease',
+                    fontWeight: 500,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--primary-100)'
+                    e.currentTarget.style.color = 'var(--primary-700)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'var(--surface-1)'
+                    e.currentTarget.style.color = 'var(--ink-0)'
+                  }}
+                >
+                  {item.number && <span style={{ fontWeight: 600, color: 'var(--primary-700)', marginRight: 8 }}>제{item.number}{item.heading ? '문' : '조'}</span>}
+                  {item.heading}
+                </button>
+              ) : null
+            })}
+          </div>
+        </div>
+      ))}
+
+      {totalItems > 5 && (
+        <div style={{ paddingTop: 12, borderTop: '1px solid var(--divider)', marginTop: 12 }}>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            style={{
+              width: '100%',
+              padding: isMobile ? '8px 12px' : '8px 12px',
+              borderRadius: 6,
+              background: 'var(--surface-1)',
+              color: 'var(--primary-700)',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: isMobile ? 12 : 11,
+              fontWeight: 600,
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--primary-50)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--surface-1)'
+            }}
+          >
+            {expanded ? '접기' : `더보기 +${totalItems - 5}`}
+          </button>
+        </div>
+      )}
+    </>
+  )
+}
+
+function SectionRenderer({ section, onTagClick, sectionAnchor }: { section: Section; onTagClick: (tag: string) => void; sectionAnchor: string }) {
+  const hasQuestion = section.question && section.question.trim().length > 0
+  const headingEqualQuestion = section.heading && section.question && section.heading.trim() === section.question.trim()
+
+  return (
+    <div style={{ marginBottom: 28, scrollMarginTop: 56 }} id={sectionAnchor}>
       {hasQuestion ? (
         // Q&A format
         <>
@@ -23,6 +139,11 @@ function SectionRenderer({ section, onTagClick, headingIndex }: { section: Secti
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary-700)', marginBottom: 8 }}>
               제{section.number}문
             </div>
+          )}
+          {section.heading && !headingEqualQuestion && (
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, fontFamily: 'var(--font-serif)' }}>
+              {section.heading}
+            </h3>
           )}
           <div style={{ background: 'var(--surface-1)', padding: 16, borderRadius: 10, marginBottom: 12 }}>
             <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-0)', lineHeight: 1.6 }}>
@@ -151,47 +272,56 @@ export default function CatechismDetailPage() {
 
   const hasNumbers = confession?.sections?.some((s) => s.number)
 
-  // Build TOC from unique headings (using all sections, not filtered)
-  const tocItems = useMemo(() => {
-    if (!confession?.sections) return []
-
-    const headingMap = new Map<string | null, number>()
-    const items: { heading: string | null; index: number }[] = []
+  // Generate unique stable anchors for all sections
+  const sectionAnchors = useMemo(() => {
+    const anchors = new Map<string, string>()
+    if (!confession?.sections) return anchors
 
     confession.sections.forEach((section) => {
-      const heading = section.heading
-      if (!headingMap.has(heading)) {
-        headingMap.set(heading, items.length)
-        if (heading !== null) {
-          items.push({ heading, index: items.length })
-        }
-      }
+      const anchor = section.number ? `section-${section.number}` : `sec-${section.id}`
+      anchors.set(section.id, anchor)
     })
-
-    return items
+    return anchors
   }, [confession?.sections])
 
-  const hasHeadings = tocItems.length > 0
+  // Build TOC with majorSection grouping (using all sections, not filtered)
+  const tocGroups = useMemo(() => {
+    if (!confession?.sections) return []
 
-  // Map each section to its heading index for anchor IDs
-  const sectionToHeadingIndex = useMemo(() => {
-    const map = new Map<string, string>()
-    if (!confession?.sections) return map
+    const groups: TocGroup[] = []
+    let currentGroup: TocGroup | null = null
 
     confession.sections.forEach((section) => {
-      if (section.heading) {
-        const headingIndex = tocItems.findIndex((t) => t.heading === section.heading)
-        if (headingIndex >= 0) {
-          map.set(section.id, String(headingIndex))
+      const newMajorSection = section.majorSection
+
+      // Check if we need a new group
+      if (!currentGroup || currentGroup.majorSection !== newMajorSection) {
+        currentGroup = {
+          majorSection: newMajorSection,
+          items: [],
         }
+        groups.push(currentGroup)
+      }
+
+      // Add section to group (only if it has a heading or number for TOC display)
+      if (section.heading || section.number) {
+        currentGroup.items.push({
+          number: section.number,
+          heading: section.heading,
+          sectionId: section.id,
+        })
       }
     })
-    return map
-  }, [confession?.sections, tocItems])
+
+    return groups
+  }, [confession?.sections])
+
+  const hasHeadings = tocGroups.some((g) => g.items.length > 0)
 
   const handleJump = (number: string) => {
     if (!number.trim()) return
-    const target = document.getElementById(`section-${number.trim()}`)
+    const anchor = `section-${number.trim()}`
+    const target = document.getElementById(anchor)
     if (target) {
       target.scrollIntoView({ behavior: 'smooth' })
       // Highlight effect
@@ -414,39 +544,12 @@ export default function CatechismDetailPage() {
               <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12 }}>
                 제목 가이드
               </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {tocItems.map((item) => (
-                  <button
-                    key={item.index}
-                    onClick={() => {
-                      const target = document.getElementById(`heading-${item.index}`)
-                      if (target) {
-                        target.scrollIntoView({ behavior: 'smooth' })
-                      }
-                      setTocOpen(false)
-                    }}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 6,
-                      background: 'var(--surface-1)',
-                      color: 'var(--ink-0)',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      textAlign: 'left',
-                      transition: 'background 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--primary-100)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'var(--surface-1)'
-                    }}
-                  >
-                    {item.heading}
-                  </button>
-                ))}
-              </div>
+              <TocList
+                tocGroups={tocGroups}
+                sectionAnchors={sectionAnchors}
+                onItemClick={() => setTocOpen(false)}
+                isMobile
+              />
             </div>
           </div>
         </div>
@@ -474,39 +577,11 @@ export default function CatechismDetailPage() {
               제목 가이드
             </h3>
             <nav style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {tocItems.map((item) => (
-                <button
-                  key={item.index}
-                  onClick={() => {
-                    const target = document.getElementById(`heading-${item.index}`)
-                    if (target) {
-                      target.scrollIntoView({ behavior: 'smooth' })
-                    }
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    background: 'var(--surface-1)',
-                    color: 'var(--ink-0)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    textAlign: 'left',
-                    transition: 'all 0.2s ease',
-                    fontWeight: 500,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--primary-100)'
-                    e.currentTarget.style.color = 'var(--primary-700)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'var(--surface-1)'
-                    e.currentTarget.style.color = 'var(--ink-0)'
-                  }}
-                >
-                  {item.heading}
-                </button>
-              ))}
+              <TocList
+                tocGroups={tocGroups}
+                sectionAnchors={sectionAnchors}
+                onItemClick={() => {}}
+              />
             </nav>
           </aside>
         )}
@@ -554,14 +629,41 @@ export default function CatechismDetailPage() {
 
             <div style={{ borderTop: activeTagFilter ? 'none' : '1px solid var(--divider)', paddingTop: activeTagFilter ? 0 : 24 }}>
               {filteredSections.length > 0 ? (
-                filteredSections.map((section) => (
-                  <SectionRenderer
-                    key={section.id}
-                    section={section}
-                    onTagClick={handleTagClick}
-                    headingIndex={sectionToHeadingIndex.get(section.id)}
-                  />
-                ))
+                <>
+                  {filteredSections.map((section, idx) => {
+                    // Determine if we need to show a majorSection divider
+                    const prevSection = idx > 0 ? filteredSections[idx - 1] : null
+                    const showMajorSectionDivider =
+                      section.majorSection &&
+                      (prevSection === null || prevSection.majorSection !== section.majorSection)
+
+                    return (
+                      <div key={section.id}>
+                        {showMajorSectionDivider && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: 'var(--ink-2)',
+                              padding: '16px 0 12px',
+                              marginBottom: 16,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.5,
+                              borderTop: '1px solid var(--divider)',
+                            }}
+                          >
+                            {section.majorSection}
+                          </div>
+                        )}
+                        <SectionRenderer
+                          section={section}
+                          onTagClick={handleTagClick}
+                          sectionAnchor={sectionAnchors.get(section.id) || `sec-${section.id}`}
+                        />
+                      </div>
+                    )
+                  })}
+                </>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 16px', gap: 12, textAlign: 'center' }}>
                   <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)' }}>결과가 없어요</p>
