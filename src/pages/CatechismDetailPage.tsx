@@ -133,7 +133,7 @@ function SectionRenderer({ section, onTagClick, sectionAnchor }: { section: Sect
   const headingEqualQuestion = section.heading && section.question && section.heading.trim() === section.question.trim()
 
   return (
-    <div style={{ marginBottom: 28, scrollMarginTop: 56 }} id={sectionAnchor}>
+    <div style={{ marginBottom: 28, scrollMarginTop: 0 }} id={sectionAnchor}>
       {hasQuestion ? (
         // Q&A format
         <>
@@ -382,7 +382,7 @@ export default function CatechismDetailPage() {
   const showMini = !!currentVideo
 
   return (
-    <div style={{ background: 'var(--surface-0)', minHeight: '100dvh' }}>
+    <div style={{ background: 'var(--surface-0)', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <style>{`
         @keyframes highlight {
           0% {
@@ -414,8 +414,7 @@ export default function CatechismDetailPage() {
         style={{
           background: 'var(--white)',
           borderBottom: '1px solid var(--divider)',
-          position: 'sticky',
-          top: 0,
+          flexShrink: 0,
           zIndex: 10,
         }}
       >
@@ -474,8 +473,7 @@ export default function CatechismDetailPage() {
           style={{
             background: 'var(--surface-1)',
             borderBottom: '1px solid var(--divider)',
-            position: 'sticky',
-            top: 56,
+            flexShrink: 0,
             zIndex: 9,
             padding: '12px 16px',
           }}
@@ -558,7 +556,7 @@ export default function CatechismDetailPage() {
       )}
 
       {/* Content Wrapper with Desktop TOC */}
-      <div style={{ display: 'flex', minHeight: 'calc(100dvh - 56px)' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
         {/* Desktop TOC Sidebar */}
         {isDesktop && hasHeadings && (
           <aside
@@ -567,12 +565,8 @@ export default function CatechismDetailPage() {
               borderRight: '1px solid var(--divider)',
               background: 'var(--surface-0)',
               padding: '24px 16px',
-              position: 'sticky',
-              top: 56,
-              height: 'fit-content',
-              maxHeight: 'calc(100dvh - 56px)',
               overflowY: 'auto',
-              alignSelf: 'flex-start',
+              minHeight: 0,
             }}
           >
             <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -589,7 +583,7 @@ export default function CatechismDetailPage() {
         )}
 
         {/* Main Content */}
-        <div style={{ flex: 1, maxWidth: isDesktop ? 'none' : 720, margin: isDesktop ? '0' : '0 auto', padding: '24px 16px 32px', width: '100%' }}>
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, maxWidth: isDesktop ? 'none' : 720, margin: isDesktop ? '0' : '0 auto', padding: '24px 16px 32px', width: '100%' }}>
         {isLoading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 32px' }}>
             <svg className="animate-spin w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ color: 'var(--primary-700)' }}>
