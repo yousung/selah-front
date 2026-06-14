@@ -83,7 +83,6 @@
     background-color: var(--surface-0);
     color: var(--ink-0);
     min-height: 100dvh;
-    overflow-x: hidden;
   }
 
   #root {
