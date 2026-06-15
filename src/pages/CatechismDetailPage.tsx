@@ -633,7 +633,8 @@ export default function CatechismDetailPage() {
                     const prevSection = idx > 0 ? filteredSections[idx - 1] : null
                     const showMajorSectionDivider =
                       section.majorSection &&
-                      (prevSection === null || prevSection.majorSection !== section.majorSection)
+                      prevSection !== null &&
+                      prevSection.majorSection !== section.majorSection
 
                     return (
                       <div key={section.id}>
