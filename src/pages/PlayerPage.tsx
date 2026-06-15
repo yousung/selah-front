@@ -129,8 +129,10 @@ function DescriptionSection({ description }: { description?: string | null }) {
 
   return (
     <section className="mt-8 pt-5" style={{ borderTop: '1px solid var(--divider)' }}>
-      <p className="text-sm font-semibold mb-4" style={{ color: 'var(--ink-1)' }}>설명</p>
-      <p className="text-sm leading-[1.9] whitespace-pre-line" style={{ color: 'var(--ink-1)' }}>{description}</p>
+      <div className="mx-auto" style={{ maxWidth: '640px' }}>
+        <p className="text-sm font-semibold mb-4 text-center" style={{ color: 'var(--ink-1)' }}>설명</p>
+        <p className="text-sm leading-[1.9] whitespace-pre-line" style={{ color: 'var(--ink-1)' }}>{description}</p>
+      </div>
     </section>
   )
 }
