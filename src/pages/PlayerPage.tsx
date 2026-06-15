@@ -95,7 +95,7 @@ function AdjacentNav({
   )
 }
 
-function LyricsSection({ lyric }: { lyric?: Lyric | null }) {
+function LyricsSection({ lyric, isInTab = false }: { lyric?: Lyric | null; isInTab?: boolean }) {
   if (!lyric) return null
   const verses = [
     lyric.verse1, lyric.verse2, lyric.verse3, lyric.verse4,
@@ -105,7 +105,7 @@ function LyricsSection({ lyric }: { lyric?: Lyric | null }) {
   if (verses.length === 0) return null
 
   return (
-    <section className="mt-8 pt-5" style={{ borderTop: '1px solid var(--divider)' }}>
+    <div className={!isInTab ? "mt-8 pt-5" : ""} style={!isInTab ? { borderTop: '1px solid var(--divider)' } : {}}>
       {lyric.hymnTitle && (
         <p className="text-sm font-semibold mb-4 text-center" style={{ color: 'var(--ink-1)' }}>{lyric.hymnTitle}</p>
       )}
@@ -120,7 +120,7 @@ function LyricsSection({ lyric }: { lyric?: Lyric | null }) {
           </div>
         ))}
       </div>
-    </section>
+    </div>
   )
 }
 
@@ -149,9 +149,7 @@ function LyricsDescriptionTabs({ lyric, description }: { lyric?: Lyric | null; d
   // If only lyrics, render just lyrics without tab bar
   if (hasLyrics && !hasDescription) {
     return (
-      <section className="mt-8 pt-5" style={{ borderTop: '1px solid var(--divider)' }}>
-        <LyricsSection lyric={lyric} />
-      </section>
+      <LyricsSection lyric={lyric} isInTab={false} />
     )
   }
 
@@ -210,12 +208,12 @@ function LyricsDescriptionTabs({ lyric, description }: { lyric?: Lyric | null; d
 
       {/* Content */}
       {activeTab === 'lyrics' && (
-        <div role="tabpanel" aria-labelledby="tab-lyrics">
-          <LyricsSection lyric={lyric} />
+        <div role="tabpanel" aria-labelledby="tab-lyrics" className="pt-5">
+          <LyricsSection lyric={lyric} isInTab={true} />
         </div>
       )}
       {activeTab === 'description' && (
-        <div role="tabpanel" aria-labelledby="tab-description">
+        <div role="tabpanel" aria-labelledby="tab-description" className="pt-5">
           <div className="mx-auto" style={{ maxWidth: '640px' }}>
             <DescriptionSection description={description} />
           </div>
