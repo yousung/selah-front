@@ -22,6 +22,7 @@ interface Video {
   hymnTitle?: string | null
   playlist?: { id: string; title: string }
   lyric?: Lyric | null
+  description?: string | null
 }
 
 interface Lyric {
@@ -119,6 +120,17 @@ function LyricsSection({ lyric }: { lyric?: Lyric | null }) {
           </div>
         ))}
       </div>
+    </section>
+  )
+}
+
+function DescriptionSection({ description }: { description?: string | null }) {
+  if (!description || description.trim().length === 0) return null
+
+  return (
+    <section className="mt-8 pt-5" style={{ borderTop: '1px solid var(--divider)' }}>
+      <p className="text-sm font-semibold mb-4" style={{ color: 'var(--ink-1)' }}>설명</p>
+      <p className="text-sm leading-[1.9] whitespace-pre-line" style={{ color: 'var(--ink-1)' }}>{description}</p>
     </section>
   )
 }
@@ -581,6 +593,7 @@ export default function PlayerPage() {
           <div className="w-full lg:flex-1">{Controls}</div>
         </div>
         <LyricsSection lyric={lyric} />
+        <DescriptionSection description={video?.description} />
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
       </div>
       {playlistSheetOpen && id && (
