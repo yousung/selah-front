@@ -128,11 +128,99 @@ function DescriptionSection({ description }: { description?: string | null }) {
   if (!description || description.trim().length === 0) return null
 
   return (
+    <div className="mx-auto" style={{ maxWidth: '640px' }}>
+      <p className="text-sm leading-[1.9] whitespace-pre-line" style={{ color: 'var(--ink-1)' }}>{description}</p>
+    </div>
+  )
+}
+
+function LyricsDescriptionTabs({ lyric, description }: { lyric?: Lyric | null; description?: string | null }) {
+  const hasLyrics = lyric && [
+    lyric.verse1, lyric.verse2, lyric.verse3, lyric.verse4,
+    lyric.verse5, lyric.verse6, lyric.verse7, lyric.verse8,
+    lyric.verse9, lyric.verse10, lyric.verse11, lyric.verse12,
+  ].some(Boolean)
+
+  const hasDescription = description && description.trim().length > 0
+
+  // If neither, render nothing
+  if (!hasLyrics && !hasDescription) return null
+
+  // If only lyrics, render just lyrics without tab bar
+  if (hasLyrics && !hasDescription) {
+    return (
+      <section className="mt-8 pt-5" style={{ borderTop: '1px solid var(--divider)' }}>
+        <LyricsSection lyric={lyric} />
+      </section>
+    )
+  }
+
+  // If only description, render just description without tab bar
+  if (!hasLyrics && hasDescription) {
+    return (
+      <section className="mt-8 pt-5" style={{ borderTop: '1px solid var(--divider)' }}>
+        <div className="mx-auto" style={{ maxWidth: '640px' }}>
+          <p className="text-sm font-semibold mb-4 text-center" style={{ color: 'var(--ink-1)' }}>설명</p>
+          <DescriptionSection description={description} />
+        </div>
+      </section>
+    )
+  }
+
+  // Both exist: render tab bar + content
+  const [activeTab, setActiveTab] = React.useState<'lyrics' | 'description'>('lyrics')
+
+  return (
     <section className="mt-8 pt-5" style={{ borderTop: '1px solid var(--divider)' }}>
-      <div className="mx-auto" style={{ maxWidth: '640px' }}>
-        <p className="text-sm font-semibold mb-4 text-center" style={{ color: 'var(--ink-1)' }}>설명</p>
-        <p className="text-sm leading-[1.9] whitespace-pre-line" style={{ color: 'var(--ink-1)' }}>{description}</p>
+      {/* Tab bar */}
+      <div
+        role="tablist"
+        className="flex items-center justify-center gap-8 mb-6"
+        style={{ borderBottom: '1px solid var(--divider)', paddingBottom: 12 }}
+      >
+        <button
+          role="tab"
+          aria-selected={activeTab === 'lyrics'}
+          onClick={() => setActiveTab('lyrics')}
+          className="text-sm font-medium transition-colors"
+          style={{
+            color: activeTab === 'lyrics' ? 'var(--ink-0)' : 'var(--ink-2)',
+            borderBottom: activeTab === 'lyrics' ? '2px solid var(--primary-700)' : 'none',
+            paddingBottom: 12,
+            cursor: 'pointer',
+          }}
+        >
+          가사
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'description'}
+          onClick={() => setActiveTab('description')}
+          className="text-sm font-medium transition-colors"
+          style={{
+            color: activeTab === 'description' ? 'var(--ink-0)' : 'var(--ink-2)',
+            borderBottom: activeTab === 'description' ? '2px solid var(--primary-700)' : 'none',
+            paddingBottom: 12,
+            cursor: 'pointer',
+          }}
+        >
+          설명
+        </button>
       </div>
+
+      {/* Content */}
+      {activeTab === 'lyrics' && (
+        <div role="tabpanel" aria-labelledby="tab-lyrics">
+          <LyricsSection lyric={lyric} />
+        </div>
+      )}
+      {activeTab === 'description' && (
+        <div role="tabpanel" aria-labelledby="tab-description">
+          <div className="mx-auto" style={{ maxWidth: '640px' }}>
+            <DescriptionSection description={description} />
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -594,8 +682,7 @@ export default function PlayerPage() {
           <div className="w-full lg:flex-1 mb-8 lg:mb-0">{Artwork}</div>
           <div className="w-full lg:flex-1">{Controls}</div>
         </div>
-        <LyricsSection lyric={lyric} />
-        <DescriptionSection description={video?.description} />
+        <LyricsDescriptionTabs lyric={lyric} description={video?.description} />
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
       </div>
       {playlistSheetOpen && id && (
