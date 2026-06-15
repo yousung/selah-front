@@ -314,8 +314,9 @@ export default function CatechismDetailPage() {
         groups.push(currentGroup)
       }
 
-      // Add section to group (only if it has a heading or number for TOC display)
-      if (section.heading || section.number) {
+      // Add section to group (only if it has a meaningful heading - non-empty text)
+      // number-only sections are NOT added to TOC (e.g., HEIDELBERG, GENEVA, ATHANASIAN)
+      if (section.heading && section.heading.trim().length > 0) {
         const newItem = {
           number: section.number,
           heading: section.heading,
@@ -353,7 +354,8 @@ export default function CatechismDetailPage() {
     return groups
   }, [confession?.sections])
 
-  const hasHeadings = tocGroups.some((g) => g.items.length > 0)
+  // Check if TOC should be displayed: must have meaningful headings OR majorSection groupings
+  const hasHeadings = tocGroups.some((g) => g.items.length > 0 || (g.majorSection && g.majorSection.trim().length > 0))
 
   const handleJump = (number: string) => {
     if (!number.trim()) return
