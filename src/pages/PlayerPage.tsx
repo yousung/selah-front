@@ -158,7 +158,7 @@ function LyricsDescriptionTabs({ lyric, description }: { lyric?: Lyric | null; d
     return (
       <section className="mt-8 pt-5" style={{ borderTop: '1px solid var(--divider)' }}>
         <div className="mx-auto" style={{ maxWidth: '640px' }}>
-          <p className="text-sm font-semibold mb-4 text-center" style={{ color: 'var(--ink-1)' }}>설명</p>
+          <p className="text-sm font-semibold mb-4 text-center" style={{ color: 'var(--ink-1)' }}>해설</p>
           <DescriptionSection description={description} />
         </div>
       </section>
@@ -202,7 +202,7 @@ function LyricsDescriptionTabs({ lyric, description }: { lyric?: Lyric | null; d
             cursor: 'pointer',
           }}
         >
-          설명
+          해설
         </button>
       </div>
 
