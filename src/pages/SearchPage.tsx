@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { isSearchable } from '@/lib/searchable'
 import { setSelahMenu } from '@/lib/selahMenu'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -85,7 +86,7 @@ export default function SearchPage() {
       return data
     },
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
-    enabled: !!debouncedQuery || !!tagFilter,
+    enabled: isSearchable(debouncedQuery) || !!tagFilter,
   })
 
   const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
@@ -288,7 +289,7 @@ export default function SearchPage() {
         ) : allVideos.length ? (
           <>
             {allVideos.map((v) => (
-              <VideoCard key={v.id} video={v} onClick={() => handlePlay(v)} layout="list" />
+              <VideoCard key={v.id} video={v} onClick={() => handlePlay(v)} layout="list" highlight={debouncedQuery} />
             ))}
 
             <div ref={sentinelRef} className="h-1" />

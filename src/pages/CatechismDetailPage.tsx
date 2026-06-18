@@ -1,8 +1,10 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { getConfession, Section } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
+import { useSettingsStore } from '@/store/settingsStore'
+import CatechismSearchSheet from '@/components/CatechismSearchSheet'
 
 interface TocGroup {
   majorSection: string | null
@@ -129,6 +131,7 @@ function TocList({ tocGroups, sectionAnchors, onItemClick, isMobile }: TocListPr
 }
 
 function SectionRenderer({ section, onTagClick, sectionAnchor }: { section: Section; onTagClick: (tag: string) => void; sectionAnchor: string }) {
+  const showCatechismHeadings = useSettingsStore((s) => s.showCatechismHeadings)
   const hasQuestion = section.question && section.question.trim().length > 0
   const headingEqualQuestion = section.heading && section.question && section.heading.trim() === section.question.trim()
 
@@ -142,7 +145,7 @@ function SectionRenderer({ section, onTagClick, sectionAnchor }: { section: Sect
               제{section.number}문
             </div>
           )}
-          {section.heading && !headingEqualQuestion && (
+          {section.heading && !headingEqualQuestion && showCatechismHeadings && (
             <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, fontFamily: 'var(--font-serif)' }}>
               {section.heading}
             </h3>
@@ -166,7 +169,7 @@ function SectionRenderer({ section, onTagClick, sectionAnchor }: { section: Sect
               제{section.number}조
             </div>
           )}
-          {section.heading && (
+          {section.heading && showCatechismHeadings && (
             <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, fontFamily: 'var(--font-serif)' }}>
               {section.heading}
             </h3>
@@ -224,12 +227,13 @@ function SectionRenderer({ section, onTagClick, sectionAnchor }: { section: Sect
 export default function CatechismDetailPage() {
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { currentVideo } = useAudio()
+  const showCatechismToc = useSettingsStore((s) => s.showCatechismToc)
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null)
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
   const [tocOpen, setTocOpen] = useState(false)
-  const [jumpOpen, setJumpOpen] = useState(false)
-  const [jumpInput, setJumpInput] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
 
   if (!code) {
     return (
@@ -247,17 +251,6 @@ export default function CatechismDetailPage() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  // Handle jump input debounce (0.5s auto-jump)
-  useEffect(() => {
-    if (!jumpOpen || !jumpInput.trim()) return
-
-    const timer = setTimeout(() => {
-      handleJump(jumpInput)
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [jumpInput, jumpOpen])
 
   const { data: confession, isLoading, error } = useQuery({
     queryKey: ['confession', code],
@@ -281,8 +274,6 @@ export default function CatechismDetailPage() {
     return filtered
   }, [confession?.sections, activeTagFilter])
 
-  const hasNumbers = confession?.sections?.some((s) => s.number)
-
   // Generate unique stable anchors for all sections
   const sectionAnchors = useMemo(() => {
     const anchors = new Map<string, string>()
@@ -294,6 +285,24 @@ export default function CatechismDetailPage() {
     })
     return anchors
   }, [confession?.sections])
+
+  // Deep-link: scroll to a specific section after data loads (from search results)
+  useEffect(() => {
+    const scrollToSectionId = (location.state as { scrollToSectionId?: string } | null)?.scrollToSectionId
+    if (!confession || !scrollToSectionId) return
+    const anchor = sectionAnchors.get(scrollToSectionId)
+    if (!anchor) return
+    const raf = requestAnimationFrame(() => {
+      const target = document.getElementById(anchor)
+      if (!target) return
+      target.scrollIntoView({ behavior: 'smooth' })
+      target.style.animation = 'none'
+      setTimeout(() => {
+        target.style.animation = 'highlight 0.5s ease-out'
+      }, 10)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [confession, sectionAnchors, location.state])
 
   // Build TOC with majorSection grouping (using all sections, not filtered)
   const tocGroups = useMemo(() => {
@@ -357,22 +366,6 @@ export default function CatechismDetailPage() {
   // Check if TOC should be displayed: must have meaningful headings OR majorSection groupings
   const hasHeadings = tocGroups.some((g) => g.items.length > 0 || (g.majorSection && g.majorSection.trim().length > 0))
 
-  const handleJump = (number: string) => {
-    if (!number.trim()) return
-    const anchor = `section-${number.trim()}`
-    const target = document.getElementById(anchor)
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth' })
-      // Highlight effect
-      target.style.animation = 'none'
-      setTimeout(() => {
-        target.style.animation = 'highlight 0.5s ease-out'
-      }, 10)
-    }
-    setJumpOpen(false)
-    setJumpInput('')
-  }
-
   const handleTagClick = (tagName: string) => {
     if (activeTagFilter === tagName) {
       setActiveTagFilter(null)
@@ -381,7 +374,27 @@ export default function CatechismDetailPage() {
     }
   }
 
+  const handleSearchSelect = useCallback((sectionId: string) => {
+    const anchor = sectionAnchors.get(sectionId)
+    if (!anchor) return
+    // Close the overlay first, then scroll — otherwise the full-screen sheet
+    // covers the page and the scroll appears to do nothing.
+    setSearchOpen(false)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const target = document.getElementById(anchor)
+        if (!target) return
+        target.scrollIntoView({ behavior: 'smooth' })
+        target.style.animation = 'none'
+        setTimeout(() => {
+          target.style.animation = 'highlight 0.5s ease-out'
+        }, 10)
+      })
+    })
+  }, [sectionAnchors])
+
   const showMini = !!currentVideo
+  const showSearchFab = !!(confession && confession.sections.length > 1)
 
   return (
     <div style={{ background: 'var(--surface-0)', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -444,7 +457,7 @@ export default function CatechismDetailPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {/* Hamburger menu for TOC on mobile/tablet */}
-            {!isDesktop && hasHeadings && (
+            {!isDesktop && hasHeadings && showCatechismToc && (
               <button
                 onClick={() => setTocOpen(!tocOpen)}
                 style={{
@@ -514,7 +527,7 @@ export default function CatechismDetailPage() {
       )}
 
       {/* Mobile TOC Drawer */}
-      {!isDesktop && hasHeadings && tocOpen && (
+      {!isDesktop && hasHeadings && showCatechismToc && tocOpen && (
         <div
           style={{
             position: 'fixed',
@@ -560,7 +573,7 @@ export default function CatechismDetailPage() {
       {/* Content Wrapper with Desktop TOC */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
         {/* Desktop TOC Sidebar */}
-        {isDesktop && hasHeadings && (
+        {isDesktop && hasHeadings && showCatechismToc && (
           <aside
             style={{
               width: 280,
@@ -685,10 +698,10 @@ export default function CatechismDetailPage() {
         </div>
       </div>
 
-      {/* ─── Magnifier Jump FAB ─── */}
-      {hasNumbers && (
+      {/* ─── Search FAB (scoped to this confession) ─── */}
+      {showSearchFab && (
         <button
-          onClick={() => setJumpOpen(true)}
+          onClick={() => setSearchOpen(true)}
           style={{
             position: 'fixed',
             right: 16,
@@ -715,7 +728,7 @@ export default function CatechismDetailPage() {
             e.currentTarget.style.transform = 'scale(1)'
             e.currentTarget.style.boxShadow = '0 4px 16px rgba(61, 107, 68, 0.35)'
           }}
-          aria-label="문 번호로 이동"
+          aria-label="이 교리서 내 검색"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" />
@@ -724,68 +737,17 @@ export default function CatechismDetailPage() {
         </button>
       )}
 
-      {/* ─── Jump Modal (Bottom Sheet on Mobile, Dialog on Desktop) ─── */}
-      {jumpOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.3)',
-            zIndex: 40,
-            animation: 'fadeIn 0.2s ease-out',
-            display: 'flex',
-            alignItems: 'flex-end',
-          }}
-          onClick={() => setJumpOpen(false)}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              background: 'var(--white)',
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              borderTop: '1px solid var(--divider)',
-              padding: '20px 16px',
-              animation: 'slideUp 0.3s ease-out',
-              maxHeight: '60dvh',
-              overflowY: 'auto',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ maxWidth: 400, margin: '0 auto' }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 16 }}>
-                문 번호로 이동
-              </h2>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                <input
-                  type="number"
-                  placeholder="문 번호 입력"
-                  value={jumpInput}
-                  onChange={(e) => setJumpInput(e.target.value)}
-                  autoFocus
-                  style={{
-                    flex: 1,
-                    fontSize: 14,
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    border: '1px solid var(--divider)',
-                    color: 'var(--ink-0)',
-                  }}
-                />
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 12, textAlign: 'center' }}>
-                숫자를 입력하면 자동으로 이동합니다
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* ─── Local Search Sheet ─── */}
+      {searchOpen && confession && (
+        <CatechismSearchSheet
+          onClose={() => setSearchOpen(false)}
+          localSections={confession.sections}
+          confessionTitle={confession.title}
+          confessionCode={confession.code}
+          onSelectSection={handleSearchSelect}
+        />
       )}
+
     </div>
   )
 }

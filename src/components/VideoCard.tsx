@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { usePlaylistStore } from '@/store/playlistStore'
 import PlaylistBottomSheet from './PlaylistBottomSheet'
+import HighlightText from './HighlightText'
 
 
 interface Video {
@@ -21,6 +22,7 @@ interface Props {
   video: Video
   onClick: () => void
   layout?: 'card' | 'list'
+  highlight?: string
 }
 
 
@@ -79,7 +81,7 @@ function stripBrackets(s: string) {
   return s.replace(/\[.*?\]/g, '').trim()
 }
 
-export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
+export default function VideoCard({ video, onClick, layout = 'card', highlight }: Props) {
   const isInAnyPlaylist = usePlaylistStore((s) => s.isInAnyPlaylist)
   const inPlaylist = isInAnyPlaylist(video.id)
   const isNew = isNewVideo(video.publishedAt)
@@ -127,10 +129,12 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
           {/* Meta */}
           <div className="flex-1 min-w-0 py-0.5">
             <p className="line-clamp-1 text-sm lg:text-base font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>
-              {mainTitle}
+              <HighlightText text={mainTitle} query={highlight} />
             </p>
             {subTitle && (
-              <p className="line-clamp-1 text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{subTitle}</p>
+              <p className="line-clamp-1 text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
+                <HighlightText text={subTitle} query={highlight} />
+              </p>
             )}
             {(views || likes) && (
               <div className="flex items-center gap-2 mt-1">
@@ -170,9 +174,13 @@ export default function VideoCard({ video, onClick, layout = 'card' }: Props) {
           )}
         </div>
         <div className="pt-2 pb-1">
-          <p className="line-clamp-1 text-sm font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>{mainTitle}</p>
+          <p className="line-clamp-1 text-sm font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>
+            <HighlightText text={mainTitle} query={highlight} />
+          </p>
           {subTitle && (
-            <p className="line-clamp-1 text-[11px] mt-0.5" style={{ color: 'var(--ink-2)' }}>{subTitle}</p>
+            <p className="line-clamp-1 text-[11px] mt-0.5" style={{ color: 'var(--ink-2)' }}>
+              <HighlightText text={subTitle} query={highlight} />
+            </p>
           )}
           <div className="flex items-center justify-between mt-1.5">
             <div className="flex items-center gap-2">

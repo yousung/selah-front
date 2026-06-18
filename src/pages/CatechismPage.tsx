@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { getConfessions, ConfessionListItem } from '@/lib/api'
+import { useAudio } from '@/contexts/AudioContext'
+import CatechismSearchSheet from '@/components/CatechismSearchSheet'
 
 interface ConfessionGroup {
   groupCode: string
@@ -116,10 +118,14 @@ function ConfessionCard({ confession, onClick }: { confession: ConfessionListIte
 
 export default function CatechismPage() {
   const navigate = useNavigate()
+  const { currentVideo } = useAudio()
+  const [searchOpen, setSearchOpen] = useState(false)
   const { data: confessions, isLoading, error } = useQuery({
     queryKey: ['confessions'],
     queryFn: getConfessions,
   })
+
+  const showMini = !!currentVideo
 
   const groups = useMemo(() => {
     if (!confessions) return []
@@ -210,6 +216,45 @@ export default function CatechismPage() {
           </>
         )}
       </div>
+
+      {/* ─── Search FAB ─── */}
+      <button
+        onClick={() => setSearchOpen(true)}
+        style={{
+          position: 'fixed',
+          right: 16,
+          bottom: showMini ? 170 : 80,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 56,
+          height: 56,
+          borderRadius: '50%',
+          background: 'var(--primary-700)',
+          color: 'var(--white)',
+          border: 'none',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          boxShadow: '0 4px 16px rgba(61, 107, 68, 0.35)',
+          zIndex: 50,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.05)'
+          e.currentTarget.style.boxShadow = '0 6px 20px rgba(61, 107, 68, 0.4)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)'
+          e.currentTarget.style.boxShadow = '0 4px 16px rgba(61, 107, 68, 0.35)'
+        }}
+        aria-label="교리서 검색"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+      </button>
+
+      {searchOpen && <CatechismSearchSheet onClose={() => setSearchOpen(false)} />}
     </div>
   )
 }

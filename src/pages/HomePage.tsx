@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { isSearchable } from '@/lib/searchable'
 
 function useGridLimit() {
   const [limit, setLimit] = useState(() => {
@@ -235,13 +236,13 @@ export default function HomePage() {
         limit: String(PAGE_LIMIT),
         sort: 'chapterAsc',
         search: debouncedQuery,
-        searchField: 'chapter',
+        searchField: 'titleChapter',
       })
       const { data } = await api.get<VideoPage>(`/videos?${params}`)
       return data
     },
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
-    enabled: !!debouncedQuery,
+    enabled: isSearchable(debouncedQuery),
   })
 
   const searchVideos = searchData?.pages.flatMap((p) => p.videos) ?? []
@@ -298,11 +299,10 @@ export default function HomePage() {
               <path d="M21 21l-4.35-4.35" />
             </svg>
             <input
-              type="number"
-              inputMode="numeric"
+              type="text"
               value={searchQuery}
               onChange={e => handleSearchChange(e.target.value)}
-              placeholder="장 번호 검색 (예: 10)"
+              placeholder="제목 또는 장 검색 (예: 영광, 10)"
               className="w-full text-sm outline-none pl-8 pr-7"
               style={{
                 height: 34,
@@ -340,7 +340,7 @@ export default function HomePage() {
           ) : searchVideos.length ? (
             <>
               {searchVideos.map((v) => (
-                <VideoCard key={v.id} video={v} onClick={() => handleSearchPlay(v)} layout="list" />
+                <VideoCard key={v.id} video={v} onClick={() => handleSearchPlay(v)} layout="list" highlight={debouncedQuery} />
               ))}
               <div ref={sentinelRef} className="h-1" />
               {isFetchingNextPage ? (

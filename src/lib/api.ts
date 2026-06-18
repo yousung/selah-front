@@ -51,6 +51,19 @@ export interface ConfessionDetail {
   sections: Section[]
 }
 
+export interface ConfessionSearchResult {
+  confessionCode: string
+  confessionTitle: string
+  confessionType: string
+  sectionId: string
+  ordering: number
+  number: string | null
+  heading: string | null
+  question: string | null
+  contentSnippet: string
+  tags: Tag[]
+}
+
 // Catechism/Confession API functions
 export async function getConfessions(): Promise<ConfessionListItem[]> {
   const { data } = await api.get<ConfessionListItem[]>('/confessions')
@@ -59,5 +72,18 @@ export async function getConfessions(): Promise<ConfessionListItem[]> {
 
 export async function getConfession(code: string): Promise<ConfessionDetail> {
   const { data } = await api.get<ConfessionDetail>(`/confessions/${code}`)
+  return data
+}
+
+export async function searchConfessions(q: string, tag?: string): Promise<ConfessionSearchResult[]> {
+  const params = new URLSearchParams()
+  if (q) params.set('q', q)
+  if (tag) params.set('tag', tag)
+  const { data } = await api.get<ConfessionSearchResult[]>(`/confessions/search?${params}`)
+  return data
+}
+
+export async function getConfessionTags(): Promise<Tag[]> {
+  const { data } = await api.get<Tag[]>('/confessions/tags')
   return data
 }

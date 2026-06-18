@@ -2,6 +2,7 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import MiniPlayer from './MiniPlayer'
 import QueuePanel from './QueuePanel'
 import PwaInstallPrompt from './PwaInstallPrompt'
+import MyPlaylistsSheet from './MyPlaylistsSheet'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
@@ -118,6 +119,8 @@ export default function Layout() {
   }
 
   const isHymnTab = isActive('/')
+  const [fabOpen, setFabOpen] = useState(false)
+  const [myPlaylistsOpen, setMyPlaylistsOpen] = useState(false)
 
   return (
     <div className="flex min-h-dvh" style={{ background: 'var(--surface-0)' }}>
@@ -222,33 +225,155 @@ export default function Layout() {
           </div>
         )}
 
-        {/* ── Queue FAB (Hymn tab only) ── */}
-        {isHymnTab && queueIds.length > 0 && (
-          <button
-            className="fixed z-50 flex items-center justify-center rounded-full transition-transform active:scale-95"
-            style={{
-              right: 16,
-              bottom: showMini ? 170 : 80,
-              width: 46,
-              height: 46,
-              background: 'var(--primary-700)',
-              color: 'var(--white)',
-              boxShadow: '0 4px 16px rgba(61,107,68,0.35)',
-            }}
-            onClick={() => toggleQueue()}
-            aria-label="재생목록 열기"
-          >
-            <svg
-              width="18" height="18" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" strokeWidth={2.2}
-              strokeLinecap="round" strokeLinejoin="round"
+        {/* ── Speed-dial FAB (Hymn tab only) ── */}
+        {isHymnTab && (
+          <>
+            {/* Backdrop */}
+            {fabOpen && (
+              <div
+                className="fixed inset-0 z-40"
+                style={{ background: 'rgba(0,0,0,0.3)' }}
+                onClick={() => setFabOpen(false)}
+              />
+            )}
+
+            {/* Mini action: 내 재생목록 */}
+            <div
+              className="fixed z-50 flex items-center justify-end"
+              style={{
+                right: 16,
+                bottom: showMini ? 170 + 68 : 80 + 68,
+                opacity: fabOpen ? 1 : 0,
+                transform: fabOpen ? 'translateY(0) scale(1)' : 'translateY(16px) scale(0.85)',
+                transition: 'opacity 200ms ease, transform 200ms ease',
+                pointerEvents: fabOpen ? 'auto' : 'none',
+                gap: 8,
+              }}
             >
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="15" y2="18" />
-              <polyline points="17 15 21 18 17 21" />
-            </svg>
-          </button>
+              <span
+                className="text-xs font-semibold px-2.5 py-1.5 rounded-full select-none"
+                style={{
+                  background: 'var(--white)',
+                  color: 'var(--ink-0)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                내 재생목록
+              </span>
+              <button
+                className="flex items-center justify-center rounded-full active:scale-95 transition-transform"
+                style={{
+                  width: 56,
+                  height: 56,
+                  background: 'var(--white)',
+                  color: 'var(--primary-700)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+                  flexShrink: 0,
+                }}
+                onClick={() => { setFabOpen(false); setMyPlaylistsOpen(true) }}
+                aria-label="내 재생목록"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth={2.2}
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Mini action: 현재 재생목록 */}
+            <div
+              className="fixed z-50 flex items-center justify-end"
+              style={{
+                right: 16,
+                bottom: showMini ? 170 + 136 : 80 + 136,
+                opacity: fabOpen ? 1 : 0,
+                transform: fabOpen ? 'translateY(0) scale(1)' : 'translateY(16px) scale(0.85)',
+                transition: 'opacity 160ms ease 40ms, transform 160ms ease 40ms',
+                pointerEvents: fabOpen ? 'auto' : 'none',
+                gap: 8,
+              }}
+            >
+              <span
+                className="text-xs font-semibold px-2.5 py-1.5 rounded-full select-none"
+                style={{
+                  background: queueIds.length > 0 ? 'var(--white)' : 'rgba(255,255,255,0.55)',
+                  color: queueIds.length > 0 ? 'var(--ink-0)' : 'var(--ink-3)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                현재 재생목록
+              </span>
+              <button
+                disabled={queueIds.length === 0}
+                className="flex items-center justify-center rounded-full active:scale-95 transition-transform"
+                style={{
+                  width: 56,
+                  height: 56,
+                  background: queueIds.length > 0 ? 'var(--white)' : 'rgba(255,255,255,0.55)',
+                  color: queueIds.length > 0 ? 'var(--primary-700)' : 'var(--ink-3)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                  flexShrink: 0,
+                  opacity: queueIds.length === 0 ? 0.5 : 1,
+                }}
+                onClick={() => { setFabOpen(false); toggleQueue() }}
+                aria-label="현재 재생목록"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth={2.2}
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="15" y2="18" />
+                  <polyline points="17 15 21 18 17 21" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Main FAB */}
+            <button
+              className="fixed z-50 flex items-center justify-center rounded-full transition-transform active:scale-95"
+              style={{
+                right: 16,
+                bottom: showMini ? 170 : 80,
+                width: 56,
+                height: 56,
+                background: 'var(--primary-700)',
+                color: 'var(--white)',
+                boxShadow: '0 4px 16px rgba(61,107,68,0.35)',
+              }}
+              onClick={() => setFabOpen((o) => !o)}
+              aria-label={fabOpen ? '닫기' : '재생목록 메뉴'}
+            >
+              {fabOpen ? (
+                /* ✕ close icon */
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth={2.5}
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              ) : (
+                /* + icon */
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth={2.5}
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              )}
+            </button>
+
+            {/* My Playlists Sheet */}
+            {myPlaylistsOpen && (
+              <MyPlaylistsSheet onClose={() => setMyPlaylistsOpen(false)} />
+            )}
+          </>
         )}
 
         {/* ── Queue Panel ── */}
