@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
 import VideoCard from '@/components/VideoCard'
@@ -77,6 +77,45 @@ export default function SermonCategoryPage() {
   const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
   const total = data?.pages[0]?.total ?? 0
 
+  const [pendingJumpIndex, setPendingJumpIndex] = useState<number | null>(null)
+  const videoRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+
+  useEffect(() => {
+    if (pendingJumpIndex === null) return
+    const el = videoRefs.current.get(pendingJumpIndex)
+    if (!el) return
+    const offset = total > PAGE_LIMIT ? 104 : 64
+    const top = el.getBoundingClientRect().top + window.scrollY - offset
+    window.scrollTo({ top, behavior: 'smooth' })
+    setPendingJumpIndex(null)
+  }, [pendingJumpIndex, allVideos.length, total])
+
+  const handleJumpTo = useCallback(async (startIndex: number) => {
+    const neededPage = Math.ceil((startIndex + 1) / PAGE_LIMIT)
+    const loadedPages = data?.pages.length ?? 0
+    if (loadedPages >= neededPage) {
+      const el = videoRefs.current.get(startIndex)
+      if (el) {
+        const offset = total > PAGE_LIMIT ? 104 : 64
+        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' })
+      }
+    } else {
+      setPendingJumpIndex(startIndex)
+      for (let p = loadedPages; p < neededPage; p++) {
+        if (hasNextPage) await fetchNextPage()
+      }
+    }
+  }, [data?.pages.length, hasNextPage, fetchNextPage, total])
+
+  const pageChips: { label: string; startIndex: number }[] = []
+  if (total > PAGE_LIMIT) {
+    for (let i = 0; i < total; i += PAGE_LIMIT) {
+      const start = i + 1
+      const end = Math.min(i + PAGE_LIMIT, total)
+      pageChips.push({ label: `${start}~${end}편`, startIndex: i })
+    }
+  }
+
   const observerCb = useCallback(
     (entries: IntersectionObserverEntry[]) => {
       if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
@@ -152,6 +191,38 @@ export default function SermonCategoryPage() {
         </div>
       </header>
 
+      {/* 편수 점프 chip row */}
+      {pageChips.length > 0 && (
+        <div style={{
+          position: 'sticky', top: 56, zIndex: 9,
+          background: 'var(--white)',
+          borderBottom: '1px solid var(--divider)',
+          display: 'flex', gap: 6, padding: '8px 16px',
+          overflowX: 'auto',
+          msOverflowStyle: 'none', scrollbarWidth: 'none',
+        }}>
+          {pageChips.map((chip) => (
+            <button
+              key={chip.startIndex}
+              onClick={() => handleJumpTo(chip.startIndex)}
+              style={{
+                flexShrink: 0,
+                padding: '4px 12px',
+                borderRadius: 20,
+                border: '1px solid var(--divider)',
+                background: 'var(--surface-0)',
+                fontSize: 12, fontWeight: 600,
+                color: 'var(--ink-1)',
+                cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 하위 카테고리 */}
       {category && category.children.length > 0 && (
         <div style={{ padding: '12px 16px 4px' }}>
@@ -218,12 +289,16 @@ export default function SermonCategoryPage() {
           ) : (
             <>
               {allVideos.map((video, i) => (
-                <VideoCard
+                <div
                   key={video.id}
-                  video={{ ...video, hymnTitle: video.title, title: video.description ?? '', tag: null }}
-                  layout="list"
-                  onClick={() => handleVideoClick(video, i)}
-                />
+                  ref={(el) => { if (el) videoRefs.current.set(i, el); else videoRefs.current.delete(i) }}
+                >
+                  <VideoCard
+                    video={{ ...video, hymnTitle: video.title, title: video.description ?? '', tag: null }}
+                    layout="list"
+                    onClick={() => handleVideoClick(video, i)}
+                  />
+                </div>
               ))}
               <div ref={sentinelCallbackRef} style={{ height: 1 }} />
               {isFetchingNextPage && (
