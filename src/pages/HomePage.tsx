@@ -237,7 +237,7 @@ export default function HomePage() {
         sort: 'chapterAsc',
         search: debouncedQuery,
         searchField: 'titleChapter',
-        tag: 'HYMN',
+        excludeTag: 'SERMON',
       })
       const { data } = await api.get<VideoPage>(`/videos?${params}`)
       return data
