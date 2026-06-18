@@ -12,6 +12,7 @@ interface CategoryNode {
   ordering: number
   videoCount: number
   thumbnail: string | null
+  isCompleted: boolean
   children: CategoryNode[]
 }
 
@@ -111,6 +112,22 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
         <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>
           {total > 0 ? `${total}편` : '준비중'}
         </div>
+        {node.isCompleted && (
+          <div style={{
+            position: 'absolute', top: 6, right: 6,
+            padding: '2px 7px',
+            borderRadius: 4,
+            border: '1.5px solid rgba(220,38,38,0.85)',
+            color: 'rgba(220,38,38,0.95)',
+            fontSize: 10, fontWeight: 800,
+            background: 'rgba(255,255,255,0.88)',
+            letterSpacing: '0.05em',
+            transform: 'rotate(8deg)',
+            lineHeight: 1.4,
+          }}>
+            완결
+          </div>
+        )}
       </div>
       <div style={{
         marginTop: 7, fontSize: 13, fontWeight: 600,

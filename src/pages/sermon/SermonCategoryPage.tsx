@@ -11,6 +11,7 @@ interface CategoryNode {
   title: string
   ordering: number
   videoCount: number
+  isCompleted: boolean
   children: CategoryNode[]
 }
 
@@ -184,6 +185,21 @@ export default function SermonCategoryPage() {
               </svg>
             </button>
             <h1 style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink-0)' }}>{category?.title}</h1>
+            {category?.isCompleted && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 4,
+                border: '1.5px solid rgba(220,38,38,0.8)',
+                color: 'rgba(220,38,38,0.9)',
+                fontSize: 11, fontWeight: 800,
+                letterSpacing: '0.05em',
+                lineHeight: 1.4,
+                transform: 'rotate(4deg)',
+                display: 'inline-block',
+              }}>
+                완결
+              </span>
+            )}
           </div>
           {total > 0 && (
             <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>총 {total}편</span>
