@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState, useMemo, useRef } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { getSelahMenu, clearSelahMenu } from '@/lib/selahMenu'
@@ -11,6 +11,7 @@ import type { PlayMode } from '@/store/settingsStore'
 import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import TagBadge from '@/components/TagBadge'
+import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
 
 interface Video {
   id: string
@@ -293,6 +294,8 @@ function extractChapter(title: string): number {
 export default function PlayerPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const playerBase = location.pathname.startsWith('/sermon/player/') ? '/sermon/player' : '/player'
   const handleBack = () => {
     const menu = getSelahMenu()
     clearSelahMenu()
@@ -306,13 +309,19 @@ export default function PlayerPage() {
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const {
-    currentVideo, isPlaying, isLoading, position, duration, autoNextProgress, error,
+    currentVideo, isPlaying, isLoading, isEnded, position, duration, autoNextProgress, error,
     playVideo, togglePlay, seek, seekBy, cancelAutoNext, videoSlotRef,
   } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [imgErr, setImgErr] = useState(false)
   const isDraggingRef = useRef(false)
   const hasPlayedRef = useRef(false)
+  const resumePositionRef = useRef(0)
+  resumePositionRef.current = position
+  const resumeDurationRef = useRef(0)
+  resumeDurationRef.current = duration
+  const currentVideoRef = useRef(currentVideo)
+  currentVideoRef.current = currentVideo
 
   useEffect(() => {
     setDragValue(null)
@@ -366,7 +375,7 @@ export default function PlayerPage() {
     const { ids, index } = useQueueStore.getState()
     // queueStore.index가 현재 재생 중인 곡을 가리킬 때만 navigate (queue-driven)
     if (index < 0 || ids[index] !== currentVideo.id) return
-    navigate(`/player/${currentVideo.id}`, { replace: true })
+    navigate(`${playerBase}/${currentVideo.id}`, { replace: true })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideo?.id])
 
@@ -432,8 +441,10 @@ export default function PlayerPage() {
       { id: target.id, title: target.title, thumbnail: target.thumbnail, tag: target.tag, hymnTitle: target.hymnTitle, duration: target.duration, chapter: target.chapter },
       { autoPlay: true, skipRecentAdd: recentMode },
     )
-    navigate(`/player/${target.id}${recentMode ? '?recentMode=1' : ''}`)
+    navigate(`${playerBase}/${target.id}${recentMode ? '?recentMode=1' : ''}`)
   }, [queueIds, setQueue, recentMode, navigate, playVideo])
+
+  const sermonSeek = (location.state as { sermonSeek?: number } | null)?.sermonSeek
 
   useEffect(() => {
     if (!video) return
@@ -442,10 +453,62 @@ export default function PlayerPage() {
       hasPlayedRef.current = true
       playVideo(
         { id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle, duration: video.duration, chapter: video.chapter },
-        { autoPlay: autoPlayOnDetail },
+        { autoPlay: autoPlayOnDetail, seekTo: sermonSeek },
       )
     }
-  }, [autoPlayOnDetail, currentVideo?.id, playVideo, video])
+  }, [autoPlayOnDetail, currentVideo?.id, playVideo, video, sermonSeek])
+
+  // ── sermon resume: 5초마다 저장 ──────────────────────────────
+  const sermonStateCategoryId = (location.state as { categoryId?: string } | null)?.categoryId
+  const sermonStateCategoryTitle = (location.state as { categoryTitle?: string } | null)?.categoryTitle
+  useEffect(() => {
+    if (playerBase !== '/sermon/player' || !sermonStateCategoryId) return
+    const interval = setInterval(() => {
+      const pos = resumePositionRef.current
+      const dur = resumeDurationRef.current
+      const vid = currentVideoRef.current
+      if (pos > 0 && dur > 0 && vid) {
+        saveSermonResume({
+          videoId: vid.id,
+          videoTitle: vid.title,
+          categoryId: sermonStateCategoryId,
+          categoryTitle: sermonStateCategoryTitle,
+          position: pos,
+        })
+      }
+    }, 5000)
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerBase, sermonStateCategoryId, sermonStateCategoryTitle])
+
+  // ── sermon resume: 완료 시 삭제 ──────────────────────────────
+  useEffect(() => {
+    if (isEnded && playerBase === '/sermon/player') {
+      clearSermonResume()
+    }
+  }, [isEnded, playerBase])
+
+  // ── sermon resume: 큐 복원 ───────────────────────────────────
+  useEffect(() => {
+    if (recentMode || !id || !sermonStateCategoryId) return
+    if (queueIds.includes(id)) return
+    api.get<{ videos: { id: string; title: string; thumbnail: string | null; tag: string | null; duration?: number | null }[] }>(
+      `/sermon-categories/${sermonStateCategoryId}/videos?page=1&limit=500`,
+    ).then(({ data }) => {
+      if (data.videos.length > 0) {
+        const ids = data.videos.map((v) => v.id)
+        const idx = ids.indexOf(id)
+        const metas = data.videos.map((v) => ({
+          id: v.id, title: v.title, thumbnail: v.thumbnail,
+          tag: v.tag, type: 'SERMON', hymnTitle: v.title,
+          duration: v.duration ?? null,
+          playerPath: `/sermon/player/${v.id}`,
+        }))
+        setQueue(ids, idx !== -1 ? idx : 0, metas)
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recentMode, id, sermonStateCategoryId])
 
   const handleRetry = useCallback(() => {
     if (video) playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle, duration: video.duration })

@@ -9,6 +9,7 @@ interface VideoInfo {
   title: string
   thumbnail: string | null
   tag: string | null
+  type?: string | null
   hymnTitle?: string | null
   duration?: number | null
   chapter?: number | null
@@ -39,7 +40,7 @@ interface AudioContextValue {
   videoUrl: string | null
   reactPlayerRef: RefObject<HTMLVideoElement | null>
   videoSlotRef: RefObject<HTMLDivElement | null>
-  playVideo: (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean }) => Promise<void>
+  playVideo: (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number }) => Promise<void>
   stop: () => void
   togglePlay: () => void
   seek: (seconds: number) => void
@@ -240,7 +241,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       ['play', () => { setIsPlaying(true); setIsLoading(false) }],
       ['pause', () => setIsPlaying(false)],
       ['waiting', () => setIsLoading(true)],
-      ['canplay', () => setIsLoading(false)],
+      ['canplay', () => { applyPendingSeek(audio); setIsLoading(false) }],
       ['ended', () => { setIsPlaying(false); setIsEnded(true) }],
       ['error', () => { setError('재생 오류가 발생했습니다.'); setIsLoading(false) }],
     ]
@@ -253,7 +254,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [applyPendingSeek, syncPosition, updateActualDuration])
 
-  const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean }) => {
+  const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number }) => {
     const autoPlay = options?.autoPlay ?? true
     const isVideoMode = mediaModeRef.current === 'video'
 
@@ -266,6 +267,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       title: video.title,
       thumbnail: video.thumbnail,
       tag: video.tag,
+      type: video.type ?? null,
       hymnTitle: video.hymnTitle ?? null,
       duration: video.duration ?? null,
       chapter: video.chapter ?? null,
@@ -301,6 +303,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         if (!audio) return
         audio.src = data.url
         audio.volume = volume
+        if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
         if (!autoPlay) {
           audio.load()
           setIsLoading(false)

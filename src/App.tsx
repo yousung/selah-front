@@ -58,6 +58,8 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="playlist/:id" element={<PlaylistPage />} />
             <Route path="player/:id" element={<PlayerPage />} />
+            <Route path="hymn/player/:id" element={<PlayerPage />} />
+            <Route path="sermon/player/:id" element={<PlayerPage />} />
             <Route path="my-playlists" element={<MyPlaylistsPage />} />
             <Route path="my-playlists/:id" element={<MyPlaylistDetailPage />} />
             <Route path="search" element={<SearchPage />} />

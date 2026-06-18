@@ -6,6 +6,7 @@ export interface RecentItem {
   title: string
   thumbnail: string | null
   tag: string | null
+  type?: string | null
   hymnTitle?: string | null
   duration?: number | null
   chapter?: number | null

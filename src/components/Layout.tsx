@@ -81,7 +81,7 @@ export default function Layout() {
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const queueIds = useQueueStore((s) => s.ids)
   const location = useLocation()
-  const isHymnPlayerPage = location.pathname.startsWith('/player/')
+  const isHymnPlayerPage = location.pathname.startsWith('/player/') || location.pathname.startsWith('/hymn/player/')
   const isPlayerPage = isHymnPlayerPage || location.pathname.startsWith('/sermon/player/')
   const [miniDismissed, setMiniDismissed] = useState(false)
   const queueOpen = useQueueStore((s) => s.isOpen)
@@ -113,7 +113,7 @@ export default function Layout() {
 
   const isActive = (to: string) => {
     const p = location.pathname
-    if (to === '/') return p === '/' || p.startsWith('/playlist/') || p.startsWith('/player/')
+    if (to === '/') return p === '/' || p.startsWith('/playlist/') || p.startsWith('/player/') || p.startsWith('/hymn/player/')
     if (to === '/my') return p.startsWith('/my') || p === '/recent' || p === '/settings' || p === '/search'
     return p.startsWith(to)
   }

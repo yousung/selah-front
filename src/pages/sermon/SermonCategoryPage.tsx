@@ -142,12 +142,14 @@ export default function SermonCategoryPage() {
       title: v.title,
       thumbnail: v.thumbnail,
       tag: v.tag,
+      type: 'SERMON',
       hymnTitle: v.title,
       duration: v.duration ?? null,
+      playerPath: `/sermon/player/${v.id}`,
     }))
     setQueue(ids, index, metas)
-    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.title })
-    navigate(`/player/${video.id}`)
+    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, type: 'SERMON', hymnTitle: video.title })
+    navigate(`/sermon/player/${video.id}`, { state: { categoryId: id, categoryTitle: category?.title } })
   }
 
   if (catLoading) {

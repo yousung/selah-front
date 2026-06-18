@@ -1,10 +1,11 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { useAudio } from '@/contexts/AudioContext'
 import { useQueueStore } from '@/store/queueStore'
 import { setSelahMenu } from '@/lib/selahMenu'
+import { getSermonResume, clearSermonResume, type SermonResumeData } from '@/lib/sermonResume'
 
 interface CategoryNode {
   id: string
@@ -160,11 +161,12 @@ function VideoRowContent({ categoryId, accent }: { categoryId: string; accent: s
     const ids = videos.map((v) => v.id)
     const metas = videos.map((v) => ({
       id: v.id, title: v.title, thumbnail: v.thumbnail,
-      tag: null, hymnTitle: v.title, duration: v.duration ?? null,
+      tag: null, type: 'SERMON', hymnTitle: v.title, duration: v.duration ?? null,
+      playerPath: `/sermon/player/${v.id}`,
     }))
     setQueue(ids, index, metas)
-    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: null, hymnTitle: video.title })
-    navigate(`/player/${video.id}`)
+    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: null, type: 'SERMON', hymnTitle: video.title })
+    navigate(`/sermon/player/${video.id}`, { state: { categoryId } })
   }, [videos, setQueue, playVideo, navigate])
 
   if (isLoading) {
@@ -295,6 +297,8 @@ function SkeletonRows() {
 
 // ── 페이지 ────────────────────────────────────────────────────
 export default function SermonPage() {
+  const navigate = useNavigate()
+  const { currentVideo } = useAudio()
   const { data: categories, isLoading } = useQuery<CategoryNode[]>({
     queryKey: ['sermon-categories'],
     queryFn: async () => {
@@ -302,10 +306,31 @@ export default function SermonPage() {
       return data
     },
   })
+  const [resumeData, setResumeData] = useState<SermonResumeData | null>(null)
 
   useEffect(() => {
     setSelahMenu('/sermon')
+    if (currentVideo) return
+    const data = getSermonResume()
+    if (data) setResumeData(data)
   }, [])
+
+  const handleResume = () => {
+    if (!resumeData) return
+    setResumeData(null)
+    navigate(`/sermon/player/${resumeData.videoId}`, {
+      state: {
+        categoryId: resumeData.categoryId,
+        categoryTitle: resumeData.categoryTitle,
+        sermonSeek: resumeData.position,
+      },
+    })
+  }
+
+  const handleDismissResume = () => {
+    clearSermonResume()
+    setResumeData(null)
+  }
 
   return (
     <div style={{ background: 'var(--surface-0)', minHeight: '100dvh' }}>
@@ -333,6 +358,61 @@ export default function SermonPage() {
         .sermon-hscroll::-webkit-scrollbar { display: none; }
         .sermon-hscroll { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
+
+      {resumeData && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 200,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 24px',
+          }}
+          onClick={handleDismissResume}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              background: 'var(--white)',
+              borderRadius: 20,
+              padding: '28px 24px 24px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-700)', marginBottom: 4 }}>이어서 듣기</p>
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+              {resumeData.videoTitle}
+            </p>
+            <p style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 22 }}>
+              {formatDuration(Math.floor(resumeData.position))}까지 들으셨어요
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={handleResume}
+                style={{
+                  width: '100%', padding: '14px',
+                  background: 'var(--primary-700)', color: 'var(--white)',
+                  borderRadius: 12, fontSize: 15, fontWeight: 700,
+                  border: 'none', cursor: 'pointer',
+                }}
+              >
+                이어서 듣기
+              </button>
+              <button
+                onClick={handleDismissResume}
+                style={{
+                  width: '100%', padding: '14px',
+                  background: 'var(--surface-1)', color: 'var(--ink-1)',
+                  borderRadius: 12, fontSize: 15, fontWeight: 600,
+                  border: 'none', cursor: 'pointer',
+                }}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
