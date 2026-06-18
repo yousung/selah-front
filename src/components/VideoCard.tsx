@@ -9,6 +9,7 @@ interface Video {
   title: string
   thumbnail: string | null
   tag: string | null
+  type?: string | null
   chapter?: number | null
   hymnTitle?: string | null
   publishedAt?: string | null
@@ -62,7 +63,11 @@ function NewBadge() {
   )
 }
 
-function ChapterBadge({ chapter }: { chapter: number }) {
+function ChapterBadge({ chapter, type }: { chapter: number; type?: string | null }) {
+  const isHymn = type !== 'SERMON'
+  const label = isHymn
+    ? `${chapter}장`
+    : chapter === 0 ? '서론' : String(chapter)
   return (
     <span
       className="absolute top-1.5 left-1.5 text-white text-[10px] font-bold px-1.5 rounded"
@@ -72,7 +77,7 @@ function ChapterBadge({ chapter }: { chapter: number }) {
         letterSpacing: '0.02em',
       }}
     >
-      {chapter}장
+      {label}
     </span>
   )
 }
@@ -118,7 +123,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight }
             ) : (
               <div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--ink-3)' }}>♪</div>
             )}
-            {video.chapter != null && <ChapterBadge chapter={video.chapter} />}
+            {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
             {isNew && <NewBadge />}
             {dur && (
               <span className="absolute bottom-1 right-1 text-white text-[10px] font-semibold px-1 rounded"
@@ -166,7 +171,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight }
           ) : (
             <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--ink-3)' }}>♪</div>
           )}
-          {video.chapter != null && <ChapterBadge chapter={video.chapter} />}
+          {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
           {isNew && <NewBadge />}
           {dur && (
             <span className="absolute bottom-1.5 right-1.5 text-white font-semibold rounded"
