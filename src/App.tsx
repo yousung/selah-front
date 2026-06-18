@@ -13,6 +13,7 @@ import RecentPage from '@/pages/RecentPage'
 import SettingsPage from '@/pages/SettingsPage'
 import Layout from '@/components/Layout'
 import SermonPage from '@/pages/sermon/SermonPage'
+import SermonCategoryPage from '@/pages/sermon/SermonCategoryPage'
 import CatechismPage from '@/pages/CatechismPage'
 import CatechismDetailPage from '@/pages/CatechismDetailPage'
 import MyPage from '@/pages/MyPage'
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="recent" element={<RecentPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="sermon" element={<SermonPage />} />
+            <Route path="sermon/category/:id" element={<SermonCategoryPage />} />
             <Route path="catechism" element={<CatechismPage />} />
             <Route path="catechism/:code" element={<CatechismDetailPage />} />
             <Route path="my" element={<MyPage />} />

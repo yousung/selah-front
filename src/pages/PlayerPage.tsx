@@ -17,6 +17,7 @@ interface Video {
   title: string
   thumbnail: string | null
   tag: string | null
+  type?: string | null
   duration?: number | null
   chapter?: number | null
   hymnTitle?: string | null
@@ -125,7 +126,13 @@ function LyricsSection({ lyric, isInTab = false }: { lyric?: Lyric | null; isInT
 }
 
 function DescriptionSection({ description }: { description?: string | null }) {
-  if (!description || description.trim().length === 0) return null
+  if (!description || description.trim().length === 0) {
+    return (
+      <div className="mx-auto" style={{ maxWidth: '640px' }}>
+        <p className="text-sm leading-[1.9] text-center" style={{ color: 'var(--ink-3)' }}>준비중입니다.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto" style={{ maxWidth: '640px' }}>
@@ -141,7 +148,7 @@ function LyricsDescriptionTabs({ lyric, description }: { lyric?: Lyric | null; d
     lyric.verse9, lyric.verse10, lyric.verse11, lyric.verse12,
   ].some(Boolean)
 
-  const hasDescription = description && description.trim().length > 0
+  const hasDescription = true
 
   // If neither, render nothing
   if (!hasLyrics && !hasDescription) return null
@@ -327,7 +334,7 @@ export default function PlayerPage() {
     enabled: !!id,
   })
 
-  const lyric = video?.lyric ?? null
+  const lyric = video?.type === 'SERMON' ? null : (video?.lyric ?? null)
 
   const recentMode = searchParams.get('recentMode') === '1'
 

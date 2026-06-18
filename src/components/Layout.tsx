@@ -118,7 +118,7 @@ export default function Layout() {
     return p.startsWith(to)
   }
 
-  const isHymnTab = isActive('/')
+  const isHymnTab = isActive('/') || isActive('/sermon')
   const [fabOpen, setFabOpen] = useState(false)
   const [myPlaylistsOpen, setMyPlaylistsOpen] = useState(false)
 
