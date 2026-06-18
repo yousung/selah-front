@@ -38,6 +38,17 @@ function groupResults(results: ConfessionSearchResult[]): ResultGroup[] {
   return order.map((code) => groupMap.get(code)!)
 }
 
+/** Collect unique tags (by id) from any tagged sources, sorted by name */
+function uniqueTags(sources: Array<{ tags?: Tag[] | null }>): Tag[] {
+  const seen = new Map<string, Tag>()
+  for (const s of sources) {
+    for (const tag of s.tags ?? []) {
+      if (!seen.has(tag.id)) seen.set(tag.id, tag)
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name))
+}
+
 function resultLabel(item: ConfessionSearchResult): string {
   if (item.number != null) {
     return `${item.number}문`
@@ -88,7 +99,7 @@ export default function CatechismSearchSheet({
   const isLocalMode = !!localSections
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [activeTags, setActiveTags] = useState<string[]>([])
   const [jumpValue, setJumpValue] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const jumpDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -153,25 +164,39 @@ export default function CatechismSearchSheet({
     enabled: !isLocalMode,
   })
 
-  const hasCriteria = isSearchable(debouncedQuery) || !!activeTag
+  const hasCriteria = isSearchable(debouncedQuery) || activeTags.length > 0
 
   const { data: remoteResults, isLoading: remoteLoading } = useQuery({
-    queryKey: ['confession-search', debouncedQuery, activeTag],
-    queryFn: () => searchConfessions(debouncedQuery, activeTag ?? undefined),
+    queryKey: ['confession-search', debouncedQuery, activeTags.join(',')],
+    queryFn: () => searchConfessions(debouncedQuery, activeTags),
     enabled: !isLocalMode && hasCriteria,
+  })
+
+  // Remote: tag universe scoped to the text query only (stable across tag toggles).
+  // queryKey matches the combined search when no tags are active → shares cache, no extra fetch.
+  const { data: remoteTextResults } = useQuery({
+    queryKey: ['confession-search', debouncedQuery, ''],
+    queryFn: () => searchConfessions(debouncedQuery),
+    enabled: !isLocalMode && isSearchable(debouncedQuery),
   })
 
   // ── Local mode: derive tags + filter sections client-side (text search only) ──
   const localTags = useMemo<Tag[]>(() => {
     if (!isLocalMode || !localSections) return []
-    const seen = new Map<string, Tag>()
-    for (const section of localSections) {
-      for (const tag of section.tags ?? []) {
-        if (!seen.has(tag.id)) seen.set(tag.id, tag)
-      }
-    }
-    return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name))
+    return uniqueTags(localSections)
   }, [isLocalMode, localSections])
+
+  // Local: sections matching the text query only (ignores activeTag) — for scoped tag chips
+  const localTextResults = useMemo<Section[]>(() => {
+    if (!isLocalMode || !localSections || !isSearchable(debouncedQuery)) return []
+    const q = debouncedQuery.trim().toLowerCase()
+    return localSections.filter(
+      (section) =>
+        !!section.question?.toLowerCase().includes(q) ||
+        !!section.content?.toLowerCase().includes(q) ||
+        !!section.heading?.toLowerCase().includes(q),
+    )
+  }, [isLocalMode, localSections, debouncedQuery])
 
   const localResults = useMemo<ConfessionSearchResult[]>(() => {
     if (!isLocalMode || !localSections) return []
@@ -179,9 +204,10 @@ export default function CatechismSearchSheet({
     const q = debouncedQuery.trim().toLowerCase()
     return localSections
       .filter((section) => {
+        const sectionTagNames = (section.tags ?? []).map((t) => t.name)
         const matchesTag =
-          !activeTag ||
-          (section.tags ?? []).some((t) => t.name === activeTag)
+          activeTags.length === 0 ||
+          activeTags.every((name) => sectionTagNames.includes(name))
         const matchesQuery =
           !isSearchable(debouncedQuery) ||
           !!section.question?.toLowerCase().includes(q) ||
@@ -190,10 +216,18 @@ export default function CatechismSearchSheet({
         return matchesTag && matchesQuery
       })
       .map((section) => sectionToResult(section, confessionCode, confessionTitle, debouncedQuery))
-  }, [isLocalMode, localSections, debouncedQuery, activeTag, hasCriteria, confessionCode, confessionTitle])
+  }, [isLocalMode, localSections, debouncedQuery, activeTags, hasCriteria, confessionCode, confessionTitle])
 
   // ── Unified values for rendering ──
-  const tags = isLocalMode ? localTags : (remoteTags ?? [])
+  // When a text query is active, scope tag chips to tags present in the matched
+  // results; otherwise show the full tag list (browse mode).
+  const tags = useMemo<Tag[]>(() => {
+    const searchable = isSearchable(debouncedQuery)
+    if (isLocalMode) {
+      return searchable ? uniqueTags(localTextResults) : localTags
+    }
+    return searchable ? uniqueTags(remoteTextResults ?? []) : (remoteTags ?? [])
+  }, [isLocalMode, debouncedQuery, localTextResults, localTags, remoteTextResults, remoteTags])
   const isLoading = isLocalMode ? false : remoteLoading
   const groups = useMemo(
     () => groupResults(isLocalMode ? localResults : (remoteResults ?? [])),
@@ -201,7 +235,13 @@ export default function CatechismSearchSheet({
   )
 
   const toggleTag = (name: string) => {
-    setActiveTag((prev) => (prev === name ? null : name))
+    setActiveTags((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    )
+  }
+
+  const removeTag = (name: string) => {
+    setActiveTags((prev) => prev.filter((n) => n !== name))
   }
 
   const handleResultClick = (item: ConfessionSearchResult) => {
@@ -222,22 +262,23 @@ export default function CatechismSearchSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col"
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
       style={{ background: 'rgba(0,0,0,0.45)', animation: 'fadeIn 0.2s ease-out' }}
       onClick={handleBackdrop}
     >
       <style>{`
         @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
-        @keyframes slideUp { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
+        @keyframes popIn { 0% { opacity: 0; transform: translateY(8px) scale(0.98); } 100% { opacity: 1; transform: none; } }
       `}</style>
       <div
-        className="mt-auto w-full flex flex-col"
+        className="w-full flex flex-col"
         style={{
           background: 'var(--white)',
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          maxHeight: '88dvh',
-          animation: 'slideUp 0.3s ease-out',
+          borderRadius: 16,
+          width: '100%',
+          maxWidth: 480,
+          height: '90dvh',
+          animation: 'popIn 0.25s ease-out',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -302,6 +343,38 @@ export default function CatechismSearchSheet({
             ✕
           </button>
         </div>
+
+        {/* Selected tags — removable chips */}
+        {activeTags.length > 0 && (
+          <div
+            className="flex-shrink-0 px-4 py-2"
+            style={{ borderBottom: '1px solid var(--divider)', display: 'flex', gap: 6, flexWrap: 'wrap' }}
+          >
+            {activeTags.map((name) => (
+              <button
+                key={name}
+                onClick={() => removeTag(name)}
+                aria-label={`${name} 태그 제거`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '4px 8px 4px 12px',
+                  borderRadius: 20,
+                  background: 'var(--primary-800)',
+                  color: 'var(--white)',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                {name}
+                <span style={{ fontSize: 14, lineHeight: 1, opacity: 0.85 }}>✕</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Results */}
         <div className="overflow-y-auto flex-1" style={{ minHeight: 120 }}>
@@ -398,21 +471,32 @@ export default function CatechismSearchSheet({
                       )}
                       {item.tags && item.tags.length > 0 && (
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                          {item.tags.map((tag) => (
-                            <span
-                              key={tag.id}
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 500,
-                                padding: '2px 8px',
-                                borderRadius: 12,
-                                background: 'var(--primary-50)',
-                                color: 'var(--primary-700)',
-                              }}
-                            >
-                              {tag.name}
-                            </span>
-                          ))}
+                          {item.tags.map((tag) => {
+                            const isActive = activeTags.includes(tag.name)
+                            return (
+                              <span
+                                key={tag.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  // Tag click adds the tag to the search filter — not navigation.
+                                  e.stopPropagation()
+                                  toggleTag(tag.name)
+                                }}
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 500,
+                                  padding: '2px 8px',
+                                  borderRadius: 12,
+                                  background: isActive ? 'var(--primary-800)' : 'var(--primary-50)',
+                                  color: isActive ? 'var(--white)' : 'var(--primary-700)',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {tag.name}
+                              </span>
+                            )
+                          })}
                         </div>
                       )}
                     </button>
@@ -431,7 +515,7 @@ export default function CatechismSearchSheet({
           >
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxHeight: 96, overflowY: 'auto' }}>
               {tags.map((tag) => {
-                const isActive = activeTag === tag.name
+                const isActive = activeTags.includes(tag.name)
                 return (
                   <button
                     key={tag.id}

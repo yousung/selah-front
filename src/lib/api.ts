@@ -75,10 +75,11 @@ export async function getConfession(code: string): Promise<ConfessionDetail> {
   return data
 }
 
-export async function searchConfessions(q: string, tag?: string): Promise<ConfessionSearchResult[]> {
+export async function searchConfessions(q: string, tags?: string[]): Promise<ConfessionSearchResult[]> {
   const params = new URLSearchParams()
   if (q) params.set('q', q)
-  if (tag) params.set('tag', tag)
+  const tagList = (tags ?? []).filter(Boolean)
+  if (tagList.length > 0) params.set('tag', tagList.join(','))
   const { data } = await api.get<ConfessionSearchResult[]>(`/confessions/search?${params}`)
   return data
 }

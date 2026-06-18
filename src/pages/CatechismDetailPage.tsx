@@ -130,7 +130,7 @@ function TocList({ tocGroups, sectionAnchors, onItemClick, isMobile }: TocListPr
   )
 }
 
-function SectionRenderer({ section, onTagClick, sectionAnchor }: { section: Section; onTagClick: (tag: string) => void; sectionAnchor: string }) {
+function SectionRenderer({ section, onTagClick, sectionAnchor, activeTags = [] }: { section: Section; onTagClick: (tag: string) => void; sectionAnchor: string; activeTags?: string[] }) {
   const showCatechismHeadings = useSettingsStore((s) => s.showCatechismHeadings)
   const hasQuestion = section.question && section.question.trim().length > 0
   const headingEqualQuestion = section.heading && section.question && section.heading.trim() === section.question.trim()
@@ -193,31 +193,34 @@ function SectionRenderer({ section, onTagClick, sectionAnchor }: { section: Sect
 
       {section.tags && section.tags.length > 0 && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {section.tags.map((tag) => (
-            <button
-              key={tag.id}
-              onClick={() => onTagClick(tag.name)}
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                padding: '4px 10px',
-                borderRadius: 14,
-                background: 'var(--primary-50)',
-                color: 'var(--primary-700)',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--primary-100)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--primary-50)'
-              }}
-            >
-              {tag.name}
-            </button>
-          ))}
+          {section.tags.map((tag) => {
+            const isActive = activeTags.includes(tag.name)
+            return (
+              <button
+                key={tag.id}
+                onClick={() => onTagClick(tag.name)}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: '4px 10px',
+                  borderRadius: 14,
+                  background: isActive ? 'var(--primary-800)' : 'var(--primary-50)',
+                  color: isActive ? 'var(--white)' : 'var(--primary-700)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.background = 'var(--primary-100)'
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.background = 'var(--primary-50)'
+                }}
+              >
+                {tag.name}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
@@ -230,7 +233,7 @@ export default function CatechismDetailPage() {
   const location = useLocation()
   const { currentVideo } = useAudio()
   const showCatechismToc = useSettingsStore((s) => s.showCatechismToc)
-  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null)
+  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([])
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
   const [tocOpen, setTocOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -262,17 +265,19 @@ export default function CatechismDetailPage() {
 
     let filtered = confession.sections
 
-    // Filter by active tag filter (only from tag click, no search input)
-    if (activeTagFilter) {
+    // Filter by active tag filters (only from tag click, no search input) — AND across all.
+    if (activeTagFilters.length > 0) {
       filtered = filtered.filter((section) =>
-        section.tags.some((tag) =>
-          tag.name.toLowerCase().includes(activeTagFilter.toLowerCase())
+        activeTagFilters.every((filter) =>
+          section.tags.some((tag) =>
+            tag.name.toLowerCase().includes(filter.toLowerCase())
+          )
         )
       )
     }
 
     return filtered
-  }, [confession?.sections, activeTagFilter])
+  }, [confession?.sections, activeTagFilters])
 
   // Generate unique stable anchors for all sections
   const sectionAnchors = useMemo(() => {
@@ -367,11 +372,9 @@ export default function CatechismDetailPage() {
   const hasHeadings = tocGroups.some((g) => g.items.length > 0 || (g.majorSection && g.majorSection.trim().length > 0))
 
   const handleTagClick = (tagName: string) => {
-    if (activeTagFilter === tagName) {
-      setActiveTagFilter(null)
-    } else {
-      setActiveTagFilter(tagName)
-    }
+    setActiveTagFilters((prev) =>
+      prev.includes(tagName) ? prev.filter((n) => n !== tagName) : [...prev, tagName],
+    )
   }
 
   const handleSearchSelect = useCallback((sectionId: string) => {
@@ -482,8 +485,8 @@ export default function CatechismDetailPage() {
         </div>
       </header>
 
-      {/* Active Filter Display Bar */}
-      {confession && activeTagFilter && (
+      {/* Active Filter Display Bar — multiple tags, each removable */}
+      {confession && activeTagFilters.length > 0 && (
         <div
           style={{
             background: 'var(--surface-1)',
@@ -493,12 +496,34 @@ export default function CatechismDetailPage() {
             padding: '12px 16px',
           }}
         >
-          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
-            <span style={{ color: 'var(--ink-1)' }}>
-              태그: <span style={{ fontWeight: 600, color: 'var(--primary-700)' }}>{activeTagFilter}</span>
-            </span>
+          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 13 }}>
+            <span style={{ color: 'var(--ink-1)', flexShrink: 0 }}>태그:</span>
+            {activeTagFilters.map((name) => (
+              <button
+                key={name}
+                onClick={() => handleTagClick(name)}
+                aria-label={`${name} 태그 제거`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '4px 8px 4px 12px',
+                  borderRadius: 20,
+                  background: 'var(--primary-800)',
+                  color: 'var(--white)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease',
+                }}
+              >
+                {name}
+                <span style={{ fontSize: 14, lineHeight: 1, opacity: 0.85 }}>✕</span>
+              </button>
+            ))}
             <button
-              onClick={() => setActiveTagFilter(null)}
+              onClick={() => setActiveTagFilters([])}
               style={{
                 fontSize: 12,
                 fontWeight: 600,
@@ -508,18 +533,11 @@ export default function CatechismDetailPage() {
                 color: 'var(--ink-1)',
                 border: 'none',
                 cursor: 'pointer',
-                transition: 'background 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--surface-3)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--surface-2)'
               }}
             >
-              ✕
+              전체 해제
             </button>
-            <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+            <span style={{ fontSize: 12, color: 'var(--ink-2)', marginLeft: 'auto' }}>
               {filteredSections.length}개
             </span>
           </div>
@@ -620,7 +638,7 @@ export default function CatechismDetailPage() {
           </div>
         ) : confession ? (
           <>
-            {!activeTagFilter && (
+            {activeTagFilters.length === 0 && (
               <div style={{ marginBottom: 24 }}>
                 <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 8, fontFamily: 'var(--font-serif)' }}>
                   {confession.title}
@@ -638,7 +656,7 @@ export default function CatechismDetailPage() {
               </div>
             )}
 
-            <div style={{ borderTop: activeTagFilter ? 'none' : '1px solid var(--divider)', paddingTop: activeTagFilter ? 0 : 24 }}>
+            <div style={{ borderTop: activeTagFilters.length > 0 ? 'none' : '1px solid var(--divider)', paddingTop: activeTagFilters.length > 0 ? 0 : 24 }}>
               {filteredSections.length > 0 ? (
                 <>
                   {filteredSections.map((section, idx) => {
@@ -671,6 +689,7 @@ export default function CatechismDetailPage() {
                           section={section}
                           onTagClick={handleTagClick}
                           sectionAnchor={sectionAnchors.get(section.id) || `sec-${section.id}`}
+                          activeTags={activeTagFilters}
                         />
                       </div>
                     )
