@@ -219,6 +219,7 @@ function CategoryRow({ node, accent }: { node: CategoryNode; accent: string }) {
   const navigate = useNavigate()
   const isLeaf = node.children.length === 0
   const total = subtreeVideoCount(node)
+  const hasContent = isLeaf ? total > 0 : node.children.length > 0
 
   return (
     <section style={{ marginBottom: 36 }}>
@@ -234,22 +235,24 @@ function CategoryRow({ node, accent }: { node: CategoryNode; accent: string }) {
             {isLeaf ? (total > 0 ? `${total}편` : '준비중') : `${node.children.length}개 시리즈`}
           </span>
         </div>
-        <button
-          onClick={() => navigate(`/sermon/category/${node.id}`)}
-          style={{
-            fontSize: 13, fontWeight: 600, color: accent,
-            background: 'none', border: 'none', cursor: 'pointer',
-            padding: '4px 0',
-            display: 'flex', alignItems: 'center', gap: 2,
-          }}
-        >
-          전체보기
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth={2.5}
-            strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
+        {hasContent && (
+          <button
+            onClick={() => navigate(`/sermon/category/${node.id}`)}
+            style={{
+              fontSize: 13, fontWeight: 600, color: accent,
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: '4px 0',
+              display: 'flex', alignItems: 'center', gap: 2,
+            }}
+          >
+            전체보기
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth={2.5}
+              strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* 콘텐츠 */}
