@@ -2,8 +2,10 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback, Re
 import { useSettingsStore } from '@/store/settingsStore'
 import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
+import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { api } from '@/lib/api'
-import { getCachedMediaPlaybackUrl, isOpfsSupported } from '@/lib/mediaStore'
+import { deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT } from '@/lib/mediaStore'
+import type { MediaDownloadedDetail } from '@/lib/mediaStore'
 
 interface VideoInfo {
   id: string
@@ -22,9 +24,11 @@ interface VideoDetail {
   title: string
   thumbnail: string | null
   tag: string | null
+  type?: string | null
   hymnTitle?: string | null
   chapter?: number | null
   duration?: number | null
+  playerPath?: string | null
   lyric?: { hymnTitle?: string | null } | null
 }
 
@@ -120,8 +124,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [volume, setVolume] = useState(1)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const currentVideoDataRef = useRef<VideoInfo | null>(null)
+  const playVideoRef = useRef<AudioContextValue['playVideo'] | null>(null)
+  const localPlaybackRef = useRef<{ id: string; type: 'audio' | 'video' } | null>(null)
+  const localFallbackInProgressRef = useRef(false)
   const isPlayingRef = useRef(false)
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
+  useEffect(() => { currentVideoDataRef.current = currentVideo }, [currentVideo])
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentVideo) return
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
@@ -214,10 +223,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (reactPlayerRef.current) { reactPlayerRef.current.pause(); reactPlayerRef.current.src = '' }
     clearMediaSessionMetadata()
     cancelAutoNext()
+    localPlaybackRef.current = null
+    localFallbackInProgressRef.current = false
     pendingAutoPlayRef.current = false
     pendingSeekRef.current = null
     setVideoUrl(null)
     setCurrentVideo(null)
+    currentVideoDataRef.current = null
     currentVideoIdRef.current = null
     hasAuthoritativeDurationRef.current = false
     setIsPlaying(false)
@@ -245,7 +257,30 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       ['waiting', () => setIsLoading(true)],
       ['canplay', () => { applyPendingSeek(audio); setIsLoading(false) }],
       ['ended', () => { setIsPlaying(false); setIsEnded(true) }],
-      ['error', () => { setError('재생 오류가 발생했습니다.'); setIsLoading(false) }],
+      ['error', () => {
+        const localPlayback = localPlaybackRef.current
+        const activeVideo = currentVideoDataRef.current
+        if (localPlayback && activeVideo?.id === localPlayback.id && !localFallbackInProgressRef.current) {
+          const seekTo = positionRef.current
+          localFallbackInProgressRef.current = true
+          localPlaybackRef.current = null
+          audio.pause()
+          audio.src = ''
+          void deleteMedia(localPlayback.id, localPlayback.type)
+            .finally(() => useCachedMediaStore.getState().refresh())
+            .finally(() => {
+              setError(null)
+              void playVideoRef.current?.(activeVideo, {
+                autoPlay: true,
+                skipRecentAdd: true,
+                seekTo,
+              }).finally(() => { localFallbackInProgressRef.current = false })
+            })
+          return
+        }
+        setError('재생 오류가 발생했습니다.')
+        setIsLoading(false)
+      }],
     ]
 
     handlers.forEach(([event, handler]) => audio.addEventListener(event, handler))
@@ -262,6 +297,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const isVideoMode = mediaModeRef.current === 'video'
 
     cancelAutoNext()
+    currentVideoDataRef.current = video
     setCurrentVideo(video)
     updateMediaSessionMetadata(video)
     currentVideoIdRef.current = video.id
@@ -292,8 +328,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         if (localUrl) {
           if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
           if (localUrl.startsWith('blob:')) blobUrlRef.current = localUrl
+          localPlaybackRef.current = { id: video.id, type: mediaType }
           if (isVideoMode) {
             pendingAutoPlayRef.current = autoPlay
+            if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
             setVideoUrl(localUrl)
             if (!autoPlay) setIsLoading(false)
           } else {
@@ -327,10 +365,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         setDuration(streamDuration)
       }
       if (isVideoMode) {
+        localPlaybackRef.current = null
         pendingAutoPlayRef.current = autoPlay
+        if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
         setVideoUrl(data.url)
         if (!autoPlay) setIsLoading(false)
       } else {
+        localPlaybackRef.current = null
         setVideoUrl(null)
         const audio = audioRef.current
         if (!audio) return
@@ -354,6 +395,32 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [cancelAutoNext, volume])
 
+  useEffect(() => {
+    playVideoRef.current = playVideo
+  }, [playVideo])
+
+  useEffect(() => {
+    const handleMediaDownloaded = (event: Event) => {
+      const detail = (event as CustomEvent<MediaDownloadedDetail>).detail
+      const activeVideo = currentVideoDataRef.current
+      if (!detail || !activeVideo) return
+      if (activeVideo.type !== 'SERMON') return
+      if (activeVideo.id !== detail.id) return
+
+      const activeMediaType = mediaModeRef.current === 'video' ? 'video' : 'audio'
+      if (detail.type !== activeMediaType) return
+
+      void playVideo(activeVideo, {
+        autoPlay: isPlayingRef.current,
+        skipRecentAdd: true,
+        seekTo: positionRef.current,
+      })
+    }
+
+    window.addEventListener(MEDIA_DOWNLOADED_EVENT, handleMediaDownloaded)
+    return () => window.removeEventListener(MEDIA_DOWNLOADED_EVENT, handleMediaDownloaded)
+  }, [playVideo])
+
   const stop = useCallback(() => {
     cancelAutoNext()
     pendingAutoPlayRef.current = false
@@ -365,7 +432,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       const audio = audioRef.current
       if (audio) { audio.pause(); audio.src = '' }
     }
+    localPlaybackRef.current = null
+    localFallbackInProgressRef.current = false
     setCurrentVideo(null)
+    currentVideoDataRef.current = null
     clearMediaSessionMetadata()
     currentVideoIdRef.current = null
     hasAuthoritativeDurationRef.current = false
@@ -469,7 +539,30 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setIsEnded(true)
   }, [])
 
-  const onVideoError = useCallback(() => { setError('비디오 재생 오류가 발생했습니다.'); setIsLoading(false) }, [])
+  const onVideoError = useCallback(() => {
+    const localPlayback = localPlaybackRef.current
+    const activeVideo = currentVideoDataRef.current
+    const video = reactPlayerRef.current
+    if (localPlayback && activeVideo?.id === localPlayback.id && !localFallbackInProgressRef.current) {
+      const seekTo = positionRef.current
+      localFallbackInProgressRef.current = true
+      localPlaybackRef.current = null
+      if (video) { video.pause(); video.src = ''; video.load() }
+      void deleteMedia(localPlayback.id, localPlayback.type)
+        .finally(() => useCachedMediaStore.getState().refresh())
+        .finally(() => {
+          setError(null)
+          void playVideoRef.current?.(activeVideo, {
+            autoPlay: true,
+            skipRecentAdd: true,
+            seekTo,
+          }).finally(() => { localFallbackInProgressRef.current = false })
+        })
+      return
+    }
+    setError('비디오 재생 오류가 발생했습니다.')
+    setIsLoading(false)
+  }, [])
 
   const restartCurrentMedia = useCallback(() => {
     const video = reactPlayerRef.current
@@ -504,6 +597,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setIsLoading(true)
 
       // 2) async 작업
+      const targetMeta = useQueueStore.getState().videos[targetIndex]
       const { data } = await api.get<VideoDetail>(`/videos/${targetId}`)
       const dbDuration = normalizeDbDuration(data.duration)
       hasAuthoritativeDurationRef.current = dbDuration != null
@@ -516,9 +610,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         title: data.title,
         thumbnail: data.thumbnail,
         tag: data.tag,
-        hymnTitle: data.lyric?.hymnTitle ?? data.hymnTitle,
-        duration: data.duration,
-        chapter: data.chapter,
+        type: targetMeta?.type ?? data.type ?? null,
+        hymnTitle: targetMeta?.hymnTitle ?? data.lyric?.hymnTitle ?? data.hymnTitle,
+        duration: data.duration ?? targetMeta?.duration ?? null,
+        chapter: data.chapter ?? targetMeta?.chapter ?? null,
+        playerPath: targetMeta?.playerPath ?? data.playerPath ?? undefined,
       }, { autoPlay: true })
     } catch {
       setError('다음 곡을 불러올 수 없습니다.')

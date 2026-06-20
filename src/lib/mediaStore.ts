@@ -3,6 +3,7 @@ import { clearSermonResume } from '@/lib/sermonResume'
 
 const DB_NAME = 'selah-media'
 const DB_VERSION = 1
+const CACHE_FORMAT_VERSION = 2
 
 export interface FileEntry {
   id: string
@@ -12,6 +13,7 @@ export interface FileEntry {
   downloadedAt: number
   lastPlayedAt: number
   status: 'downloading' | 'complete'
+  formatVersion?: number
 }
 
 export interface StorageInfo {
@@ -19,6 +21,14 @@ export interface StorageInfo {
   limit: number | null
   count: number
   entries: FileEntry[]
+}
+
+export const MEDIA_DOWNLOADED_EVENT = 'selah-media-downloaded'
+
+export interface MediaDownloadedDetail {
+  id: string
+  type: 'audio' | 'video'
+  cacheKey: string
 }
 
 // ── IDB helpers ───────────────────────────────────────────────────────────────
@@ -95,6 +105,44 @@ async function getMediaDir(create = false): Promise<FileSystemDirectoryHandle> {
   return root.getDirectoryHandle('media', { create })
 }
 
+async function removeMediaCacheKey(cacheKey: string): Promise<void> {
+  await idbDelete('files', cacheKey)
+  try {
+    const mediaDir = await getMediaDir(false)
+    await mediaDir.removeEntry(cacheKey)
+  } catch {}
+}
+
+function mediaTypeFromCacheKey(cacheKey: string): 'audio' | 'video' {
+  return cacheKey.endsWith('-video') ? 'video' : 'audio'
+}
+
+function isLegacyAudioCache(entry: FileEntry, type: 'audio' | 'video'): boolean {
+  return type === 'audio' && entry.mimeType === 'audio/mpeg' && entry.formatVersion !== CACHE_FORMAT_VERSION
+}
+
+function canPlayDownloadedMime(type: 'audio' | 'video', mimeType: string): boolean {
+  if (typeof document === 'undefined') return true
+  const media = document.createElement(type)
+  return media.canPlayType(mimeType) !== ''
+}
+
+function isIosWebKit(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
+async function getUsableCompleteEntry(id: string, type: 'audio' | 'video'): Promise<FileEntry | null> {
+  const cacheKey = `${id}-${type}`
+  const entry = await idbGet<FileEntry>('files', cacheKey)
+  if (!entry || entry.status !== 'complete') return null
+  if (isLegacyAudioCache(entry, type)) {
+    await removeMediaCacheKey(cacheKey)
+    return null
+  }
+  return entry
+}
+
 // ── Public utils ──────────────────────────────────────────────────────────────
 
 export function isPwa(): boolean {
@@ -131,6 +179,11 @@ export function canInstallPwa(): boolean {
   return isIos && isSafari
 }
 
+function notifyMediaDownloaded(detail: MediaDownloadedDetail) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(MEDIA_DOWNLOADED_EVENT, { detail }))
+}
+
 export function getServiceWorkerMediaUrl(id: string, type: 'audio' | 'video'): string {
   const base = import.meta.env.BASE_URL || '/'
   const root = base.endsWith('/') ? base : `${base}/`
@@ -145,11 +198,38 @@ export function canUseServiceWorkerMediaUrl(): boolean {
   )
 }
 
+/**
+ * 콜드런치/첫 설치/SW 업데이트 직후엔 navigator.serviceWorker.controller가 잠시 null인
+ * 윈도우가 있다. 그 사이 다운로드된 미디어가 스트림으로 폴백되는 걸 막기 위해, SW가
+ * 페이지 제어를 확보할 때까지 (timeoutMs 내) 기다린다. 제어 확보 여부를 반환.
+ */
+async function ensureServiceWorkerControl(timeoutMs = 3000): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return false
+  if (navigator.serviceWorker.controller) return true
+  try {
+    await navigator.serviceWorker.ready
+  } catch {
+    return false
+  }
+  if (navigator.serviceWorker.controller) return true
+  return await new Promise<boolean>((resolve) => {
+    const sw = navigator.serviceWorker
+    const done = (v: boolean) => {
+      clearTimeout(timer)
+      sw.removeEventListener('controllerchange', onChange)
+      resolve(v)
+    }
+    const onChange = () => done(true)
+    const timer = setTimeout(() => done(!!sw.controller), timeoutMs)
+    sw.addEventListener('controllerchange', onChange)
+  })
+}
+
 export async function isMediaCached(id: string, type: 'audio' | 'video'): Promise<boolean> {
   if (!isOpfsSupported()) return false
   try {
-    const entry = await idbGet<FileEntry>('files', `${id}-${type}`)
-    return entry?.status === 'complete'
+    const entry = await getUsableCompleteEntry(id, type)
+    return entry != null
   } catch {
     return false
   }
@@ -158,13 +238,16 @@ export async function isMediaCached(id: string, type: 'audio' | 'video'): Promis
 export async function getMediaBlobUrl(id: string, type: 'audio' | 'video'): Promise<string | null> {
   if (!isOpfsSupported()) return null
   try {
-    const entry = await idbGet<FileEntry>('files', `${id}-${type}`)
-    if (!entry || entry.status !== 'complete') return null
+    const entry = await getUsableCompleteEntry(id, type)
+    if (!entry) return null
     const root = await navigator.storage.getDirectory()
     const mediaDir = await root.getDirectoryHandle('media', { create: false })
     const fileHandle = await mediaDir.getFileHandle(entry.filename)
     const file = await fileHandle.getFile()
-    return URL.createObjectURL(file)
+    const source = entry.mimeType && file.type !== entry.mimeType
+      ? new Blob([file], { type: entry.mimeType })
+      : file
+    return URL.createObjectURL(source)
   } catch {
     return null
   }
@@ -174,22 +257,33 @@ export async function getCachedMediaPlaybackUrl(id: string, type: 'audio' | 'vid
   if (!isOpfsSupported()) return null
 
   try {
-    const entry = await idbGet<FileEntry>('files', `${id}-${type}`)
-    if (!entry || entry.status !== 'complete') return null
+    const entry = await getUsableCompleteEntry(id, type)
+    if (!entry) return null
+
+    // 다운로드된 콘텐츠만 SW 제어 확보를 기다린다 (다운로드 안 된 건 위에서 이미 null 반환됨).
+    // 콜드런치/첫 설치/SW 업데이트 직후 controller가 null인 윈도우에서도 로컬 재생을 보장.
+    await ensureServiceWorkerControl()
 
     if (canUseServiceWorkerMediaUrl()) {
       const swUrl = getServiceWorkerMediaUrl(id, type)
-      try {
-        const probe = await fetch(swUrl, { headers: { Range: 'bytes=0-0' } })
-        if (probe.status === 206) {
-          if (probe.body) await probe.body.cancel().catch(() => {})
-          return swUrl
-        }
-      } catch {}
+      // probe 1회 + 짧은 1회 재시도: controller가 방금 확보됐어도 SW가 첫 fetch를
+      // 가로채지 못하는 찰나가 있어, 한 번 실패하면 잠깐 뒤 다시 시도한다.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const probe = await fetch(swUrl, { headers: { Range: 'bytes=0-0' } })
+          if (probe.status === 206) {
+            if (probe.body) await probe.body.cancel().catch(() => {})
+            return swUrl
+          }
+        } catch {}
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 150))
+      }
     }
   } catch {
     return null
   }
+
+  if (isIosWebKit()) return null
 
   return getMediaBlobUrl(id, type)
 }
@@ -205,20 +299,12 @@ export async function resolveSrc(id: string, cdnUrl: string, type: 'audio' | 'vi
 export async function deleteMedia(id: string, type?: 'audio' | 'video'): Promise<void> {
   const keys = type ? [`${id}-${type}`] : [`${id}-audio`, `${id}-video`]
   for (const key of keys) {
-    await idbDelete('files', key)
-    try {
-      const mediaDir = await getMediaDir(false)
-      await mediaDir.removeEntry(key)
-    } catch {}
+    await removeMediaCacheKey(key)
   }
 }
 
 async function evictByCacheKey(cacheKey: string): Promise<void> {
-  await idbDelete('files', cacheKey)
-  try {
-    const dir = await getMediaDir(false)
-    await dir.removeEntry(cacheKey)
-  } catch {}
+  await removeMediaCacheKey(cacheKey)
 }
 
 async function evictToLimit(excludeKey: string): Promise<void> {
@@ -256,7 +342,7 @@ export function cancelDownload(id: string, type: 'audio' | 'video'): void {
 export async function downloadMedia(
   id: string,
   cdnUrl: string,
-  opts: { onProgress?: (pct: number) => void; type?: 'audio' | 'video'; estimatedSize?: number } = {},
+  opts: { onProgress?: (pct: number) => void; type?: 'audio' | 'video'; estimatedSize?: number; mimeType?: string } = {},
 ): Promise<void> {
   if (!isOfflineMediaSupported()) throw new Error('Offline media is not supported on this device')
 
@@ -267,7 +353,10 @@ export async function downloadMedia(
   const cacheKey = `${id}-${mediaType}`
 
   const existing = await idbGet<FileEntry>('files', cacheKey)
-  if (existing?.status === 'complete') return
+  if (existing?.status === 'complete') {
+    if (!isLegacyAudioCache(existing, mediaType)) return
+    await removeMediaCacheKey(cacheKey)
+  }
 
   if (existing?.status === 'downloading') {
     // 최근(60초 이내) 락이면 다른 다운로드가 진행 중 — 백오프(파일 손상 방지)
@@ -280,7 +369,10 @@ export async function downloadMedia(
     } catch {}
   }
 
-  const mimeType = mediaType === 'video' ? 'video/mp4' : 'audio/mpeg'
+  const mimeType = opts.mimeType?.trim() || (mediaType === 'video' ? 'video/mp4' : 'audio/mp4')
+  if (!canPlayDownloadedMime(mediaType, mimeType)) {
+    throw new Error(`Downloaded media type is not playable on this device: ${mimeType}`)
+  }
   const now = Date.now()
 
   await idbPut('files', {
@@ -291,6 +383,7 @@ export async function downloadMedia(
     downloadedAt: now,
     lastPlayedAt: now,
     status: 'downloading',
+    formatVersion: CACHE_FORMAT_VERSION,
   } as FileEntry)
 
   // 취소 가능하도록 컨트롤러 등록 (cancelDownload로 중단)
@@ -336,19 +429,17 @@ export async function downloadMedia(
       downloadedAt: now,
       lastPlayedAt: now,
       status: 'complete',
+      formatVersion: CACHE_FORMAT_VERSION,
     } as FileEntry)
 
     opts.onProgress?.(1)
+    notifyMediaDownloaded({ id, type: mediaType, cacheKey })
 
     await evictToLimit(cacheKey)
   } catch (err) {
     // 취소/에러 시 열린 writable 닫고 부분 파일·락 정리 (다음 시도가 깨끗하게 재시작)
     try { await writable?.abort() } catch {}
-    await idbDelete('files', cacheKey)
-    try {
-      const dir = await getMediaDir(false)
-      await dir.removeEntry(cacheKey)
-    } catch {}
+    await removeMediaCacheKey(cacheKey)
     throw err
   } finally {
     _activeDownloads.delete(cacheKey)
@@ -395,7 +486,16 @@ export async function loadPosition(id: string): Promise<number> {
 export async function storageInfo(): Promise<StorageInfo> {
   const { offlineStorageMode, offlineStorageCustomMB } = useSettingsStore.getState()
   const entries = await idbGetAll<FileEntry>('files')
-  const complete = entries.filter((f) => f.status === 'complete')
+  const complete: FileEntry[] = []
+  for (const entry of entries) {
+    if (entry.status !== 'complete') continue
+    const type = mediaTypeFromCacheKey(entry.id)
+    if (isLegacyAudioCache(entry, type)) {
+      await removeMediaCacheKey(entry.id)
+      continue
+    }
+    complete.push(entry)
+  }
   const used = complete.reduce((sum, f) => sum + f.size, 0)
 
   let limit: number | null

@@ -300,6 +300,7 @@ export default function PlayerPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const playerBase = location.pathname.startsWith('/sermon/player/') ? '/sermon/player' : '/player'
+  const isSermonPlayer = playerBase === '/sermon/player'
   const handleBack = () => {
     const menu = getSelahMenu()
     clearSelahMenu()
@@ -473,11 +474,21 @@ export default function PlayerPage() {
     const idx = queueIds.indexOf(target.id)
     if (idx !== -1) setQueue(queueIds, idx)
     playVideo(
-      { id: target.id, title: target.title, thumbnail: target.thumbnail, tag: target.tag, hymnTitle: target.hymnTitle, duration: target.duration, chapter: target.chapter },
+      {
+        id: target.id,
+        title: target.title,
+        thumbnail: target.thumbnail,
+        tag: target.tag,
+        type: isSermonPlayer ? 'SERMON' : null,
+        hymnTitle: isSermonPlayer ? target.title : target.hymnTitle,
+        duration: target.duration,
+        chapter: target.chapter,
+        playerPath: isSermonPlayer ? `/sermon/player/${target.id}` : undefined,
+      },
       { autoPlay: true, skipRecentAdd: recentMode },
     )
     navigate(`${playerBase}/${target.id}${recentMode ? '?recentMode=1' : ''}`)
-  }, [queueIds, setQueue, recentMode, navigate, playVideo])
+  }, [isSermonPlayer, playerBase, queueIds, setQueue, recentMode, navigate, playVideo])
 
   const sermonSeek = (location.state as { sermonSeek?: number } | null)?.sermonSeek
 
@@ -487,11 +498,21 @@ export default function PlayerPage() {
     if (currentVideo?.id !== video.id) {
       hasPlayedRef.current = true
       playVideo(
-        { id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle, duration: video.duration, chapter: video.chapter },
+        {
+          id: video.id,
+          title: video.title,
+          thumbnail: video.thumbnail,
+          tag: video.tag,
+          type: isSermonPlayer ? 'SERMON' : video.type ?? null,
+          hymnTitle: isSermonPlayer ? video.title : video.lyric?.hymnTitle,
+          duration: video.duration,
+          chapter: video.chapter,
+          playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
+        },
         { autoPlay: autoPlayOnDetail, seekTo: sermonSeek },
       )
     }
-  }, [autoPlayOnDetail, currentVideo?.id, playVideo, video, sermonSeek])
+  }, [autoPlayOnDetail, currentVideo?.id, isSermonPlayer, playVideo, video, sermonSeek])
 
   // ── sermon resume: 5초마다 저장 ──────────────────────────────
   const sermonStateCategoryId = (location.state as { categoryId?: string } | null)?.categoryId
@@ -566,7 +587,7 @@ export default function PlayerPage() {
       const downloadPath = mediaMode === 'video'
         ? `/videos/${id}/download`
         : `/audios/${id}/download`
-      const { data } = await api.get<{ url: string; bitrate?: number; duration?: number | null }>(
+      const { data } = await api.get<{ url: string; bitrate?: number; duration?: number | null; mimeType?: string }>(
         downloadPath,
         mediaMode !== 'video' ? { params: { quality: 'high' } } : undefined,
       )
@@ -578,6 +599,7 @@ export default function PlayerPage() {
       await downloadMedia(id, data.url, {
         type: mediaType,
         estimatedSize,
+        mimeType: data.mimeType,
         onProgress: (p) => setDlProgress(p),
       })
       const success = await isMediaCached(id, mediaType)
@@ -599,8 +621,20 @@ export default function PlayerPage() {
   }, [video?.id, autoDownload])
 
   const handleRetry = useCallback(() => {
-    if (video) playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle, duration: video.duration })
-  }, [video])
+    if (video) {
+      playVideo({
+        id: video.id,
+        title: video.title,
+        thumbnail: video.thumbnail,
+        tag: video.tag,
+        type: isSermonPlayer ? 'SERMON' : video.type ?? null,
+        hymnTitle: isSermonPlayer ? video.title : video.lyric?.hymnTitle,
+        duration: video.duration,
+        chapter: video.chapter,
+        playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
+      })
+    }
+  }, [isSermonPlayer, playVideo, video])
 
   const progress = dragValue !== null ? dragValue : (duration > 0 ? position / duration : 0)
   const isFav = id ? isInAnyPlaylist(id) : false

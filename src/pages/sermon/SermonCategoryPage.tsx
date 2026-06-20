@@ -210,11 +210,11 @@ export default function SermonCategoryPage() {
         for (let attempt = 0; attempt < 3 && !success && !bulkCancelledRef.current; attempt++) {
           try {
             const path = dlType === 'video' ? `/videos/${videoId}/download` : `/audios/${videoId}/download`
-            const { data } = await api.get<{ url: string }>(
+            const { data } = await api.get<{ url: string; mimeType?: string }>(
               path,
               dlType !== 'video' ? { params: { quality: 'high' } } : undefined,
             )
-            await downloadMedia(videoId, data.url, { type: dlType as 'audio' | 'video' })
+            await downloadMedia(videoId, data.url, { type: dlType as 'audio' | 'video', mimeType: data.mimeType })
             refresh()
             success = true
           } catch {
