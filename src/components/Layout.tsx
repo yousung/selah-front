@@ -6,6 +6,7 @@ import MyPlaylistsSheet from './MyPlaylistsSheet'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
+import { cancelDownload } from '@/lib/mediaStore'
 import React, { useState, useEffect } from 'react'
 
 /* ─── Icons ─────────────────────────────────────────── */
@@ -93,7 +94,8 @@ export default function Layout() {
   }, [currentVideo?.id])
 
   useEffect(() => {
-    if (!isHymnPlayerPage || mediaMode !== 'video') { setVideoRect(null); return }
+    // 찬송/설교 모든 플레이어 페이지에서 비디오 슬롯에 영상 오버레이
+    if (!isPlayerPage || mediaMode !== 'video') { setVideoRect(null); return }
     const update = () => {
       const slot = videoSlotRef.current
       if (!slot) { setVideoRect(null); return }
@@ -107,7 +109,7 @@ export default function Layout() {
     const id = setInterval(update, 200)
     window.addEventListener('resize', update)
     return () => { clearInterval(id); window.removeEventListener('resize', update); setVideoRect(null) }
-  }, [isHymnPlayerPage, mediaMode, videoSlotRef])
+  }, [isPlayerPage, mediaMode, videoSlotRef])
 
   const showMini = !isPlayerPage && !!currentVideo && !miniDismissed
 
@@ -164,7 +166,11 @@ export default function Layout() {
       <div className="flex flex-col flex-1 min-w-0 lg:ml-[240px]">
 
         {/* ── Content ── */}
-        <main className="flex-1 overflow-y-auto">
+        {/* NOTE: overflow-y-auto 제거 — main이 scroll container가 되면 페이지 내부의
+            position:sticky 헤더가 window 스크롤을 따라 사라진다. 실제 스크롤러는 window
+            (body/#root min-h-dvh, SermonCategoryPage가 window.scrollTo 사용). overflow를
+            visible로 두어야 sticky 헤더가 viewport 기준으로 고정된다. */}
+        <main className="flex-1">
           <Outlet />
           {/* Bottom spacer so content isn't hidden behind mini player / nav */}
           <div style={{
@@ -221,7 +227,12 @@ export default function Layout() {
             className="fixed z-30 left-2 right-2 bottom-[84px] lg:bottom-6 lg:right-6 lg:left-[264px]"
             style={{ filter: 'drop-shadow(0 0 0 transparent)' }}
           >
-            <MiniPlayer onDismiss={() => { stop(); setMiniDismissed(true) }} />
+            <MiniPlayer onDismiss={() => {
+              // 미니 플레이어를 완전히 닫으면 해당 미디어의 진행 중 다운로드도 취소
+              if (currentVideo) { cancelDownload(currentVideo.id, 'audio'); cancelDownload(currentVideo.id, 'video') }
+              stop()
+              setMiniDismissed(true)
+            }} />
           </div>
         )}
 

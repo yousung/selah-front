@@ -6,6 +6,8 @@ export interface SermonResumeData {
   categoryId: string
   position: number
   categoryTitle?: string
+  /** 저장 시점에 현재 모드(오디오/비디오) 다운로드가 완료됐는지. 팝업은 true일 때만 표시 */
+  downloaded: boolean
 }
 
 export function saveSermonResume(data: SermonResumeData) {

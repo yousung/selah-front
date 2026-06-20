@@ -3,6 +3,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import { api } from '@/lib/api'
+import { getMediaBlobUrl, isMediaCached, isOpfsSupported } from '@/lib/mediaStore'
 
 interface VideoInfo {
   id: string
@@ -131,6 +132,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const durationRef = useRef(0)
   const hasAuthoritativeDurationRef = useRef(false)
   const pendingSeekRef = useRef<number | null>(null)
+  const blobUrlRef = useRef<string | null>(null)
   useEffect(() => { durationRef.current = duration }, [duration])
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = playbackRate
@@ -251,6 +253,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       handlers.forEach(([event, handler]) => audio.removeEventListener(event, handler))
       audio.pause()
       audio.src = ''
+      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
     }
   }, [applyPendingSeek, syncPosition, updateActualDuration])
 
@@ -281,6 +284,39 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const dbDuration = normalizeDbDuration(video.duration)
     hasAuthoritativeDurationRef.current = dbDuration != null
     setDuration(dbDuration ?? 0)
+
+    const mediaType = isVideoMode ? 'video' : 'audio'
+    if (isOpfsSupported()) {
+      try {
+        const cached = await isMediaCached(video.id, mediaType)
+        if (cached) {
+          if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
+          const blobUrl = await getMediaBlobUrl(video.id, mediaType)
+          if (blobUrl) {
+            blobUrlRef.current = blobUrl
+            if (isVideoMode) {
+              pendingAutoPlayRef.current = autoPlay
+              setVideoUrl(blobUrl)
+              if (!autoPlay) setIsLoading(false)
+            } else {
+              setVideoUrl(null)
+              const audio = audioRef.current
+              if (!audio) return
+              audio.src = blobUrl
+              audio.volume = volume
+              if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
+              if (!autoPlay) {
+                audio.load()
+                setIsLoading(false)
+                return
+              }
+              try { await audio.play() } catch { setIsLoading(false) }
+            }
+            return
+          }
+        }
+      } catch {}
+    }
 
     try {
       const streamPath = isVideoMode ? `/videos/${video.id}/stream` : `/audios/${video.id}/stream`

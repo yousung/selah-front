@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import NaverAnalyticsTracker from '@/components/NaverAnalyticsTracker'
 import { AudioProvider } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import HomePage from '@/pages/HomePage'
 import PlaylistPage from '@/pages/PlaylistPage'
 import PlayerPage from '@/pages/PlayerPage'
@@ -39,6 +40,12 @@ import AdminDetailPage from '@/pages/admin/admins/AdminDetailPage'
 import AdminFormPage from '@/pages/admin/admins/AdminFormPage'
 import ProfilePage from '@/pages/admin/profile/ProfilePage'
 
+function CachedMediaLoader() {
+  const refresh = useCachedMediaStore((s) => s.refresh)
+  useEffect(() => { refresh() }, [refresh])
+  return null
+}
+
 function ThemeApplicator() {
   const theme = useSettingsStore((s) => s.theme)
   useEffect(() => {
@@ -52,6 +59,7 @@ export default function App() {
     <AudioProvider>
       <HashRouter>
         <ThemeApplicator />
+        <CachedMediaLoader />
         <NaverAnalyticsTracker />
         <Routes>
           <Route path="/" element={<Layout />}>

@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
-import type { Theme, AudioQuality, AutoNextDelay, MediaMode } from '@/store/settingsStore'
+import type { Theme, AudioQuality, AutoNextDelay, MediaMode, OfflineStorageMode } from '@/store/settingsStore'
+import { clearAllMedia, isOpfsSupported, storageInfo } from '@/lib/mediaStore'
+import { useCachedMediaStore } from '@/store/cachedMediaStore'
 
 const PLAYBACK_RATE_OPTIONS: { value: number; label: string }[] = [
   { value: 0.5, label: '0.5x' },
   { value: 0.7, label: '0.7x' },
   { value: 1, label: '1x' },
+  { value: 1.25, label: '1.25x' },
   { value: 1.5, label: '1.5x' },
-  { value: 2, label: '2x' },
 ]
 
 const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings'])
@@ -91,10 +93,42 @@ const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string; desc: string }[] = 
   { value: 'video', label: '비디오', desc: '영상과 함께 재생합니다' },
 ]
 
+const OFFLINE_MODE_OPTIONS: { value: OfflineStorageMode; label: string; desc: string }[] = [
+  { value: 'thrift', label: '절약', desc: '저장 안함 · 이어듣기 미지원' },
+  { value: 'normal', label: '보통', desc: '최대 5곡까지 저장' },
+  { value: 'generous', label: '넉넉', desc: '최대 1GB까지 저장' },
+  { value: 'custom', label: '최대', desc: '최대 2GB까지 저장' },
+]
+
+/** 섹션 헤더 — 그룹 제목 */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>
+      {children}
+    </p>
+  )
+}
+
 export default function SettingsPage() {
-  const { theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, playbackRate, showCatechismHeadings, showCatechismToc, setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay, setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc } = useSettingsStore()
+  const {
+    theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, playbackRate,
+    showCatechismHeadings, showCatechismToc,
+    offlineStorageMode, autoDownload,
+    setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay,
+    setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
+    setOfflineStorageMode, setAutoDownload,
+  } = useSettingsStore()
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
+  const [clearingMedia, setClearingMedia] = useState(false)
+  const [clearedMedia, setClearedMedia] = useState(false)
+  const [usedBytes, setUsedBytes] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!isOpfsSupported()) return
+    storageInfo().then((info) => setUsedBytes(info.used)).catch(() => {})
+  }, [])
+  const opfsOk = isOpfsSupported()
 
   const handleClearCache = async () => {
     setClearing(true)
@@ -103,6 +137,24 @@ export default function SettingsPage() {
     setCleared(true)
     setTimeout(forceReloadApp, 300)
   }
+
+  const handleClearMedia = async () => {
+    setClearingMedia(true)
+    try {
+      await clearAllMedia()
+      useCachedMediaStore.getState().refresh()
+      setUsedBytes(0)
+      setClearedMedia(true)
+      setTimeout(() => setClearedMedia(false), 3000)
+    } finally {
+      setClearingMedia(false)
+    }
+  }
+
+  // 위험(파괴적) 작업 구분선 — 비파괴 설정과 삭제 액션 사이
+  const dangerDivider = (
+    <div style={{ height: 1, background: 'var(--divider)', margin: '8px 16px' }} />
+  )
 
   return (
     <div className="animate-fade-in">
@@ -115,9 +167,9 @@ export default function SettingsPage() {
 
       <div className="p-5 space-y-8">
 
-        {/* ── 재생 ── */}
+        {/* ════════════ 재생 ════════════ */}
         <section>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>재생</p>
+          <SectionLabel>재생</SectionLabel>
           <div className="space-y-3">
 
             {/* Media mode */}
@@ -182,6 +234,30 @@ export default function SettingsPage() {
                   })}
                 </div>
               )}
+            </div>
+
+            {/* Playback rate */}
+            <div className="card overflow-hidden">
+              <div className="flex" style={{ borderBottom: 'none' }}>
+                {PLAYBACK_RATE_OPTIONS.map((opt, i) => {
+                  const active = playbackRate === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setPlaybackRate(opt.value)}
+                      className="flex-1 flex items-center justify-center py-3 text-sm font-medium transition-colors"
+                      style={{
+                        borderRight: i < PLAYBACK_RATE_OPTIONS.length - 1 ? '1px solid var(--divider)' : 'none',
+                        background: active ? 'var(--primary-50)' : 'transparent',
+                        color: active ? 'var(--primary-700)' : 'var(--ink-1)',
+                        fontWeight: active ? 700 : 500,
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Auto play on detail */}
@@ -251,115 +327,12 @@ export default function SettingsPage() {
                 )
               })}
             </div>
-
-            {/* Playback rate */}
-            <div className="card overflow-hidden">
-              <div className="flex" style={{ borderBottom: 'none' }}>
-                {PLAYBACK_RATE_OPTIONS.map((opt, i) => {
-                  const active = playbackRate === opt.value
-                  return (
-                    <button
-                      key={opt.value}
-                      onClick={() => setPlaybackRate(opt.value)}
-                      className="flex-1 flex items-center justify-center py-3 text-sm font-medium transition-colors"
-                      style={{
-                        borderRight: i < PLAYBACK_RATE_OPTIONS.length - 1 ? '1px solid var(--divider)' : 'none',
-                        background: active ? 'var(--primary-50)' : 'transparent',
-                        color: active ? 'var(--primary-700)' : 'var(--ink-1)',
-                        fontWeight: active ? 700 : 500,
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
           </div>
         </section>
 
-        {/* ── 교리 ── */}
+        {/* ════════════ 표시 ════════════ */}
         <section>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>교리</p>
-          <div className="card overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShowCatechismHeadings(!showCatechismHeadings)}
-              className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
-              style={{ background: showCatechismHeadings ? 'var(--primary-50)' : 'transparent', borderBottom: '1px solid var(--divider)' }}
-            >
-              <div>
-                <p className="text-sm font-medium text-left" style={{ color: 'var(--ink-0)' }}>본문 제목 표시</p>
-                <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>
-                  교리서 본문에 각 항목의 제목을 표시합니다.
-                </p>
-              </div>
-              <span
-                className="relative inline-flex flex-shrink-0 transition-colors"
-                style={{
-                  width: 42,
-                  height: 24,
-                  borderRadius: 999,
-                  background: showCatechismHeadings ? 'var(--primary-700)' : 'var(--surface-3)',
-                }}
-                aria-hidden="true"
-              >
-                <span
-                  className="absolute transition-transform"
-                  style={{
-                    width: 20,
-                    height: 20,
-                    top: 2,
-                    left: 2,
-                    borderRadius: '50%',
-                    background: 'var(--white)',
-                    transform: showCatechismHeadings ? 'translateX(18px)' : 'translateX(0)',
-                  }}
-                />
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCatechismToc(!showCatechismToc)}
-              className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
-              style={{ background: showCatechismToc ? 'var(--primary-50)' : 'transparent' }}
-            >
-              <div>
-                <p className="text-sm font-medium text-left" style={{ color: 'var(--ink-0)' }}>제목가이드 표시</p>
-                <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>
-                  교리서 목차(제목가이드)를 표시합니다.
-                </p>
-              </div>
-              <span
-                className="relative inline-flex flex-shrink-0 transition-colors"
-                style={{
-                  width: 42,
-                  height: 24,
-                  borderRadius: 999,
-                  background: showCatechismToc ? 'var(--primary-700)' : 'var(--surface-3)',
-                }}
-                aria-hidden="true"
-              >
-                <span
-                  className="absolute transition-transform"
-                  style={{
-                    width: 20,
-                    height: 20,
-                    top: 2,
-                    left: 2,
-                    borderRadius: '50%',
-                    background: 'var(--white)',
-                    transform: showCatechismToc ? 'translateX(18px)' : 'translateX(0)',
-                  }}
-                />
-              </span>
-            </button>
-          </div>
-        </section>
-
-        {/* ── 일반 ── */}
-        <section>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ink-3)' }}>일반</p>
+          <SectionLabel>표시</SectionLabel>
           <div className="space-y-3">
 
             {/* Theme */}
@@ -392,7 +365,212 @@ export default function SettingsPage() {
               })}
             </div>
 
-            {/* Cache */}
+            {/* 교리서 */}
+            <div className="card overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowCatechismHeadings(!showCatechismHeadings)}
+                className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+                style={{ background: showCatechismHeadings ? 'var(--primary-50)' : 'transparent', borderBottom: '1px solid var(--divider)' }}
+              >
+                <div>
+                  <p className="text-sm font-medium text-left" style={{ color: 'var(--ink-0)' }}>교리서 본문 제목 표시</p>
+                  <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>
+                    교리서 본문에 각 항목의 제목을 표시합니다.
+                  </p>
+                </div>
+                <span
+                  className="relative inline-flex flex-shrink-0 transition-colors"
+                  style={{
+                    width: 42,
+                    height: 24,
+                    borderRadius: 999,
+                    background: showCatechismHeadings ? 'var(--primary-700)' : 'var(--surface-3)',
+                  }}
+                  aria-hidden="true"
+                >
+                  <span
+                    className="absolute transition-transform"
+                    style={{
+                      width: 20,
+                      height: 20,
+                      top: 2,
+                      left: 2,
+                      borderRadius: '50%',
+                      background: 'var(--white)',
+                      transform: showCatechismHeadings ? 'translateX(18px)' : 'translateX(0)',
+                    }}
+                  />
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCatechismToc(!showCatechismToc)}
+                className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+                style={{ background: showCatechismToc ? 'var(--primary-50)' : 'transparent' }}
+              >
+                <div>
+                  <p className="text-sm font-medium text-left" style={{ color: 'var(--ink-0)' }}>교리서 제목가이드 표시</p>
+                  <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>
+                    교리서 목차(제목가이드)를 표시합니다.
+                  </p>
+                </div>
+                <span
+                  className="relative inline-flex flex-shrink-0 transition-colors"
+                  style={{
+                    width: 42,
+                    height: 24,
+                    borderRadius: 999,
+                    background: showCatechismToc ? 'var(--primary-700)' : 'var(--surface-3)',
+                  }}
+                  aria-hidden="true"
+                >
+                  <span
+                    className="absolute transition-transform"
+                    style={{
+                      width: 20,
+                      height: 20,
+                      top: 2,
+                      left: 2,
+                      borderRadius: '50%',
+                      background: 'var(--white)',
+                      transform: showCatechismToc ? 'translateX(18px)' : 'translateX(0)',
+                    }}
+                  />
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ════════════ 저장 · 데이터 ════════════ */}
+        <section>
+          <SectionLabel>저장 · 데이터</SectionLabel>
+          <div className="space-y-3">
+
+            {!opfsOk ? (
+              <div className="card px-4 py-4 flex items-start gap-3">
+                <div
+                  style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: 'var(--primary-50)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-700)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z" />
+                    <path d="M12 8v4M12 16h.01" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: 'var(--ink-0)' }}>PWA 설치 필요</p>
+                  <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--ink-2)' }}>
+                    오프라인 저장 및 이어듣기 기능은 앱을 홈 화면에 추가한 후 사용할 수 있습니다.
+                    {' (iOS 16 이하는 미지원)'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* 오프라인 저장 모드 */}
+                <div className="card overflow-hidden">
+                  {OFFLINE_MODE_OPTIONS.map((opt, i) => {
+                    const active = offlineStorageMode === opt.value
+                    const isLast = i === OFFLINE_MODE_OPTIONS.length - 1
+                    return (
+                      <div key={opt.value}>
+                        <button
+                          onClick={() => setOfflineStorageMode(opt.value)}
+                          className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+                          style={{
+                            borderBottom: !isLast ? '1px solid var(--divider)' : 'none',
+                            background: active ? 'var(--primary-50)' : 'transparent',
+                          }}
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-left" style={{ color: 'var(--ink-0)' }}>{opt.label}</p>
+                            <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>{opt.desc}</p>
+                          </div>
+                          {active && (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" style={{ color: 'var(--primary-700)', flexShrink: 0 }}>
+                              <path d="M20 6L9 17l-5-5" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* 자동 다운로드 */}
+                <div className="card overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setAutoDownload(!autoDownload)}
+                    className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+                    style={{ background: autoDownload ? 'var(--primary-50)' : 'transparent' }}
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-left" style={{ color: 'var(--ink-0)' }}>재생 시 자동 다운로드</p>
+                      <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>
+                        영상 재생 시작 시 자동으로 오프라인 저장합니다.
+                      </p>
+                    </div>
+                    <span
+                      className="relative inline-flex flex-shrink-0 transition-colors"
+                      style={{ width: 42, height: 24, borderRadius: 999, background: autoDownload ? 'var(--primary-700)' : 'var(--surface-3)' }}
+                      aria-hidden="true"
+                    >
+                      <span
+                        className="absolute transition-transform"
+                        style={{ width: 20, height: 20, top: 2, left: 2, borderRadius: '50%', background: 'var(--white)', transform: autoDownload ? 'translateX(18px)' : 'translateX(0)' }}
+                      />
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {dangerDivider}
+
+            {/* 저장된 내용 모두 지우기 (오프라인 미디어 + 이어듣기) */}
+            {opfsOk && (
+              <div className="card overflow-hidden">
+                <button
+                  type="button"
+                  onClick={handleClearMedia}
+                  disabled={clearingMedia}
+                  className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
+                  style={{ background: 'transparent' }}
+                >
+                  <div>
+                    <p className="text-sm font-medium text-left" style={{ color: clearedMedia ? 'var(--accent-500)' : '#dc2626' }}>
+                      {clearedMedia ? '삭제 완료' : clearingMedia ? '삭제 중...' : '저장된 내용 모두 지우기'}
+                    </p>
+                    <p className="text-xs text-left mt-0.5" style={{ color: 'var(--ink-2)' }}>
+                      {usedBytes != null && usedBytes > 0
+                        ? `현재 ${usedBytes >= 1024 * 1024 * 1024 ? `${(usedBytes / (1024 * 1024 * 1024)).toFixed(1)}GB` : `${(usedBytes / (1024 * 1024)).toFixed(0)}MB`} 저장됨 · `
+                        : ''}오프라인으로 저장된 미디어와 이어듣기 위치를 모두 삭제합니다.
+                    </p>
+                  </div>
+                  {!clearedMedia && !clearingMedia && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6M14 11v6" />
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                    </svg>
+                  )}
+                  {clearedMedia && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" style={{ color: 'var(--accent-500)', flexShrink: 0 }}>
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* 캐시 삭제 */}
             <div className="card overflow-hidden">
               <button
                 type="button"
@@ -424,19 +602,22 @@ export default function SettingsPage() {
                 )}
               </button>
             </div>
+          </div>
+        </section>
 
-            {/* App info */}
-            <div className="card divide-y" style={{ borderColor: 'var(--divider)' }}>
-              {[
-                { label: '제작', value: '주님의 교회' },
-                { label: '앱 버전', value: import.meta.env.VITE_APP_VERSION ? `Selah ${import.meta.env.VITE_APP_VERSION}` : 'BETA' },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between px-4 py-3.5">
-                  <span className="text-sm" style={{ color: 'var(--ink-2)' }}>{label}</span>
-                  <span className="text-sm font-medium" style={{ color: 'var(--ink-0)' }}>{value}</span>
-                </div>
-              ))}
-            </div>
+        {/* ════════════ 정보 ════════════ */}
+        <section>
+          <SectionLabel>정보</SectionLabel>
+          <div className="card divide-y" style={{ borderColor: 'var(--divider)' }}>
+            {[
+              { label: '제작', value: '주님의 교회' },
+              { label: '앱 버전', value: import.meta.env.VITE_APP_VERSION ? `Selah ${import.meta.env.VITE_APP_VERSION}` : 'BETA' },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between px-4 py-3.5">
+                <span className="text-sm" style={{ color: 'var(--ink-2)' }}>{label}</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--ink-0)' }}>{value}</span>
+              </div>
+            ))}
           </div>
         </section>
 

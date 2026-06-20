@@ -315,7 +315,8 @@ export default function SermonPage() {
     setSelahMenu('/sermon')
     if (currentVideo) return
     const data = getSermonResume()
-    if (data) setResumeData(data)
+    // 다운로드가 완료된 경우에만 이어듣기 팝업 표시
+    if (data && data.downloaded) setResumeData(data)
   }, [])
 
   const handleResume = () => {

@@ -12,6 +12,8 @@ import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import TagBadge from '@/components/TagBadge'
 import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
+import { isOpfsSupported, downloadMedia, isMediaCached } from '@/lib/mediaStore'
+import { useCachedMediaStore } from '@/store/cachedMediaStore'
 
 interface Video {
   id: string
@@ -45,6 +47,8 @@ interface Lyric {
   verse11?: string | null
   verse12?: string | null
 }
+
+type DownloadStatus = 'idle' | 'downloading' | 'done'
 
 function fmtTime(s: number) {
   if (!isFinite(s) || s < 0) return '0:00'
@@ -308,12 +312,23 @@ export default function PlayerPage() {
   const playMode = useSettingsStore((s) => s.playMode)
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
+  const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
+  const autoDownload = useSettingsStore((s) => s.autoDownload)
+  const mediaType = mediaMode === 'video' ? 'video' : 'audio'
+  const mediaCacheKey = id ? `${id}-${mediaType}` : null
+  const isCachedInStore = useCachedMediaStore((s) => !!mediaCacheKey && s.cachedIds.has(mediaCacheKey))
   const {
     currentVideo, isPlaying, isLoading, isEnded, position, duration, autoNextProgress, error,
     playVideo, togglePlay, seek, seekBy, cancelAutoNext, videoSlotRef,
   } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [imgErr, setImgErr] = useState(false)
+  const [dlState, setDlState] = useState<{ key: string | null; status: DownloadStatus }>({ key: null, status: 'idle' })
+  const [dlProgress, setDlProgress] = useState(0)
+  const downloadingRef = useRef(false)
+  const dlStatus = dlState.key === mediaCacheKey ? dlState.status : 'idle'
+  const isDownloaded = isCachedInStore || dlStatus === 'done'
+  const opfsOk = isOpfsSupported()
   const isDraggingRef = useRef(false)
   const hasPlayedRef = useRef(false)
   const resumePositionRef = useRef(0)
@@ -328,6 +343,26 @@ export default function PlayerPage() {
     setImgErr(false)
     hasPlayedRef.current = false
   }, [id])
+
+  useEffect(() => {
+    setDlProgress(0)
+    setDlState({ key: mediaCacheKey, status: 'idle' })
+  }, [mediaCacheKey])
+
+  useEffect(() => {
+    let cancelled = false
+    setDlState({ key: mediaCacheKey, status: 'idle' })
+    if (!id || !opfsOk) return
+    // 모드 전환 시 이전 모드의 비동기 결과가 'done'을 덮어쓰지 않도록 취소 플래그 사용
+    isMediaCached(id, mediaType).then((cached) => {
+      if (!cancelled && cached) setDlState({ key: mediaCacheKey, status: 'done' })
+    })
+    return () => { cancelled = true }
+  }, [id, mediaCacheKey, mediaType, opfsOk])
+
+  useEffect(() => {
+    if (isCachedInStore) setDlState({ key: mediaCacheKey, status: 'done' })
+  }, [isCachedInStore, mediaCacheKey])
 
   const [showModeTooltip, setShowModeTooltip] = useState(false)
   const modeTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -468,12 +503,16 @@ export default function PlayerPage() {
       const dur = resumeDurationRef.current
       const vid = currentVideoRef.current
       if (pos > 0 && dur > 0 && vid) {
+        // 현재 모드 다운로드 완료 여부를 함께 저장 — 팝업은 완료된 경우에만 뜬다.
+        const mode = useSettingsStore.getState().mediaMode
+        const downloaded = useCachedMediaStore.getState().cachedIds.has(`${vid.id}-${mode}`)
         saveSermonResume({
           videoId: vid.id,
           videoTitle: vid.title,
           categoryId: sermonStateCategoryId,
           categoryTitle: sermonStateCategoryTitle,
           position: pos,
+          downloaded,
         })
       }
     }, 5000)
@@ -510,6 +549,55 @@ export default function PlayerPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recentMode, id, sermonStateCategoryId])
 
+  const handleDownload = useCallback(async () => {
+    if (!id || !video) return
+    if (!opfsOk) return
+    if (offlineStorageMode === 'thrift') return
+    // 동기 in-flight 가드: autoDownload가 video ref 변경(React Query 백그라운드 refetch)으로
+    // 중복 발화해도 두 번째 호출을 즉시 차단. dlStatus(상태)는 비동기 지연이 있어 가드로 부적합.
+    if (downloadingRef.current) return
+    downloadingRef.current = true
+    try {
+      const alreadyCached = await isMediaCached(id, mediaType)
+      if (alreadyCached) {
+        setDlState({ key: mediaCacheKey, status: 'done' })
+        return
+      }
+      const downloadPath = mediaMode === 'video'
+        ? `/videos/${id}/download`
+        : `/audios/${id}/download`
+      const { data } = await api.get<{ url: string; bitrate?: number; duration?: number | null }>(
+        downloadPath,
+        mediaMode !== 'video' ? { params: { quality: 'high' } } : undefined,
+      )
+      // 총 크기를 헤더로 알 수 없어(CDN CORS) bitrate×duration으로 추정해 진행률 표시
+      const durSec = data.duration ?? video.duration ?? 0
+      const estimatedSize = data.bitrate && durSec ? (data.bitrate * durSec) / 8 : undefined
+      setDlProgress(0)
+      setDlState({ key: mediaCacheKey, status: 'downloading' })
+      await downloadMedia(id, data.url, {
+        type: mediaType,
+        estimatedSize,
+        onProgress: (p) => setDlProgress(p),
+      })
+      const success = await isMediaCached(id, mediaType)
+      setDlState({ key: mediaCacheKey, status: success ? 'done' : 'idle' })
+      if (success) useCachedMediaStore.getState().refresh()
+    } catch {
+      setDlState({ key: mediaCacheKey, status: 'idle' })
+    } finally {
+      downloadingRef.current = false
+    }
+  }, [id, video, opfsOk, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
+
+  useEffect(() => {
+    if (!autoDownload || offlineStorageMode === 'thrift') return
+    if (!video || !opfsOk) return
+    handleDownload()
+  // video?.id로 의존: 백그라운드 refetch(같은 id, 새 ref)로 재발화하지 않도록
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video?.id, autoDownload])
+
   const handleRetry = useCallback(() => {
     if (video) playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.lyric?.hymnTitle, duration: video.duration })
   }, [video])
@@ -522,6 +610,7 @@ export default function PlayerPage() {
     <div
       className="rounded-[20px] overflow-hidden shadow-sm"
       style={{
+        position: 'relative',
         aspectRatio: '16/9',
         width: '100%',
         maxWidth: 480,
@@ -537,6 +626,7 @@ export default function PlayerPage() {
       ) : (
         <div className="w-full h-full flex items-center justify-center text-5xl" style={{ color: 'var(--ink-3)' }}>🎵</div>
       )}
+
     </div>
   )
 
@@ -735,6 +825,42 @@ export default function PlayerPage() {
           돌아가기
         </button>
         <div className="flex items-center gap-2">
+          {isDownloaded && (
+            <span
+              className="flex items-center gap-1 rounded-full"
+              style={{
+                padding: '5px 8px',
+                background: 'rgba(61,107,68,0.12)',
+                border: '1px solid rgba(61,107,68,0.22)',
+                color: 'var(--primary-700)',
+                fontSize: 12,
+                fontWeight: 700,
+                lineHeight: '16px',
+                whiteSpace: 'nowrap',
+              }}
+              title="다운로드 완료"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v12M8 11l4 4 4-4" />
+                <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+              </svg>
+              완료됨
+            </span>
+          )}
+          {/* 수동 다운로드 트리거 — 미저장(idle) 상태에서만. 진행은 하단 가로 바로 표시 */}
+          {id && opfsOk && offlineStorageMode !== 'thrift' && !isDownloaded && dlStatus === 'idle' && (
+            <button
+              onClick={handleDownload}
+              className="transition-opacity active:opacity-60 flex items-center p-2"
+              style={{ color: 'var(--ink-3)' }}
+              title="오프라인 저장"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v12M8 11l4 4 4-4" />
+                <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+              </svg>
+            </button>
+          )}
           {id && (
             <button onClick={() => setPlaylistSheetOpen(true)} className="p-2 transition-transform hover:scale-110"
               style={{ fontSize: 20, color: isFav ? 'var(--accent-500)' : 'var(--ink-3)' }}>
@@ -743,6 +869,29 @@ export default function PlayerPage() {
           )}
         </div>
       </header>
+
+      {/* 다운로드 진행 바 — 다운로드 중일 때 전체폭으로 명확히 표시 */}
+      {dlStatus === 'downloading' && (
+        <div style={{ background: 'var(--primary-50)', borderBottom: '1px solid var(--divider)' }}>
+          <div className="flex items-center justify-between px-4" style={{ height: 30 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary-700)' }}>
+              {mediaMode === 'video' ? '영상' : '음원'} 저장 중…
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-700)' }}>
+              {dlProgress < 0.01 ? '' : `${Math.round(dlProgress * 100)}%`}
+            </span>
+          </div>
+          <div style={{ height: 3, background: 'var(--divider)' }}>
+            <div style={{
+              height: '100%',
+              width: dlProgress < 0.01 ? '15%' : `${Math.min(100, dlProgress * 100)}%`,
+              background: 'var(--primary-700)',
+              transition: 'width 0.25s linear',
+              animation: dlProgress < 0.01 ? 'pulse 1.2s ease-in-out infinite' : 'none',
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* Unified layout: single column on mobile, two columns on desktop */}
       <div className="flex-1 px-6 pt-6 pb-8 lg:px-16 lg:py-12" style={{ maxWidth: 1000, margin: '0 auto', width: '100%' }}>

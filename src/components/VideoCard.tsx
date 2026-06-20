@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { usePlaylistStore } from '@/store/playlistStore'
+import { useCachedMediaStore } from '@/store/cachedMediaStore'
+import { useSettingsStore } from '@/store/settingsStore'
 import PlaylistBottomSheet from './PlaylistBottomSheet'
 import HighlightText from './HighlightText'
 
@@ -24,6 +26,8 @@ interface Props {
   onClick: () => void
   layout?: 'card' | 'list'
   highlight?: string
+  isDownloading?: boolean
+  selectMode?: boolean
 }
 
 
@@ -63,6 +67,36 @@ function NewBadge() {
   )
 }
 
+function CachedBadge() {
+  return (
+    <span
+      className="absolute bottom-1 left-1 flex items-center justify-center rounded-full"
+      style={{ width: 18, height: 18, background: 'rgba(61,107,68,0.88)' }}
+    >
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 1v6M4 5l2 2 2-2" />
+        <line x1="1" y1="10" x2="11" y2="10" />
+      </svg>
+    </span>
+  )
+}
+
+function DownloadingBadge() {
+  return (
+    <span
+      className="absolute bottom-1 left-1 flex items-center justify-center rounded-full"
+      style={{ width: 18, height: 18, background: 'rgba(0,0,0,0.55)' }}
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" fill="none"/>
+        <path d="M12 3a9 9 0 0 1 9 9" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round">
+          <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/>
+        </path>
+      </svg>
+    </span>
+  )
+}
+
 function ChapterBadge({ chapter, type }: { chapter: number; type?: string | null }) {
   const isHymn = type !== 'SERMON'
   const label = isHymn
@@ -86,9 +120,12 @@ function stripBrackets(s: string) {
   return s.replace(/\[.*?\]/g, '').trim()
 }
 
-export default function VideoCard({ video, onClick, layout = 'card', highlight }: Props) {
+export default function VideoCard({ video, onClick, layout = 'card', highlight, isDownloading, selectMode }: Props) {
   const isInAnyPlaylist = usePlaylistStore((s) => s.isInAnyPlaylist)
   const inPlaylist = isInAnyPlaylist(video.id)
+  // 현재 미디어 모드(오디오/비디오)로 저장된 것만 "저장됨" 표시 (키 분리)
+  const mediaMode = useSettingsStore((s) => s.mediaMode)
+  const isCached = useCachedMediaStore((s) => s.cachedIds.has(`${video.id}-${mediaMode}`))
   const isNew = isNewVideo(video.publishedAt)
   const [imgErr, setImgErr] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -125,6 +162,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight }
             )}
             {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
             {isNew && <NewBadge />}
+            {isCached ? <CachedBadge /> : isDownloading ? <DownloadingBadge /> : null}
             {dur && (
               <span className="absolute bottom-1 right-1 text-white text-[10px] font-semibold px-1 rounded"
                 style={{ background: 'rgba(0,0,0,0.75)', lineHeight: '16px' }}>{dur}</span>
@@ -150,9 +188,14 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight }
           </div>
 
           {/* Playlist button */}
-          <button onClick={handlePlaylist} className="flex-shrink-0 p-1.5 transition-transform hover:scale-110" style={{ color: inPlaylist ? 'var(--accent-500)' : 'var(--ink-3)', fontSize: 18 }}>
-            {inPlaylist ? '★' : '☆'}
-          </button>
+          {selectMode
+            ? <div className="flex-shrink-0" style={{ width: 40 }} />
+            : (
+              <button onClick={handlePlaylist} className="flex-shrink-0 p-1.5 transition-transform hover:scale-110" style={{ color: inPlaylist ? 'var(--accent-500)' : 'var(--ink-3)', fontSize: 18 }}>
+                {inPlaylist ? '★' : '☆'}
+              </button>
+            )
+          }
         </div>
         {sheetOpen && <PlaylistBottomSheet videoId={video.id} videoTitle={video.title} videoThumbnail={video.thumbnail} videoTag={video.tag} videoHymnTitle={video.hymnTitle} videoDuration={video.duration} onClose={() => setSheetOpen(false)} />}
       </>
@@ -173,6 +216,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight }
           )}
           {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
           {isNew && <NewBadge />}
+          {isCached && <CachedBadge />}
           {dur && (
             <span className="absolute bottom-1.5 right-1.5 text-white font-semibold rounded"
               style={{ fontSize: 11, background: 'rgba(0,0,0,0.78)', padding: '1px 5px', lineHeight: '18px' }}>{dur}</span>
