@@ -50,6 +50,7 @@ interface AudioContextValue {
   togglePlay: () => void
   seek: (seconds: number) => void
   seekBy: (delta: number) => void
+  seekFraction: (fraction: number) => void
   cancelAutoNext: () => void
   setVolume: (v: number) => void
   onVideoPlay: () => void
@@ -490,6 +491,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [applySeek])
 
+  const seekFraction = useCallback((fraction: number) => {
+    const media = mediaModeRef.current === 'video' ? reactPlayerRef.current : audioRef.current
+    if (!media) return
+    const knownDuration = getKnownDuration(media.duration)
+    if (!knownDuration) return
+    seek(fraction * knownDuration)
+  }, [seek, getKnownDuration])
+
   const handleSetVolume = useCallback((v: number) => {
     if (audioRef.current) audioRef.current.volume = v
     if (reactPlayerRef.current) reactPlayerRef.current.volume = v
@@ -688,7 +697,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     <AudioCtx.Provider value={{
       currentVideo, isPlaying, isLoading, isEnded, position, duration, autoNextProgress, error, volume,
       videoUrl, reactPlayerRef, videoSlotRef,
-      playVideo, stop, togglePlay, seek, seekBy, cancelAutoNext, setVolume: handleSetVolume,
+      playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, setVolume: handleSetVolume,
       onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
       onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
     }}>

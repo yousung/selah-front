@@ -320,7 +320,7 @@ export default function PlayerPage() {
   const isCachedInStore = useCachedMediaStore((s) => !!mediaCacheKey && s.cachedIds.has(mediaCacheKey))
   const {
     currentVideo, isPlaying, isLoading, isEnded, position, duration, autoNextProgress, error,
-    playVideo, togglePlay, seek, seekBy, cancelAutoNext, videoSlotRef,
+    playVideo, togglePlay, seekBy, seekFraction, cancelAutoNext, videoSlotRef,
   } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [imgErr, setImgErr] = useState(false)
@@ -331,6 +331,7 @@ export default function PlayerPage() {
   const isDownloaded = isCachedInStore || dlStatus === 'done'
   const offlineMediaOk = isOfflineMediaSupported()
   const isDraggingRef = useRef(false)
+  const dragValueRef = useRef<number | null>(null)
   const hasPlayedRef = useRef(false)
   const resumePositionRef = useRef(0)
   resumePositionRef.current = position
@@ -704,9 +705,9 @@ export default function PlayerPage() {
           type="range" min={0} max={1} step={0.001} value={progress}
           onMouseDown={() => { isDraggingRef.current = true }}
           onTouchStart={() => { isDraggingRef.current = true }}
-          onChange={(e) => setDragValue(Number(e.target.value))}
-          onMouseUp={(e) => { isDraggingRef.current = false; seek((e.target as HTMLInputElement).valueAsNumber * duration); setTimeout(() => setDragValue(null), 300) }}
-          onTouchEnd={(e) => { isDraggingRef.current = false; seek((e.target as HTMLInputElement).valueAsNumber * duration); setTimeout(() => setDragValue(null), 300) }}
+          onChange={(e) => { const v = Number(e.target.value); setDragValue(v); dragValueRef.current = v }}
+          onMouseUp={(e) => { isDraggingRef.current = false; seekFraction(dragValueRef.current ?? (e.target as HTMLInputElement).valueAsNumber); dragValueRef.current = null; setTimeout(() => setDragValue(null), 300) }}
+          onTouchEnd={(e) => { isDraggingRef.current = false; seekFraction(dragValueRef.current ?? (e.target as HTMLInputElement).valueAsNumber); dragValueRef.current = null; setTimeout(() => setDragValue(null), 300) }}
           className="w-full"
           style={{ height: 3, accentColor: 'var(--primary-700)', cursor: 'pointer',
             background: `linear-gradient(to right, var(--primary-700) ${progress * 100}%, var(--divider) ${progress * 100}%)` }}
