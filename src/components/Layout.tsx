@@ -52,7 +52,7 @@ function IconPerson({ active }: { active: boolean }) {
 
 const navItems = [
   { to: '/', label: '찬송', Icon: IconNote },
-  { to: '/sermon', label: '설교', Icon: IconMic },
+  { to: '/sermon', label: '설교', Icon: IconMic, beta: true },
   { to: '/catechism', label: '교리서', Icon: IconBook },
   { to: '/my', label: 'MY', Icon: IconPerson },
 ]
@@ -155,6 +155,11 @@ export default function Layout() {
               >
                 <item.Icon active={active} />
                 {item.label}
+                {item.beta && (
+                  <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#D97706', lineHeight: 1.4 }}>
+                    beta
+                  </span>
+                )}
               </NavLink>
             )
           })}
@@ -410,7 +415,14 @@ export default function Layout() {
                 to={item.to}
                 className="flex-1 flex flex-col items-center justify-center gap-1 py-2"
               >
-                <item.Icon active={active} />
+                <div className="relative">
+                  <item.Icon active={active} />
+                  {item.beta && (
+                    <span className="absolute -top-1.5 -right-4 text-[8px] font-bold px-1 rounded-full leading-[14px]" style={{ background: '#FEF3C7', color: '#D97706' }}>
+                      beta
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-medium" style={{ color: active ? 'var(--primary-700)' : 'var(--ink-3)' }}>
                   {item.label}
                 </span>
