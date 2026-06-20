@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
 import type { Theme, AudioQuality, AutoNextDelay, MediaMode, OfflineStorageMode } from '@/store/settingsStore'
-import { clearAllMedia, isOpfsSupported, storageInfo } from '@/lib/mediaStore'
+import { clearAllMedia, isOfflineMediaSupported, storageInfo } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 
 const PLAYBACK_RATE_OPTIONS: { value: number; label: string }[] = [
@@ -123,12 +123,12 @@ export default function SettingsPage() {
   const [clearingMedia, setClearingMedia] = useState(false)
   const [clearedMedia, setClearedMedia] = useState(false)
   const [usedBytes, setUsedBytes] = useState<number | null>(null)
+  const offlineMediaOk = isOfflineMediaSupported()
 
   useEffect(() => {
-    if (!isOpfsSupported()) return
+    if (!offlineMediaOk) return
     storageInfo().then((info) => setUsedBytes(info.used)).catch(() => {})
-  }, [])
-  const opfsOk = isOpfsSupported()
+  }, [offlineMediaOk])
 
   const handleClearCache = async () => {
     setClearing(true)
@@ -444,34 +444,11 @@ export default function SettingsPage() {
         </section>
 
         {/* ════════════ 저장 · 데이터 ════════════ */}
-        <section>
-          <SectionLabel>저장 · 데이터</SectionLabel>
-          <div className="space-y-3">
+        {offlineMediaOk && (
+          <section>
+            <SectionLabel>저장 · 데이터</SectionLabel>
+            <div className="space-y-3">
 
-            {!opfsOk ? (
-              <div className="card px-4 py-4 flex items-start gap-3">
-                <div
-                  style={{
-                    width: 36, height: 36, borderRadius: 10,
-                    background: 'var(--primary-50)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-700)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z" />
-                    <path d="M12 8v4M12 16h.01" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--ink-0)' }}>PWA 설치 필요</p>
-                  <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--ink-2)' }}>
-                    오프라인 저장 및 이어듣기 기능은 앱을 홈 화면에 추가한 후 사용할 수 있습니다.
-                    {' (iOS 16 이하는 미지원)'}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
                 {/* 오프라인 저장 모드 */}
                 <div className="card overflow-hidden">
                   {OFFLINE_MODE_OPTIONS.map((opt, i) => {
@@ -528,13 +505,10 @@ export default function SettingsPage() {
                     </span>
                   </button>
                 </div>
-              </>
-            )}
 
             {dangerDivider}
 
             {/* 저장된 내용 모두 지우기 (오프라인 미디어 + 이어듣기) */}
-            {opfsOk && (
               <div className="card overflow-hidden">
                 <button
                   type="button"
@@ -568,7 +542,6 @@ export default function SettingsPage() {
                   )}
                 </button>
               </div>
-            )}
 
             {/* 캐시 삭제 */}
             <div className="card overflow-hidden">
@@ -603,7 +576,8 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
-        </section>
+          </section>
+        )}
 
         {/* ════════════ 정보 ════════════ */}
         <section>

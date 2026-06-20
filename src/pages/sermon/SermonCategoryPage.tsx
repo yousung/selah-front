@@ -7,7 +7,7 @@ import VideoCard from '@/components/VideoCard'
 import { useQueueStore } from '@/store/queueStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
-import { downloadMedia, isOpfsSupported, cancelDownload, deleteMedia } from '@/lib/mediaStore'
+import { downloadMedia, isOfflineMediaSupported, cancelDownload, deleteMedia } from '@/lib/mediaStore'
 
 interface CategoryNode {
   id: string
@@ -53,7 +53,7 @@ export default function SermonCategoryPage() {
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
   const { cachedIds, refresh } = useCachedMediaStore()
-  const opfsOk = isOpfsSupported()
+  const offlineMediaOk = isOfflineMediaSupported()
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set())
@@ -190,7 +190,7 @@ export default function SermonCategoryPage() {
   }
 
   const handleBulkDownload = useCallback(async () => {
-    if (!opfsOk || offlineStorageMode === 'thrift') return
+    if (!offlineMediaOk || offlineStorageMode === 'thrift') return
     const ids = Array.from(selected).filter((videoId) => !cachedIds.has(`${videoId}-${dlType}`))
     if (ids.length === 0) return
     bulkIdsRef.current = ids
@@ -233,7 +233,7 @@ export default function SermonCategoryPage() {
 
     if (!bulkCancelledRef.current) setBulkState(null)
     refresh()
-  }, [selected, dlType, offlineStorageMode, opfsOk, cachedIds, refresh])
+  }, [selected, dlType, offlineStorageMode, offlineMediaOk, cachedIds, refresh])
 
   const handleBulkCancel = useCallback(async () => {
     bulkCancelledRef.current = true
@@ -301,7 +301,7 @@ export default function SermonCategoryPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {total > 0 && <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>총 {total}편</span>}
-            {opfsOk && offlineStorageMode !== 'thrift' && total > 0 && !selectMode && (
+            {offlineMediaOk && offlineStorageMode !== 'thrift' && total > 0 && !selectMode && (
               <button
                 onClick={() => setSelectMode(true)}
                 style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-1)', display: 'flex', alignItems: 'center' }}

@@ -67,6 +67,43 @@ interface VideoPage {
 }
 
 const PAGE_LIMIT = 20
+const HOME_PLAYLISTS_CACHE_KEY = 'home-playlists-cache'
+const HOME_RECENT_CACHE_KEY = 'home-recent-playlist-cache'
+
+function getCachedHomeData<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { data?: T }
+    return parsed.data ?? null
+  } catch {
+    return null
+  }
+}
+
+function setCachedHomeData<T>(key: string, data: T) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ data, savedAt: Date.now() }))
+  } catch {}
+}
+
+function isBrowserOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false
+}
+
+async function withHomeCache<T>(key: string, loader: () => Promise<T>, offlineFallback: T): Promise<T> {
+  const cached = getCachedHomeData<T>(key)
+  if (isBrowserOffline()) return cached ?? offlineFallback
+
+  try {
+    const data = await loader()
+    setCachedHomeData(key, data)
+    return data
+  } catch (err) {
+    if (cached != null) return cached
+    throw err
+  }
+}
 
 function hasVideoToday(playlists?: Playlist[]): boolean {
   if (!playlists?.length) return false
@@ -90,12 +127,12 @@ interface BibleVerse {
 
 const VERSE_CACHE_KEY = 'daily-verse-cache'
 
-function getCachedVerse(): BibleVerse | null {
+function getCachedVerse(allowStale = false): BibleVerse | null {
   try {
     const raw = localStorage.getItem(VERSE_CACHE_KEY)
     if (!raw) return null
     const { verse, savedAt } = JSON.parse(raw) as { verse: BibleVerse; savedAt: number }
-    if (Date.now() - savedAt > 24 * 60 * 60 * 1000) return null
+    if (!allowStale && Date.now() - savedAt > 24 * 60 * 60 * 1000) return null
     return verse
   } catch {
     return null
@@ -112,10 +149,19 @@ function useDailyVerse() {
     queryFn: async () => {
       const cached = getCachedVerse()
       if (cached) return cached
-      const { data } = await api.get<BibleVerse | null>('/bible-verses/random')
-      if (data) setCachedVerse(data)
-      return data
+      if (isBrowserOffline()) return getCachedVerse(true)
+      try {
+        const { data } = await api.get<BibleVerse | null>('/bible-verses/random')
+        if (data) setCachedVerse(data)
+        return data
+      } catch (err) {
+        const stale = getCachedVerse(true)
+        if (stale) return stale
+        throw err
+      }
     },
+    initialData: () => getCachedVerse(true) ?? undefined,
+    networkMode: 'always',
     staleTime: Infinity,
   })
 }
@@ -123,20 +169,24 @@ function useDailyVerse() {
 function usePlaylists(limit: number) {
   return useQuery({
     queryKey: ['playlists', limit],
-    queryFn: async () => {
+    queryFn: () => withHomeCache(HOME_PLAYLISTS_CACHE_KEY, async () => {
       const { data } = await api.get<Playlist[]>('/playlists', { params: { limit } })
       return data
-    },
+    }, []),
+    initialData: () => getCachedHomeData<Playlist[]>(HOME_PLAYLISTS_CACHE_KEY) ?? undefined,
+    networkMode: 'always',
   })
 }
 
 function useRecentPlaylist(limit: number) {
-  return useQuery({
+  return useQuery<Playlist | null>({
     queryKey: ['playlists-recent', limit],
-    queryFn: async () => {
+    queryFn: () => withHomeCache(HOME_RECENT_CACHE_KEY, async () => {
       const { data } = await api.get<Playlist>('/playlists/recent', { params: { limit } })
       return data
-    },
+    }, null),
+    initialData: () => getCachedHomeData<Playlist>(HOME_RECENT_CACHE_KEY) ?? undefined,
+    networkMode: 'always',
   })
 }
 

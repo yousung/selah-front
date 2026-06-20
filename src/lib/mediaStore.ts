@@ -109,6 +109,18 @@ export function isOpfsSupported(): boolean {
   )
 }
 
+export function isOfflineMediaSupported(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    isOpfsSupported() &&
+    'indexedDB' in window &&
+    'serviceWorker' in navigator &&
+    typeof ReadableStream !== 'undefined' &&
+    typeof AbortController !== 'undefined'
+  )
+}
+
 export function canInstallPwa(): boolean {
   if (typeof window === 'undefined') return false
   if (isPwa()) return true
@@ -117,6 +129,20 @@ export function canInstallPwa(): boolean {
   const isIos = /iPhone|iPad|iPod/i.test(ua)
   const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS/i.test(ua)
   return isIos && isSafari
+}
+
+export function getServiceWorkerMediaUrl(id: string, type: 'audio' | 'video'): string {
+  const base = import.meta.env.BASE_URL || '/'
+  const root = base.endsWith('/') ? base : `${base}/`
+  return `${root}media/${encodeURIComponent(`${id}-${type}`)}`
+}
+
+export function canUseServiceWorkerMediaUrl(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    navigator.serviceWorker.controller != null
+  )
 }
 
 export async function isMediaCached(id: string, type: 'audio' | 'video'): Promise<boolean> {
@@ -144,15 +170,36 @@ export async function getMediaBlobUrl(id: string, type: 'audio' | 'video'): Prom
   }
 }
 
+export async function getCachedMediaPlaybackUrl(id: string, type: 'audio' | 'video'): Promise<string | null> {
+  if (!isOpfsSupported()) return null
+
+  try {
+    const entry = await idbGet<FileEntry>('files', `${id}-${type}`)
+    if (!entry || entry.status !== 'complete') return null
+
+    if (canUseServiceWorkerMediaUrl()) {
+      const swUrl = getServiceWorkerMediaUrl(id, type)
+      try {
+        const probe = await fetch(swUrl, { headers: { Range: 'bytes=0-0' } })
+        if (probe.status === 206) {
+          if (probe.body) await probe.body.cancel().catch(() => {})
+          return swUrl
+        }
+      } catch {}
+    }
+  } catch {
+    return null
+  }
+
+  return getMediaBlobUrl(id, type)
+}
+
 // ── Core API ──────────────────────────────────────────────────────────────────
 
 export async function resolveSrc(id: string, cdnUrl: string, type: 'audio' | 'video'): Promise<string> {
   if (!isOpfsSupported()) return cdnUrl
-  try {
-    const entry = await idbGet<FileEntry>('files', `${id}-${type}`)
-    if (entry?.status === 'complete') return `/media/${id}-${type}`
-  } catch {}
-  return cdnUrl
+  const cachedUrl = await getCachedMediaPlaybackUrl(id, type)
+  return cachedUrl ?? cdnUrl
 }
 
 export async function deleteMedia(id: string, type?: 'audio' | 'video'): Promise<void> {
@@ -211,7 +258,7 @@ export async function downloadMedia(
   cdnUrl: string,
   opts: { onProgress?: (pct: number) => void; type?: 'audio' | 'video'; estimatedSize?: number } = {},
 ): Promise<void> {
-  if (!isOpfsSupported()) throw new Error('OPFS not supported on this device')
+  if (!isOfflineMediaSupported()) throw new Error('Offline media is not supported on this device')
 
   const { offlineStorageMode } = useSettingsStore.getState()
   if (offlineStorageMode === 'thrift') throw new Error('Storage disabled in thrift mode')

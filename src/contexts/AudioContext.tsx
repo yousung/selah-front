@@ -3,7 +3,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import { api } from '@/lib/api'
-import { getMediaBlobUrl, isMediaCached, isOpfsSupported } from '@/lib/mediaStore'
+import { getCachedMediaPlaybackUrl, isOpfsSupported } from '@/lib/mediaStore'
 
 interface VideoInfo {
   id: string
@@ -288,32 +288,29 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const mediaType = isVideoMode ? 'video' : 'audio'
     if (isOpfsSupported()) {
       try {
-        const cached = await isMediaCached(video.id, mediaType)
-        if (cached) {
+        const localUrl = await getCachedMediaPlaybackUrl(video.id, mediaType)
+        if (localUrl) {
           if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
-          const blobUrl = await getMediaBlobUrl(video.id, mediaType)
-          if (blobUrl) {
-            blobUrlRef.current = blobUrl
-            if (isVideoMode) {
-              pendingAutoPlayRef.current = autoPlay
-              setVideoUrl(blobUrl)
-              if (!autoPlay) setIsLoading(false)
-            } else {
-              setVideoUrl(null)
-              const audio = audioRef.current
-              if (!audio) return
-              audio.src = blobUrl
-              audio.volume = volume
-              if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
-              if (!autoPlay) {
-                audio.load()
-                setIsLoading(false)
-                return
-              }
-              try { await audio.play() } catch { setIsLoading(false) }
+          if (localUrl.startsWith('blob:')) blobUrlRef.current = localUrl
+          if (isVideoMode) {
+            pendingAutoPlayRef.current = autoPlay
+            setVideoUrl(localUrl)
+            if (!autoPlay) setIsLoading(false)
+          } else {
+            setVideoUrl(null)
+            const audio = audioRef.current
+            if (!audio) return
+            audio.src = localUrl
+            audio.volume = volume
+            if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
+            if (!autoPlay) {
+              audio.load()
+              setIsLoading(false)
+              return
             }
-            return
+            try { await audio.play() } catch { setIsLoading(false) }
           }
+          return
         }
       } catch {}
     }

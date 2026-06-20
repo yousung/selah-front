@@ -12,7 +12,7 @@ import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import TagBadge from '@/components/TagBadge'
 import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
-import { isOpfsSupported, downloadMedia, isMediaCached } from '@/lib/mediaStore'
+import { downloadMedia, isMediaCached, isOfflineMediaSupported } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 
 interface Video {
@@ -328,7 +328,7 @@ export default function PlayerPage() {
   const downloadingRef = useRef(false)
   const dlStatus = dlState.key === mediaCacheKey ? dlState.status : 'idle'
   const isDownloaded = isCachedInStore || dlStatus === 'done'
-  const opfsOk = isOpfsSupported()
+  const offlineMediaOk = isOfflineMediaSupported()
   const isDraggingRef = useRef(false)
   const hasPlayedRef = useRef(false)
   const resumePositionRef = useRef(0)
@@ -352,13 +352,13 @@ export default function PlayerPage() {
   useEffect(() => {
     let cancelled = false
     setDlState({ key: mediaCacheKey, status: 'idle' })
-    if (!id || !opfsOk) return
+    if (!id || !offlineMediaOk) return
     // 모드 전환 시 이전 모드의 비동기 결과가 'done'을 덮어쓰지 않도록 취소 플래그 사용
     isMediaCached(id, mediaType).then((cached) => {
       if (!cancelled && cached) setDlState({ key: mediaCacheKey, status: 'done' })
     })
     return () => { cancelled = true }
-  }, [id, mediaCacheKey, mediaType, opfsOk])
+  }, [id, mediaCacheKey, mediaType, offlineMediaOk])
 
   useEffect(() => {
     if (isCachedInStore) setDlState({ key: mediaCacheKey, status: 'done' })
@@ -551,7 +551,7 @@ export default function PlayerPage() {
 
   const handleDownload = useCallback(async () => {
     if (!id || !video) return
-    if (!opfsOk) return
+    if (!offlineMediaOk) return
     if (offlineStorageMode === 'thrift') return
     // 동기 in-flight 가드: autoDownload가 video ref 변경(React Query 백그라운드 refetch)으로
     // 중복 발화해도 두 번째 호출을 즉시 차단. dlStatus(상태)는 비동기 지연이 있어 가드로 부적합.
@@ -588,11 +588,11 @@ export default function PlayerPage() {
     } finally {
       downloadingRef.current = false
     }
-  }, [id, video, opfsOk, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
+  }, [id, video, offlineMediaOk, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
 
   useEffect(() => {
     if (!autoDownload || offlineStorageMode === 'thrift') return
-    if (!video || !opfsOk) return
+    if (!video || !offlineMediaOk) return
     handleDownload()
   // video?.id로 의존: 백그라운드 refetch(같은 id, 새 ref)로 재발화하지 않도록
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -848,7 +848,7 @@ export default function PlayerPage() {
             </span>
           )}
           {/* 수동 다운로드 트리거 — 미저장(idle) 상태에서만. 진행은 하단 가로 바로 표시 */}
-          {id && opfsOk && offlineStorageMode !== 'thrift' && !isDownloaded && dlStatus === 'idle' && (
+          {id && offlineMediaOk && offlineStorageMode !== 'thrift' && !isDownloaded && dlStatus === 'idle' && (
             <button
               onClick={handleDownload}
               className="transition-opacity active:opacity-60 flex items-center p-2"
