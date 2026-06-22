@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import NaverAnalyticsTracker from '@/components/NaverAnalyticsTracker'
+import MediaDebugOverlay from '@/components/MediaDebugOverlay'
 import { AudioProvider } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
@@ -57,6 +58,7 @@ function ThemeApplicator() {
 export default function App() {
   return (
     <AudioProvider>
+      <MediaDebugOverlay />
       <HashRouter>
         <ThemeApplicator />
         <CachedMediaLoader />

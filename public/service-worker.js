@@ -1,4 +1,4 @@
-const CACHE_NAME = 'selah-app-v2'
+const CACHE_NAME = 'selah-app-v3'
 const APP_SHELL_PATHS = ['', 'index.html', 'manifest.webmanifest', 'icon.png', 'icon-192.png', 'icon-512.png']
 
 // -- URL helpers --------------------------------------------------------------
@@ -177,6 +177,51 @@ async function serveMediaFromOpfs(id, request) {
   }
 }
 
+// -- Diagnostics: "SW가 OPFS를 읽을 수 있나"를 직접 답한다 (RC3b 확정용) ----------
+// 항상 200 JSON 응답. 각 단계 try/catch로 실패 지점을 error 필드에 기록한다.
+async function serveMediaDebug(id) {
+  const report = {
+    swReached: true,
+    opfsSupported: !!self.navigator?.storage?.getDirectory,
+    entryFound: false,
+    entryStatus: null,
+    filename: null,
+    fileFound: false,
+    fileSize: null,
+    error: null,
+  }
+
+  let entry = null
+  try {
+    entry = await swGetFileEntry(id)
+    if (entry) {
+      report.entryFound = true
+      report.entryStatus = entry.status ?? null
+      report.filename = entry.filename ?? null
+    }
+  } catch (err) {
+    report.error = `swGetFileEntry: ${err?.message ?? err}`
+  }
+
+  if (entry?.filename && report.opfsSupported && !report.error) {
+    try {
+      const root = await navigator.storage.getDirectory()
+      const mediaDir = await root.getDirectoryHandle('media', { create: false })
+      const fileHandle = await mediaDir.getFileHandle(entry.filename)
+      const file = await fileHandle.getFile()
+      report.fileFound = true
+      report.fileSize = file.size
+    } catch (err) {
+      report.error = `opfsRead: ${err?.message ?? err}`
+    }
+  }
+
+  return new Response(JSON.stringify(report), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  })
+}
+
 // -- App shell ----------------------------------------------------------------
 
 async function handleNavigation(request) {
@@ -232,6 +277,12 @@ self.addEventListener('fetch', (event) => {
 
   const scopedPath = getPathInScope(url)
   if (url.pathname.startsWith('/api/') || scopedPath.startsWith('/api/')) return
+
+  const mediaDebugMatch = scopedPath.match(/^\/media-debug\/([^/]+)$/)
+  if (mediaDebugMatch) {
+    event.respondWith(serveMediaDebug(decodeURIComponent(mediaDebugMatch[1])))
+    return
+  }
 
   const mediaMatch = scopedPath.match(/^\/media\/([^/]+)$/)
   if (mediaMatch) {

@@ -52,8 +52,13 @@ type DownloadStatus = 'idle' | 'downloading' | 'done'
 
 function fmtTime(s: number) {
   if (!isFinite(s) || s < 0) return '0:00'
-  const m = Math.floor(s / 60)
-  const sec = Math.floor(s % 60)
+  const total = Math.floor(s)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const sec = total % 60
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
+  }
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 

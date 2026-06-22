@@ -123,7 +123,25 @@ export default function SettingsPage() {
   const [clearingMedia, setClearingMedia] = useState(false)
   const [clearedMedia, setClearedMedia] = useState(false)
   const [usedBytes, setUsedBytes] = useState<number | null>(null)
+  const [versionTaps, setVersionTaps] = useState(0)
   const offlineMediaOk = isOfflineMediaSupported()
+
+  // 앱 버전 5회 연속 탭 → 디버그 오버레이 토글 (사용자 진단용 숨김 기능)
+  const handleVersionTap = () => {
+    const next = versionTaps + 1
+    setVersionTaps(next)
+    if (next >= 5) {
+      setVersionTaps(0)
+      const enabled = localStorage.getItem('selah-debug') === '1'
+      if (enabled) {
+        localStorage.removeItem('selah-debug')
+        window.alert('디버그 모드 OFF')
+      } else {
+        localStorage.setItem('selah-debug', '1')
+        window.alert('디버그 모드 ON — 화면 우하단에 진단 오버레이가 나타납니다.')
+      }
+    }
+  }
 
   useEffect(() => {
     if (!offlineMediaOk) return
@@ -587,7 +605,11 @@ export default function SettingsPage() {
               { label: '제작', value: '주님의 교회' },
               { label: '앱 버전', value: import.meta.env.VITE_APP_VERSION ? `Selah ${import.meta.env.VITE_APP_VERSION}` : 'BETA' },
             ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between px-4 py-3.5">
+              <div
+                key={label}
+                className="flex items-center justify-between px-4 py-3.5"
+                onClick={label === '앱 버전' ? handleVersionTap : undefined}
+              >
                 <span className="text-sm" style={{ color: 'var(--ink-2)' }}>{label}</span>
                 <span className="text-sm font-medium" style={{ color: 'var(--ink-0)' }}>{value}</span>
               </div>

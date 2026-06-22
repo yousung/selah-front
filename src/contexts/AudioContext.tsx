@@ -4,8 +4,9 @@ import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { api } from '@/lib/api'
-import { deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT } from '@/lib/mediaStore'
+import { deleteMedia, getCachedMediaPlaybackUrl, isIosWebKit, isOpfsSupported, MEDIA_DOWNLOADED_EVENT } from '@/lib/mediaStore'
 import type { MediaDownloadedDetail } from '@/lib/mediaStore'
+import { setLastPlayback, setLastPlaybackError } from '@/lib/mediaDiag'
 
 interface VideoInfo {
   id: string
@@ -65,6 +66,12 @@ interface AudioContextValue {
 }
 
 const AudioCtx = createContext<AudioContextValue | null>(null)
+
+// 이번 세션 동안 로컬 재생을 건너뛰고 스트림으로만 가는 cacheKey(id-type) 집합.
+// iOS에서 SW-라우팅 실패성 에러(NETWORK/SRC_NOT_SUPPORTED)에 파일을 보존한 채
+// 폴백할 때, 재생→getCachedMediaPlaybackUrl→swUrl→다시 에러 무한루프를 막는다.
+// (probe 0-0 206 성공이 전체 재생 성공을 보장하지 않기 때문.) reload 시 초기화.
+const _forceStreamThisSession = new Set<string>()
 
 function stripBrackets(title: string) {
   return title.replace(/\[.*?\]/g, '').trim()
@@ -263,20 +270,38 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         const activeVideo = currentVideoDataRef.current
         if (localPlayback && activeVideo?.id === localPlayback.id && !localFallbackInProgressRef.current) {
           const seekTo = positionRef.current
+          const errorCode = audio.error?.code ?? null
+          // iOS에서는 진짜 손상(MEDIA_ERR_DECODE=3)일 때만 파일 삭제. NETWORK(2)/
+          // SRC_NOT_SUPPORTED(4) 등 SW-라우팅 실패성 에러에선 파일을 보존하고
+          // 이번 세션만 스트림으로 폴백한다(멀쩡한 다운로드를 매번 파괴하던 버그 방지).
+          const shouldDelete = !isIosWebKit() || errorCode === MediaError.MEDIA_ERR_DECODE
+          setLastPlaybackError({
+            code: errorCode,
+            networkState: audio.networkState,
+            readyState: audio.readyState,
+            src: audio.src || null,
+            preservedFile: !shouldDelete,
+          })
           localFallbackInProgressRef.current = true
           localPlaybackRef.current = null
           audio.pause()
           audio.src = ''
-          void deleteMedia(localPlayback.id, localPlayback.type)
-            .finally(() => useCachedMediaStore.getState().refresh())
-            .finally(() => {
-              setError(null)
-              void playVideoRef.current?.(activeVideo, {
-                autoPlay: true,
-                skipRecentAdd: true,
-                seekTo,
-              }).finally(() => { localFallbackInProgressRef.current = false })
-            })
+          const cleanup = shouldDelete
+            ? deleteMedia(localPlayback.id, localPlayback.type)
+                .finally(() => useCachedMediaStore.getState().refresh())
+            : Promise.resolve()
+          if (!shouldDelete) {
+            // 파일 보존 시: 재생→swUrl→재에러 무한루프를 막기 위해 이번 세션 스킵 등록.
+            _forceStreamThisSession.add(`${localPlayback.id}-${localPlayback.type}`)
+          }
+          void cleanup.finally(() => {
+            setError(null)
+            void playVideoRef.current?.(activeVideo, {
+              autoPlay: true,
+              skipRecentAdd: true,
+              seekTo,
+            }).finally(() => { localFallbackInProgressRef.current = false })
+          })
           return
         }
         setError('재생 오류가 발생했습니다.')
@@ -323,13 +348,15 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setDuration(dbDuration ?? 0)
 
     const mediaType = isVideoMode ? 'video' : 'audio'
-    if (isOpfsSupported()) {
+    const cacheKey = `${video.id}-${mediaType}`
+    if (isOpfsSupported() && !_forceStreamThisSession.has(cacheKey)) {
       try {
         const localUrl = await getCachedMediaPlaybackUrl(video.id, mediaType)
         if (localUrl) {
           if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
           if (localUrl.startsWith('blob:')) blobUrlRef.current = localUrl
           localPlaybackRef.current = { id: video.id, type: mediaType }
+          setLastPlayback({ id: video.id, type: mediaType, source: localUrl.startsWith('blob:') ? 'blob' : 'sw', src: localUrl })
           if (isVideoMode) {
             pendingAutoPlayRef.current = autoPlay
             if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
@@ -365,6 +392,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         hasAuthoritativeDurationRef.current = true
         setDuration(streamDuration)
       }
+      setLastPlayback({ id: video.id, type: mediaType, source: 'stream', src: data.url })
       if (isVideoMode) {
         localPlaybackRef.current = null
         pendingAutoPlayRef.current = autoPlay
@@ -554,19 +582,34 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const video = reactPlayerRef.current
     if (localPlayback && activeVideo?.id === localPlayback.id && !localFallbackInProgressRef.current) {
       const seekTo = positionRef.current
+      const errorCode = video?.error?.code ?? null
+      // audio 핸들러와 동일한 안전 픽스: iOS에선 MEDIA_ERR_DECODE(3)만 삭제, 그 외엔 파일 보존.
+      const shouldDelete = !isIosWebKit() || errorCode === MediaError.MEDIA_ERR_DECODE
+      setLastPlaybackError({
+        code: errorCode,
+        networkState: video?.networkState ?? null,
+        readyState: video?.readyState ?? null,
+        src: video?.src || null,
+        preservedFile: !shouldDelete,
+      })
       localFallbackInProgressRef.current = true
       localPlaybackRef.current = null
       if (video) { video.pause(); video.src = ''; video.load() }
-      void deleteMedia(localPlayback.id, localPlayback.type)
-        .finally(() => useCachedMediaStore.getState().refresh())
-        .finally(() => {
-          setError(null)
-          void playVideoRef.current?.(activeVideo, {
-            autoPlay: true,
-            skipRecentAdd: true,
-            seekTo,
-          }).finally(() => { localFallbackInProgressRef.current = false })
-        })
+      const cleanup = shouldDelete
+        ? deleteMedia(localPlayback.id, localPlayback.type)
+            .finally(() => useCachedMediaStore.getState().refresh())
+        : Promise.resolve()
+      if (!shouldDelete) {
+        _forceStreamThisSession.add(`${localPlayback.id}-${localPlayback.type}`)
+      }
+      void cleanup.finally(() => {
+        setError(null)
+        void playVideoRef.current?.(activeVideo, {
+          autoPlay: true,
+          skipRecentAdd: true,
+          seekTo,
+        }).finally(() => { localFallbackInProgressRef.current = false })
+      })
       return
     }
     setError('비디오 재생 오류가 발생했습니다.')

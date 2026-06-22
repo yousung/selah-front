@@ -127,7 +127,7 @@ function canPlayDownloadedMime(type: 'audio' | 'video', mimeType: string): boole
   return media.canPlayType(mimeType) !== ''
 }
 
-function isIosWebKit(): boolean {
+export function isIosWebKit(): boolean {
   if (typeof navigator === 'undefined') return false
   return /iPhone|iPad|iPod/i.test(navigator.userAgent)
 }
@@ -203,7 +203,7 @@ export function canUseServiceWorkerMediaUrl(): boolean {
  * 윈도우가 있다. 그 사이 다운로드된 미디어가 스트림으로 폴백되는 걸 막기 위해, SW가
  * 페이지 제어를 확보할 때까지 (timeoutMs 내) 기다린다. 제어 확보 여부를 반환.
  */
-async function ensureServiceWorkerControl(timeoutMs = 3000): Promise<boolean> {
+export async function ensureServiceWorkerControl(timeoutMs = 3000): Promise<boolean> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return false
   if (navigator.serviceWorker.controller) return true
   try {
@@ -232,6 +232,32 @@ export async function isMediaCached(id: string, type: 'audio' | 'video'): Promis
     return entry != null
   } catch {
     return false
+  }
+}
+
+export interface MediaEntryPeek {
+  found: boolean
+  status: FileEntry['status'] | null
+  filename: string | null
+  size: number | null
+}
+
+/**
+ * 진단 전용: IDB 엔트리를 부작용 없이 읽어 상태만 보고한다.
+ * (getUsableCompleteEntry는 레거시 엔트리를 삭제하는 부작용이 있어 진단에 쓰면 안 됨.)
+ */
+export async function peekMediaEntry(id: string, type: 'audio' | 'video'): Promise<MediaEntryPeek> {
+  try {
+    const entry = await idbGet<FileEntry>('files', `${id}-${type}`)
+    if (!entry) return { found: false, status: null, filename: null, size: null }
+    return {
+      found: true,
+      status: entry.status ?? null,
+      filename: entry.filename ?? null,
+      size: typeof entry.size === 'number' ? entry.size : null,
+    }
+  } catch {
+    return { found: false, status: null, filename: null, size: null }
   }
 }
 
