@@ -154,13 +154,34 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // 디코드해 element.duration이 틀려도, DB 값이 있으면 그것을 표시/재생바/종료감지/seek 클램프에
   // 모두 쓴다. DB 값이 없을 때만 element 파생 duration으로 폴백한다.
   const dbDuration = normalizeDbDuration(currentVideo?.duration)
-  const effectiveDuration = dbDuration ?? duration
+  // DB 값만 신뢰. element.duration(Safari 2배 디코드)으로 폴백하지 않는다. DB가 없으면 0
+  // (절대 element 2배를 표시하지 않음). _duration state는 내부 폴백 계산에만 남겨둔다.
+  const effectiveDuration = dbDuration ?? 0
+  void duration
   // durationRef/권위 플래그는 effectiveDuration 기준. syncPosition 종료감지·seek 클램프가
   // DB 길이를 써서 실제 끝에서 멈추고(무음 꼬리 제거) 시간 표시도 DB와 일치한다.
   useEffect(() => {
     durationRef.current = effectiveDuration
     hasAuthoritativeDurationRef.current = dbDuration != null
   }, [effectiveDuration, dbDuration])
+
+  // 재생 객체가 duration 없이 들어오는 경로(persist된 큐 meta, 일부 preview/recent 등)가
+  // 있어 currentVideo.duration이 undefined일 수 있다. 그러면 DB-신뢰 표시가 0이 된다.
+  // currentVideo에 DB duration이 없으면 상세 API로 권위 duration을 가져와 패치한다.
+  useEffect(() => {
+    const cur = currentVideo
+    if (!cur) return
+    if (normalizeDbDuration(cur.duration) != null) return
+    let cancelled = false
+    api.get<VideoDetail>(`/videos/${cur.id}`)
+      .then(({ data }) => {
+        const d = normalizeDbDuration(data.duration)
+        if (cancelled || d == null) return
+        setCurrentVideo((v) => (v && v.id === cur.id ? { ...v, duration: d } : v))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [currentVideo?.id, currentVideo?.duration])
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = playbackRate
     if (reactPlayerRef.current) reactPlayerRef.current.playbackRate = playbackRate
