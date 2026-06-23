@@ -182,10 +182,19 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       .catch(() => {})
     return () => { cancelled = true }
   }, [currentVideo?.id, currentVideo?.duration])
+  // 배속은 설교(SERMON)에만 적용. 찬송 등 그 외 콘텐츠는 항상 정속(1).
+  const playbackRateRef = useRef(playbackRate)
+  useEffect(() => { playbackRateRef.current = playbackRate }, [playbackRate])
+  const applyPlaybackRate = useCallback((media: HTMLMediaElement) => {
+    const isSermon = currentVideoDataRef.current?.type === 'SERMON'
+    media.playbackRate = isSermon ? playbackRateRef.current : 1
+  }, [])
+  // 재생 중 설정에서 배속 변경 시 즉시 반영(설교일 때만). currentVideo 의존으로
+  // 곡 전환 시에도 재실행돼 정속/배속이 콘텐츠 타입에 맞게 갱신된다.
   useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = playbackRate
-    if (reactPlayerRef.current) reactPlayerRef.current.playbackRate = playbackRate
-  }, [playbackRate])
+    if (audioRef.current) applyPlaybackRate(audioRef.current)
+    if (reactPlayerRef.current) applyPlaybackRate(reactPlayerRef.current)
+  }, [playbackRate, currentVideo, applyPlaybackRate])
 
   const updateActualDuration = useCallback((durationSeconds: number) => {
     if (hasAuthoritativeDurationRef.current) return
@@ -404,6 +413,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
             if (!audio) return
             audio.src = localUrl
             audio.volume = volume
+            applyPlaybackRate(audio)
             if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
             if (!autoPlay) {
               audio.load()
@@ -442,6 +452,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         if (!audio) return
         audio.src = data.url
         audio.volume = volume
+        applyPlaybackRate(audio)
         if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
         if (!autoPlay) {
           audio.load()
@@ -458,7 +469,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setError('스트림을 불러올 수 없습니다.')
       setIsLoading(false)
     }
-  }, [cancelAutoNext, volume])
+  }, [cancelAutoNext, volume, applyPlaybackRate])
 
   useEffect(() => {
     playVideoRef.current = playVideo
@@ -585,13 +596,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const video = reactPlayerRef.current
     if (video) {
       video.volume = volume
+      applyPlaybackRate(video)
       applyPendingSeek(video)
     }
     if (pendingAutoPlayRef.current) {
       pendingAutoPlayRef.current = false
       video?.play().catch(() => setIsLoading(false))
     }
-  }, [applyPendingSeek, volume])
+  }, [applyPendingSeek, volume, applyPlaybackRate])
 
   const onVideoTimeUpdate = useCallback((e: SyntheticEvent<HTMLVideoElement>) => {
     syncPosition(e.currentTarget)

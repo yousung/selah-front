@@ -289,6 +289,9 @@ export default function SettingsPage() {
                 })}
               </div>
             </div>
+            <p className="text-xs px-1 -mt-1" style={{ color: 'var(--ink-2)' }}>
+              재생 속도는 설교에만 적용됩니다. 찬송은 항상 정속으로 재생됩니다.
+            </p>
 
             {/* Auto play on detail */}
             <div className="card overflow-hidden">
