@@ -6,6 +6,7 @@ import {
   peekMediaEntry,
   getServiceWorkerMediaUrl,
   ensureServiceWorkerControl,
+  fetchWithTimeout,
 } from '@/lib/mediaStore'
 
 // ── 마지막 "실제 재생" 진단 스토어 ─────────────────────────────────────────────
@@ -222,7 +223,13 @@ export async function runMediaDiag(id: string, type: 'audio' | 'video'): Promise
       typeof FileSystemFileHandle !== 'undefined' && 'createWritable' in FileSystemFileHandle.prototype
   } catch {}
   try {
-    const w = await runOpfsWriteTest()
+    // 타임아웃 레이스: OPFS write가 hang해도 diag 전체가 멈추지 않게.
+    const w = await Promise.race([
+      runOpfsWriteTest(),
+      new Promise<{ ok: boolean; error: string | null }>((resolve) =>
+        setTimeout(() => resolve({ ok: false, error: 'timeout(3s)' }), 3000),
+      ),
+    ])
     report.opfsWriteTestOk = w.ok
     report.opfsWriteTestError = w.error
   } catch (err) {
@@ -249,7 +256,7 @@ export async function runMediaDiag(id: string, type: 'audio' | 'video'): Promise
     let probeOk = false
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const probe = await fetch(swUrl, { headers: { Range: 'bytes=0-0' } })
+        const probe = await fetchWithTimeout(swUrl, { headers: { Range: 'bytes=0-0' } })
         report.probeStatus = probe.status
         report.probeContentRange = probe.headers.get('Content-Range')
         if (probe.body) await probe.body.cancel().catch(() => {})
@@ -267,7 +274,7 @@ export async function runMediaDiag(id: string, type: 'audio' | 'video'): Promise
 
   // SW self-diagnostic view: /media-debug → JSON
   try {
-    const res = await fetch(getSwDebugBaseUrl(`${id}-${type}`))
+    const res = await fetchWithTimeout(getSwDebugBaseUrl(`${id}-${type}`))
     report.sw.httpStatus = res.status
     const json = (await res.json()) as Partial<SwDebugView>
     report.sw.swReached = json.swReached ?? null

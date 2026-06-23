@@ -150,7 +150,17 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const hasAuthoritativeDurationRef = useRef(false)
   const pendingSeekRef = useRef<number | null>(null)
   const blobUrlRef = useRef<string | null>(null)
-  useEffect(() => { durationRef.current = duration }, [duration])
+  // DB duration(currentVideo)을 절대 신뢰한다. Safari가 일부 AAC를 길이 2배(실콘텐츠+무음)로
+  // 디코드해 element.duration이 틀려도, DB 값이 있으면 그것을 표시/재생바/종료감지/seek 클램프에
+  // 모두 쓴다. DB 값이 없을 때만 element 파생 duration으로 폴백한다.
+  const dbDuration = normalizeDbDuration(currentVideo?.duration)
+  const effectiveDuration = dbDuration ?? duration
+  // durationRef/권위 플래그는 effectiveDuration 기준. syncPosition 종료감지·seek 클램프가
+  // DB 길이를 써서 실제 끝에서 멈추고(무음 꼬리 제거) 시간 표시도 DB와 일치한다.
+  useEffect(() => {
+    durationRef.current = effectiveDuration
+    hasAuthoritativeDurationRef.current = dbDuration != null
+  }, [effectiveDuration, dbDuration])
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = playbackRate
     if (reactPlayerRef.current) reactPlayerRef.current.playbackRate = playbackRate
@@ -340,6 +350,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     setError(null)
     setIsEnded(false)
+    // 곡 전환 시 옛 미디어를 즉시 멈춘다. 안 그러면 아래 async(getCachedMediaPlaybackUrl 등)
+    // 동안 옛 트랙의 timeupdate가 계속 발화해 positionRef를 옛 위치로 되돌리고, 새 트랙의
+    // 빠른 재다운로드 재생(seekTo: positionRef.current)이 옛 위치로 점프하는 버그가 생긴다.
+    audioRef.current?.pause()
+    reactPlayerRef.current?.pause()
     positionRef.current = 0
     pendingSeekRef.current = null
     setPosition(0)
@@ -738,7 +753,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   return (
     <AudioCtx.Provider value={{
-      currentVideo, isPlaying, isLoading, isEnded, position, duration, autoNextProgress, error, volume,
+      currentVideo, isPlaying, isLoading, isEnded, position, duration: effectiveDuration, autoNextProgress, error, volume,
       videoUrl, reactPlayerRef, videoSlotRef,
       playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, setVolume: handleSetVolume,
       onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,

@@ -132,6 +132,19 @@ export function isIosWebKit(): boolean {
   return /iPhone|iPad|iPod/i.test(navigator.userAgent)
 }
 
+/**
+ * 데스크탑(및 iPadOS 데스크탑 UA) Safari. Chrome/Edge/iOS 제외.
+ * Safari는 Service-Worker가 가로챈 미디어(/media range) fetch가 응답을 안 주고
+ * hang하는 케이스가 있어, 다운로드 파일을 SW 경유로 재생하면 무한 로딩/재생 불가가 된다.
+ * 데스크탑 Safari는 메모리 여유가 있어 blob URL 직접 재생이 안전하다.
+ */
+export function isDesktopSafari(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  if (/iPhone|iPod/i.test(ua)) return false
+  return /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg|Android/i.test(ua)
+}
+
 async function getUsableCompleteEntry(id: string, type: 'audio' | 'video'): Promise<FileEntry | null> {
   const cacheKey = `${id}-${type}`
   const entry = await idbGet<FileEntry>('files', cacheKey)
@@ -196,6 +209,21 @@ export function canUseServiceWorkerMediaUrl(): boolean {
     'serviceWorker' in navigator &&
     navigator.serviceWorker.controller != null
   )
+}
+
+/**
+ * 타임아웃 있는 fetch. Safari에선 SW가 fetch를 가로챈 뒤 응답을 영영 안 주는
+ * 케이스가 있어, 타임아웃 없는 fetch가 재생을 무한 블록한다(무한 로딩 버그).
+ * 타임아웃 초과 시 abort → reject 되어 호출부가 폴백 경로로 진행할 수 있다.
+ */
+export async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 2500): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /**
@@ -286,6 +314,14 @@ export async function getCachedMediaPlaybackUrl(id: string, type: 'audio' | 'vid
     const entry = await getUsableCompleteEntry(id, type)
     if (!entry) return null
 
+    // 데스크탑 Safari는 SW 경유 미디어 fetch가 hang하는 케이스가 있어(무한 로딩/재생 불가),
+    // SW 경로를 건너뛰고 blob URL로 바로 재생한다.
+    if (isDesktopSafari()) {
+      const blobUrl = await getMediaBlobUrl(id, type)
+      if (blobUrl) return blobUrl
+      // blob 실패 시에만 아래 SW 경로로 폴백.
+    }
+
     // 다운로드된 콘텐츠만 SW 제어 확보를 기다린다 (다운로드 안 된 건 위에서 이미 null 반환됨).
     // 콜드런치/첫 설치/SW 업데이트 직후 controller가 null인 윈도우에서도 로컬 재생을 보장.
     await ensureServiceWorkerControl()
@@ -296,7 +332,8 @@ export async function getCachedMediaPlaybackUrl(id: string, type: 'audio' | 'vid
       // 가로채지 못하는 찰나가 있어, 한 번 실패하면 잠깐 뒤 다시 시도한다.
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const probe = await fetch(swUrl, { headers: { Range: 'bytes=0-0' } })
+          // 타임아웃 필수: Safari SW hang 시 무한 로딩 방지. 실패하면 아래 blob 폴백으로.
+          const probe = await fetchWithTimeout(swUrl, { headers: { Range: 'bytes=0-0' } })
           if (probe.status === 206) {
             if (probe.body) await probe.body.cancel().catch(() => {})
             return swUrl
