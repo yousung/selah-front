@@ -5,9 +5,6 @@ import { api } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
 import VideoCard from '@/components/VideoCard'
 import { useQueueStore } from '@/store/queueStore'
-import { useSettingsStore } from '@/store/settingsStore'
-import { useCachedMediaStore } from '@/store/cachedMediaStore'
-import { downloadMedia, isOfflineMediaSupported, cancelDownload, deleteMedia } from '@/lib/mediaStore'
 
 interface CategoryNode {
   id: string
@@ -50,17 +47,6 @@ export default function SermonCategoryPage() {
   const navigate = useNavigate()
   const { playVideo } = useAudio()
   const setQueue = useQueueStore((s) => s.setQueue)
-  const mediaMode = useSettingsStore((s) => s.mediaMode)
-  const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
-  const { cachedIds, refresh } = useCachedMediaStore()
-  const offlineMediaOk = isOfflineMediaSupported()
-  const [selectMode, setSelectMode] = useState(false)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set())
-  // 벌크(2개 이상) 다운로드 모달 상태 — null이면 모달 없음
-  const [bulkState, setBulkState] = useState<{ total: number; done: number } | null>(null)
-  const bulkIdsRef = useRef<string[]>([])
-  const bulkCancelledRef = useRef(false)
   const { data: category, isLoading: catLoading } = useQuery({
     queryKey: ['sermon-category', id],
     queryFn: async () => {
@@ -91,7 +77,6 @@ export default function SermonCategoryPage() {
 
   const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
   const total = data?.pages[0]?.total ?? 0
-  const dlType = mediaMode === 'video' ? 'video' : 'audio'
 
   const [pendingJumpIndex, setPendingJumpIndex] = useState<number | null>(null)
   const videoRefs = useRef<Map<number, HTMLDivElement>>(new Map())
@@ -167,88 +152,6 @@ export default function SermonCategoryPage() {
     navigate(`/sermon/player/${video.id}`, { state: { categoryId: id, categoryTitle: category?.title } })
   }
 
-  const toggleSelect = (videoId: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(videoId)) next.delete(videoId)
-      else next.add(videoId)
-      return next
-    })
-  }
-
-  const handleSelectAll = () => {
-    if (selected.size === allVideos.length && allVideos.length > 0) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(allVideos.map((v) => v.id)))
-    }
-  }
-
-  const handleExitSelectMode = () => {
-    setSelectMode(false)
-    setSelected(new Set())
-  }
-
-  const handleBulkDownload = useCallback(async () => {
-    if (!offlineMediaOk || offlineStorageMode === 'thrift') return
-    const ids = Array.from(selected).filter((videoId) => !cachedIds.has(`${videoId}-${dlType}`))
-    if (ids.length === 0) return
-    bulkIdsRef.current = ids
-    bulkCancelledRef.current = false
-    setDownloadingIds(new Set(ids))
-    setBulkState({ total: ids.length, done: 0 })
-    setSelectMode(false)
-    setSelected(new Set())
-
-    // 동시성 2로 제한. 많은 동시 다운로드는 같은 Invidious 프록시에 부하를 줘 throttle/500을
-    // 유발하므로 한 번에 2개까지만 처리한다.
-    const CONCURRENCY = 2
-    let cursor = 0
-    const worker = async () => {
-      while (cursor < ids.length && !bulkCancelledRef.current) {
-        const videoId = ids[cursor++]
-        let success = false
-        for (let attempt = 0; attempt < 3 && !success && !bulkCancelledRef.current; attempt++) {
-          try {
-            const path = dlType === 'video' ? `/videos/${videoId}/download` : `/audios/${videoId}/download`
-            const { data } = await api.get<{ url: string; mimeType?: string }>(
-              path,
-              dlType !== 'video' ? { params: { quality: 'high' } } : undefined,
-            )
-            await downloadMedia(videoId, data.url, { type: dlType as 'audio' | 'video', mimeType: data.mimeType })
-            refresh()
-            success = true
-          } catch {
-            if (attempt < 2 && !bulkCancelledRef.current) await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
-          }
-        }
-        setDownloadingIds((prev) => {
-          const next = new Set(prev)
-          next.delete(videoId)
-          return next
-        })
-        setBulkState((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev))
-      }
-    }
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, worker))
-
-    if (!bulkCancelledRef.current) setBulkState(null)
-    refresh()
-  }, [selected, dlType, offlineStorageMode, offlineMediaOk, cachedIds, refresh])
-
-  const handleBulkCancel = useCallback(async () => {
-    bulkCancelledRef.current = true
-    // 진행 중 다운로드 즉시 중단
-    for (const videoId of bulkIdsRef.current) cancelDownload(videoId, dlType as 'audio' | 'video')
-    // 이번 배치에서 받은 것(완료분 포함) 모두 삭제
-    await Promise.all(
-      bulkIdsRef.current.map((videoId) => deleteMedia(videoId, dlType as 'audio' | 'video').catch(() => {})),
-    )
-    setDownloadingIds(new Set())
-    setBulkState(null)
-    refresh()
-  }, [dlType, refresh])
-
   if (catLoading) {
     return (
       <div style={{ background: 'var(--surface-0)', minHeight: '100dvh' }}>
@@ -266,7 +169,7 @@ export default function SermonCategoryPage() {
   }
 
   return (
-    <div style={{ background: 'var(--surface-0)', minHeight: '100dvh', paddingBottom: selectMode ? 80 : 0 }}>
+    <div style={{ background: 'var(--surface-0)', minHeight: '100dvh' }}>
       {/* AppBar */}
       <header style={{
         background: 'var(--white)',
@@ -276,7 +179,7 @@ export default function SermonCategoryPage() {
         <div style={{ padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button
-              onClick={() => selectMode ? handleExitSelectMode() : navigate(-1)}
+              onClick={() => navigate(-1)}
               style={{ padding: '8px 8px 8px 0', color: 'var(--ink-0)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
@@ -302,26 +205,6 @@ export default function SermonCategoryPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {total > 0 && <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>총 {total}편</span>}
-            {offlineMediaOk && offlineStorageMode !== 'thrift' && total > 0 && !selectMode && (
-              <button
-                onClick={() => setSelectMode(true)}
-                style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-1)', display: 'flex', alignItems: 'center' }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-              </button>
-            )}
-            {selectMode && (
-              <button
-                onClick={handleExitSelectMode}
-                style={{ fontSize: 14, color: 'var(--primary-700)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: '4px 0' }}
-              >
-                취소
-              </button>
-            )}
           </div>
         </div>
       </header>
@@ -424,8 +307,6 @@ export default function SermonCategoryPage() {
           ) : (
             <>
               {allVideos.map((video, i) => {
-                const isDownloading = downloadingIds.has(video.id)
-                const isSelected = selected.has(video.id)
                 return (
                   <div
                     key={video.id}
@@ -435,26 +316,8 @@ export default function SermonCategoryPage() {
                     <VideoCard
                       video={{ ...video, hymnTitle: video.title, title: video.description ?? '', tag: null }}
                       layout="list"
-                      isDownloading={isDownloading}
-                      selectMode={selectMode}
-                      onClick={selectMode ? () => toggleSelect(video.id) : () => handleVideoClick(video, i)}
+                      onClick={() => handleVideoClick(video, i)}
                     />
-                    {selectMode && !cachedIds.has(`${video.id}-${dlType}`) && (
-                      <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                        <div style={{
-                          width: 22, height: 22, borderRadius: '50%',
-                          border: `2px solid ${isSelected ? 'var(--primary-700)' : 'var(--ink-3)'}`,
-                          background: isSelected ? 'var(--primary-700)' : 'transparent',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {isSelected && (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )
               })}
@@ -485,75 +348,6 @@ export default function SermonCategoryPage() {
           <p style={{ fontSize: 14, color: 'var(--ink-2)', textAlign: 'center', lineHeight: 1.6 }}>
             아직 등록된 설교가 없습니다.
           </p>
-        </div>
-      )}
-
-      {selectMode && (
-        <div style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0,
-          background: 'var(--white)', borderTop: '1px solid var(--divider)',
-          padding: '10px 16px', display: 'flex', gap: 10, alignItems: 'center',
-          zIndex: 50,
-        }}>
-          <button
-            onClick={handleSelectAll}
-            style={{
-              padding: '10px 16px', borderRadius: 8,
-              border: '1.5px solid var(--divider)',
-              background: 'var(--surface-0)', fontSize: 14, fontWeight: 600,
-              color: 'var(--ink-1)', cursor: 'pointer', flexShrink: 0,
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            {selected.size === allVideos.length && allVideos.length > 0 ? '선택 해제' : '보이는 항목 전체 선택'}
-          </button>
-          <button
-            onClick={handleBulkDownload}
-            disabled={selected.size === 0}
-            style={{
-              flex: 1, padding: '10px 16px', borderRadius: 8,
-              background: selected.size > 0 ? 'var(--primary-700)' : 'var(--surface-2)',
-              color: selected.size > 0 ? 'white' : 'var(--ink-3)',
-              border: 'none', fontSize: 14, fontWeight: 700,
-              cursor: selected.size > 0 ? 'pointer' : 'default',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            {selected.size > 0 ? `${selected.size}개 다운로드` : '다운로드'}
-          </button>
-        </div>
-      )}
-
-      {/* 2개 이상 동시 다운로드 시: 화면 딤 + 진행 표시 + 중앙 취소 (다른 조작 차단) */}
-      {bulkState && bulkState.total >= 2 && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 200,
-            background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(2px)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div style={{ textAlign: 'center', color: 'white' }}>
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" style={{ margin: '0 auto 16px' }} className="animate-spin">
-              <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" />
-              <path d="M12 3a9 9 0 0 1 9 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
-            <p style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>다운로드 중입니다</p>
-            <p style={{ fontSize: 14, opacity: 0.85 }}>{bulkState.done} / {bulkState.total}</p>
-          </div>
-          <button
-            onClick={handleBulkCancel}
-            style={{
-              padding: '12px 32px', borderRadius: 10,
-              background: 'var(--white)', color: 'var(--error, #d92d20)',
-              border: 'none', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            취소
-          </button>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>취소하면 받은 항목도 모두 삭제됩니다</p>
         </div>
       )}
     </div>
