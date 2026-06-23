@@ -200,8 +200,9 @@ export default function SermonCategoryPage() {
     setSelectMode(false)
     setSelected(new Set())
 
-    // 동시성 제한 병렬 다운로드 (프록시 과부하 방지 위해 3개씩 동시)
-    const CONCURRENCY = 3
+    // 동시성 2로 제한. 많은 동시 다운로드는 같은 Invidious 프록시에 부하를 줘 throttle/500을
+    // 유발하므로 한 번에 2개까지만 처리한다.
+    const CONCURRENCY = 2
     let cursor = 0
     const worker = async () => {
       while (cursor < ids.length && !bulkCancelledRef.current) {
