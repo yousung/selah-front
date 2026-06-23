@@ -579,7 +579,8 @@ export default function PlayerPage() {
   const handleDownload = useCallback(async () => {
     if (!id || !video) return
     if (!offlineMediaOk) return
-    if (offlineStorageMode === 'thrift') return
+    // 절약(thrift)도 다운로드-후-재생을 위해 다운로드한다(스트림 직접 재생 안 함).
+    // 다운로드 후 enforceStoragePolicy가 현재 곡 1개만 남기고 정리한다.
     // 동기 in-flight 가드: autoDownload가 video ref 변경(React Query 백그라운드 refetch)으로
     // 중복 발화해도 두 번째 호출을 즉시 차단. dlStatus(상태)는 비동기 지연이 있어 가드로 부적합.
     if (downloadingRef.current) return
@@ -619,12 +620,14 @@ export default function PlayerPage() {
   }, [id, video, offlineMediaOk, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
 
   useEffect(() => {
-    if (!autoDownload || offlineStorageMode === 'thrift') return
+    // 절약(thrift)은 autoDownload 토글과 무관하게 항상 다운로드-후-재생(1곡 보관).
+    // 그 외 모드는 autoDownload 켜진 경우에만 자동 다운로드.
+    if (offlineStorageMode !== 'thrift' && !autoDownload) return
     if (!video || !offlineMediaOk) return
     handleDownload()
   // video?.id로 의존: 백그라운드 refetch(같은 id, 새 ref)로 재발화하지 않도록
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [video?.id, autoDownload])
+  }, [video?.id, autoDownload, offlineStorageMode])
 
   const handleRetry = useCallback(() => {
     if (video) {

@@ -370,18 +370,31 @@ async function evictByCacheKey(cacheKey: string): Promise<void> {
   await removeMediaCacheKey(cacheKey)
 }
 
-async function evictToLimit(excludeKey: string): Promise<void> {
-  const { offlineStorageMode } = useSettingsStore.getState()
-  if (offlineStorageMode === 'thrift') return
-
+/**
+ * 현재 저장 모드에 맞게 다운로드 보존 정책을 강제한다. 다운로드 직후, 그리고 모드 변경
+ * 시점(사용자 클릭)에 호출한다. excludeKey(현재 재생 중인 cacheKey)는 절대 삭제하지 않는다
+ * — SW/blob 재생 중인 파일을 지우면 재생이 끊긴다.
+ *
+ * - thrift(절약): 1곡만 저장. 현재 재생 곡 외 전부 삭제(다음 곡으로 넘어가면 이전 곡 제거).
+ * - normal(보통): 500MB 한도, 초과 시 오래된 것부터 삭제.
+ * - generous(넉넉): 1GB 한도.
+ * - custom(최대): offlineStorageCustomMB(기본 2GB) 한도.
+ */
+export async function enforceStoragePolicy(excludeKey?: string): Promise<void> {
+  const { offlineStorageMode, offlineStorageCustomMB } = useSettingsStore.getState()
   const all = await idbGetAll<FileEntry>('files')
   const complete = all
     .filter((f) => f.status === 'complete' && f.id !== excludeKey)
     .sort((a, b) => a.lastPlayedAt - b.lastPlayedAt)
 
+  if (offlineStorageMode === 'thrift') {
+    for (const f of complete) await evictByCacheKey(f.id)
+    return
+  }
+
   const limitBytes =
     offlineStorageMode === 'custom'
-      ? 2 * 1024 * 1024 * 1024
+      ? offlineStorageCustomMB * 1024 * 1024
       : offlineStorageMode === 'generous'
         ? 1 * 1024 * 1024 * 1024
         : 500 * 1024 * 1024
@@ -498,7 +511,7 @@ export async function downloadMedia(
     opts.onProgress?.(1)
     notifyMediaDownloaded({ id, type: mediaType, cacheKey })
 
-    await evictToLimit(cacheKey)
+    await enforceStoragePolicy(cacheKey)
   } catch (err) {
     // 취소/에러 시 열린 writable 닫고 부분 파일·락 정리 (다음 시도가 깨끗하게 재시작)
     try { await writable?.abort() } catch {}

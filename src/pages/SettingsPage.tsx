@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
 import type { Theme, AudioQuality, AutoNextDelay, MediaMode, OfflineStorageMode } from '@/store/settingsStore'
-import { clearAllMedia, isOfflineMediaSupported, storageInfo } from '@/lib/mediaStore'
+import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
+import { useAudio } from '@/contexts/AudioContext'
 
 const PLAYBACK_RATE_OPTIONS: { value: number; label: string }[] = [
   { value: 0.5, label: '0.5x' },
@@ -94,8 +95,8 @@ const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string; desc: string }[] = 
 ]
 
 const OFFLINE_MODE_OPTIONS: { value: OfflineStorageMode; label: string; desc: string }[] = [
-  { value: 'thrift', label: '절약', desc: '저장 안함 · 이어듣기 미지원' },
-  { value: 'normal', label: '보통', desc: '최대 5곡까지 저장' },
+  { value: 'thrift', label: '절약', desc: '현재 곡만 저장 · 이어듣기 지원 · 멀티 다운로드 미지원' },
+  { value: 'normal', label: '보통', desc: '최대 500MB까지 저장' },
   { value: 'generous', label: '넉넉', desc: '최대 1GB까지 저장' },
   { value: 'custom', label: '최대', desc: '최대 2GB까지 저장' },
 ]
@@ -118,7 +119,18 @@ export default function SettingsPage() {
     setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
     setOfflineStorageMode, setAutoDownload,
   } = useSettingsStore()
+  const { currentVideo } = useAudio()
   const [clearing, setClearing] = useState(false)
+
+  // 저장 모드 변경 시 즉시 새 정책으로 기존 다운로드를 정리한다.
+  // 현재 재생 중인 곡은 보존(excludeKey)해 재생이 끊기지 않게 한다.
+  const handleStorageModeChange = async (mode: OfflineStorageMode) => {
+    setOfflineStorageMode(mode)
+    const excludeKey = currentVideo ? `${currentVideo.id}-${mediaMode === 'video' ? 'video' : 'audio'}` : undefined
+    try { await enforceStoragePolicy(excludeKey) } catch {}
+    useCachedMediaStore.getState().refresh()
+    try { const info = await storageInfo(); setUsedBytes(info.used) } catch {}
+  }
   const [cleared, setCleared] = useState(false)
   const [clearingMedia, setClearingMedia] = useState(false)
   const [clearedMedia, setClearedMedia] = useState(false)
@@ -475,7 +487,7 @@ export default function SettingsPage() {
                     return (
                       <div key={opt.value}>
                         <button
-                          onClick={() => setOfflineStorageMode(opt.value)}
+                          onClick={() => handleStorageModeChange(opt.value)}
                           className="w-full flex items-center justify-between px-4 py-3.5 transition-colors"
                           style={{
                             borderBottom: !isLast ? '1px solid var(--divider)' : 'none',
