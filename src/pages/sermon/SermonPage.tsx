@@ -176,7 +176,7 @@ function VideoRowContent({ categoryId, accent }: { categoryId: string; accent: s
 
   if (isLoading) {
     return (
-      <div className="sermon-hscroll" style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 16px 4px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 16px 4px' }}>
         {[0, 1, 2, 3].map((i) => (
           <div key={i} style={{ flexShrink: 0, width: 164, height: 92, borderRadius: 8, background: 'var(--surface-2)', opacity: 1 - i * 0.2 }} />
         ))}
@@ -186,7 +186,7 @@ function VideoRowContent({ categoryId, accent }: { categoryId: string; accent: s
 
   if (!videos.length) {
     return (
-      <div className="sermon-hscroll" style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 16px 4px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 16px 4px' }}>
         <div style={{ flexShrink: 0, width: 164 }}>
           <div style={{
             width: 164, height: 92, borderRadius: 8,
@@ -211,7 +211,7 @@ function VideoRowContent({ categoryId, accent }: { categoryId: string; accent: s
   }
 
   return (
-    <div className="sermon-hscroll" style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 16px 4px' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 16px 4px' }}>
       {videos.map((video, i) => (
         <VideoThumbCard key={video.id} video={video} onPlay={() => handlePlay(video, i)} />
       ))}
@@ -224,47 +224,23 @@ function CategoryRow({ node, accent }: { node: CategoryNode; accent: string }) {
   const navigate = useNavigate()
   const isLeaf = node.children.length === 0
   const total = subtreeVideoCount(node)
-  const hasContent = isLeaf ? total > 0 : node.children.length > 0
 
   return (
     <section style={{ marginBottom: 36 }}>
       {/* 헤더 */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', marginBottom: 12,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', marginBottom: 12 }}>
           <div style={{ width: 4, height: 18, background: accent, borderRadius: 2, flexShrink: 0 }} />
           <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-0)' }}>{node.title}</span>
           <span style={{ fontSize: 12, color: 'var(--ink-3)', marginLeft: 2 }}>
             {isLeaf ? (total > 0 ? `${total}편` : '준비중') : `${node.children.length}개 시리즈`}
           </span>
-        </div>
-        {hasContent && (
-          <button
-            onClick={() => navigate(`/sermon/category/${node.id}`)}
-            style={{
-              fontSize: 13, fontWeight: 600, color: accent,
-              background: 'none', border: 'none', cursor: 'pointer',
-              padding: '4px 0',
-              display: 'flex', alignItems: 'center', gap: 2,
-            }}
-          >
-            전체보기
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth={2.5}
-              strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        )}
       </div>
 
       {/* 콘텐츠 */}
       {isLeaf ? (
         <VideoRowContent categoryId={node.id} accent={accent} />
       ) : (
-        <div className="sermon-hscroll" style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 16px 4px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 16px 4px' }}>
           {node.children.map((child, i) => (
             <SubCatCard
               key={child.id}

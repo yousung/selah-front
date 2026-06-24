@@ -14,6 +14,7 @@ interface CategoryNode {
   title: string
   ordering: number
   videoCount: number
+  thumbnail?: string | null
   isCompleted: boolean
   children: CategoryNode[]
 }
@@ -39,8 +40,66 @@ interface VideoPage {
   hasMore: boolean
 }
 
-function subtreeHasContent(node: CategoryNode): boolean {
-  return node.videoCount > 0 || node.children.some(subtreeHasContent)
+
+function subtreeVideoCount(node: CategoryNode): number {
+  return node.videoCount + node.children.reduce((s, c) => s + subtreeVideoCount(c), 0)
+}
+
+
+const ACCENT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#0ea5e9']
+
+
+function ChildSubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: string; onClick: () => void }) {
+  const total = subtreeVideoCount(node)
+  return (
+    <div onClick={onClick} style={{ flexShrink: 0, width: 136, cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}>
+      <div style={{ width: 136, height: 80, borderRadius: 10, position: 'relative', overflow: 'hidden' }}>
+        {node.thumbnail ? (
+          <>
+            <img src={node.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.32)' }} />
+          </>
+        ) : (
+          <>
+            <div style={{ width: '100%', height: '100%', background: `linear-gradient(140deg, ${accent}e0 0%, ${accent}70 100%)` }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 30%, rgba(255,255,255,0.18) 0%, transparent 60%)' }} />
+          </>
+        )}
+        <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>
+          {node.children.length > 0 ? `${node.children.length}개` : (total > 0 ? `${total}편` : '준비중')}
+        </div>
+        {node.isCompleted && (
+          <div style={{ position: 'absolute', top: 6, right: 6, padding: '2px 7px', borderRadius: 4, border: '1.5px solid rgba(220,38,38,0.85)', color: 'rgba(220,38,38,0.95)', fontSize: 10, fontWeight: 800, background: 'rgba(255,255,255,0.88)', letterSpacing: '0.05em', transform: 'rotate(8deg)', lineHeight: 1.4 }}>
+            완결
+          </div>
+        )}
+      </div>
+      <div style={{ marginTop: 7, fontSize: 13, fontWeight: 600, color: 'var(--ink-0)', lineHeight: 1.4, overflow: 'hidden', maxHeight: '2.8em' }}>
+        {node.title}
+      </div>
+    </div>
+  )
+}
+
+// 비리프(하위 카테고리 있음) 자식만 행으로 표시 — 영상 인라인 없음
+function ChildCategoryRow({ node, accent }: { node: CategoryNode; accent: string }) {
+  const navigate = useNavigate()
+  return (
+    <section style={{ marginBottom: 36 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', marginBottom: 12 }}>
+        <div style={{ width: 4, height: 18, background: accent, borderRadius: 2, flexShrink: 0 }} />
+        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-0)' }}>{node.title}</span>
+        <span style={{ fontSize: 12, color: 'var(--ink-3)', marginLeft: 2 }}>
+          {`${node.children.length}개 시리즈`}
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 16px 4px' }}>
+        {node.children.map((child, i) => (
+          <ChildSubCatCard key={child.id} node={child} accent={ACCENT_COLORS[i % ACCENT_COLORS.length]} onClick={() => navigate(`/sermon/category/${child.id}`)} />
+        ))}
+      </div>
+    </section>
+  )
 }
 
 const PAGE_LIMIT = 20
@@ -358,53 +417,33 @@ export default function SermonCategoryPage() {
         </div>
       )}
 
-      {/* 하위 카테고리 */}
+      {/* 하위 카테고리 — 넷플릭스 방식 */}
       {category && category.children.length > 0 && (
-        <div style={{ padding: '12px 16px 4px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {category.children.map((child) => {
-              const hasContent = subtreeHasContent(child)
-              return (
-                <div
-                  key={child.id}
-                  onClick={() => hasContent && navigate(`/sermon/category/${child.id}`)}
-                  style={{
-                    background: 'var(--white)',
-                    border: '1px solid var(--divider)',
-                    borderRadius: 10,
-                    padding: '12px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: hasContent ? 'pointer' : 'default',
-                    opacity: hasContent ? 1 : 0.75,
-                  }}
-                >
-                  <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-0)' }}>{child.title}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {hasContent ? (
-                      <>
-                        <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
-                          {child.children.length > 0 ? `${child.children.length}개` : `${child.videoCount}편`}
-                        </span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                      </>
-                    ) : (
-                      <span style={{
-                        padding: '2px 9px', borderRadius: 20,
-                        background: 'var(--primary-50)', color: 'var(--primary-700)',
-                        fontSize: 11, fontWeight: 600,
-                      }}>준비중</span>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+        <div style={{ paddingTop: 20 }}>
+          {/* 비리프(하위 카테고리 있음): 각자 섹션 행 */}
+          {category.children
+            .filter(c => c.children.length > 0)
+            .map((child, i) => (
+              <ChildCategoryRow key={child.id} node={child} accent={ACCENT_COLORS[i % ACCENT_COLORS.length]} />
+            ))}
+          {/* 리프(직접 영상): SubCatCard 카드 줄바꿈 */}
+          {category.children.filter(c => c.children.length === 0).length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '4px 16px 20px' }}>
+              {category.children
+                .filter(c => c.children.length === 0)
+                .map((child, i) => (
+                  <ChildSubCatCard
+                    key={child.id}
+                    node={child}
+                    accent={ACCENT_COLORS[i % ACCENT_COLORS.length]}
+                    onClick={() => navigate(`/sermon/category/${child.id}`)}
+                  />
+                ))}
+            </div>
+          )}
         </div>
       )}
+      <style>{`.sermon-hscroll::-webkit-scrollbar{display:none}.sermon-hscroll{-ms-overflow-style:none;scrollbar-width:none}`}</style>
 
       {/* 영상 목록 */}
       {category && category.videoCount > 0 && (
