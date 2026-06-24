@@ -92,10 +92,10 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
   return (
     <div
       onClick={onClick}
-      style={{ flexShrink: 0, width: 136, cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}
+      style={{ cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}
     >
       <div style={{
-        width: 136, height: 80, borderRadius: 10,
+        width: '100%', height: 80, borderRadius: 10,
         position: 'relative', overflow: 'hidden',
       }}>
         {node.thumbnail ? (
@@ -240,7 +240,7 @@ function CategoryRow({ node, accent }: { node: CategoryNode; accent: string }) {
       {isLeaf ? (
         <VideoRowContent categoryId={node.id} accent={accent} />
       ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 16px 4px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(136px, 1fr))', gap: 10, padding: '0 16px 4px' }}>
           {node.children.map((child, i) => (
             <SubCatCard
               key={child.id}

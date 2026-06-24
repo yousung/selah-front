@@ -52,8 +52,8 @@ const ACCENT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#
 function ChildSubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: string; onClick: () => void }) {
   const total = subtreeVideoCount(node)
   return (
-    <div onClick={onClick} style={{ flexShrink: 0, width: 136, cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}>
-      <div style={{ width: 136, height: 80, borderRadius: 10, position: 'relative', overflow: 'hidden' }}>
+    <div onClick={onClick} style={{ cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}>
+      <div style={{ width: '100%', height: 80, borderRadius: 10, position: 'relative', overflow: 'hidden' }}>
         {node.thumbnail ? (
           <>
             <img src={node.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -93,7 +93,7 @@ function ChildCategoryRow({ node, accent }: { node: CategoryNode; accent: string
           {`${node.children.length}개 시리즈`}
         </span>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 16px 4px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(136px, 1fr))', gap: 10, padding: '0 16px 4px' }}>
         {node.children.map((child, i) => (
           <ChildSubCatCard key={child.id} node={child} accent={ACCENT_COLORS[i % ACCENT_COLORS.length]} onClick={() => navigate(`/sermon/category/${child.id}`)} />
         ))}
@@ -154,6 +154,10 @@ export default function SermonCategoryPage() {
 
   const [pendingJumpIndex, setPendingJumpIndex] = useState<number | null>(null)
   const videoRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [id])
 
   useEffect(() => {
     if (pendingJumpIndex === null) return
@@ -428,7 +432,7 @@ export default function SermonCategoryPage() {
             ))}
           {/* 리프(직접 영상): SubCatCard 카드 줄바꿈 */}
           {category.children.filter(c => c.children.length === 0).length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '4px 16px 20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(136px, 1fr))', gap: 10, padding: '4px 16px 20px' }}>
               {category.children
                 .filter(c => c.children.length === 0)
                 .map((child, i) => (
