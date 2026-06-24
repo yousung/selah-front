@@ -384,7 +384,9 @@ export default function SermonCategoryPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {hasContent ? (
                       <>
-                        <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{child.videoCount}편</span>
+                        <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                          {child.children.length > 0 ? `${child.children.length}개` : `${child.videoCount}편`}
+                        </span>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="9 18 15 12 9 6" />
                         </svg>

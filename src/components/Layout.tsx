@@ -120,7 +120,8 @@ export default function Layout() {
     return p.startsWith(to)
   }
 
-  const isHymnTab = isActive('/') || isActive('/sermon')
+  // 재생목록 speed-dial FAB는 찬양(홈) 탭에서만. 설교 탭에는 표시하지 않는다.
+  const isHymnTab = isActive('/')
   const [fabOpen, setFabOpen] = useState(false)
   const [myPlaylistsOpen, setMyPlaylistsOpen] = useState(false)
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
@@ -116,7 +116,7 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
           </>
         )}
         <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>
-          {total > 0 ? `${total}편` : '준비중'}
+          {node.children.length > 0 ? `${node.children.length}개` : (total > 0 ? `${total}편` : '준비중')}
         </div>
         {node.isCompleted && (
           <div style={{
@@ -303,6 +303,46 @@ function SkeletonRows() {
   )
 }
 
+// ── 시리즈 검색 ────────────────────────────────────────────────
+interface SeriesSearchResult {
+  id: string
+  title: string
+  path: string
+  videoCount: number
+  childCount: number
+}
+
+function SearchResultRow({ result, onClick }: { result: SeriesSearchResult; onClick: () => void }) {
+  // 조상 경로에서 자기 제목은 빼고 상위 경로만 표기 (예: "책설교 > 존 플라벨")
+  const parentPath = result.path.split(' > ').slice(0, -1).join(' > ')
+  const count = result.childCount > 0 ? `${result.childCount}개` : `${result.videoCount}편`
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: 'var(--white)', border: '1px solid var(--divider)', borderRadius: 10,
+        padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        cursor: 'pointer',
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        {parentPath && (
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {parentPath}
+          </div>
+        )}
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-0)' }}>{result.title}</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 12 }}>
+        <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{count}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 // ── 페이지 ────────────────────────────────────────────────────
 export default function SermonPage() {
   const navigate = useNavigate()
@@ -315,6 +355,28 @@ export default function SermonPage() {
     },
   })
   const [resumeData, setResumeData] = useState<SermonResumeData | null>(null)
+
+  // 시리즈 검색
+  const [searchInput, setSearchInput] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleSearchChange = useCallback((v: string) => {
+    setSearchInput(v)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setDebouncedQuery(v.trim()), 300)
+  }, [])
+
+  const { data: searchResults, isLoading: searchLoading } = useQuery<SeriesSearchResult[]>({
+    queryKey: ['sermon-category-search', debouncedQuery],
+    queryFn: async () => {
+      const { data } = await api.get<SeriesSearchResult[]>('/sermon-categories/search', { params: { q: debouncedQuery } })
+      return data
+    },
+    enabled: debouncedQuery.length > 0,
+  })
+
+  const isSearching = debouncedQuery.length > 0
 
   useEffect(() => {
     setSelahMenu('/sermon')
@@ -351,10 +413,62 @@ export default function SermonPage() {
         <div style={{ height: 56, padding: '0 16px', display: 'flex', alignItems: 'center' }}>
           <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)' }}>설교</h1>
         </div>
+        <div style={{ padding: '0 16px 12px' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="var(--ink-3)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"
+              style={{ position: 'absolute', left: 12, pointerEvents: 'none' }}
+            >
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="시리즈 검색"
+              style={{
+                width: '100%', height: 40, padding: '0 36px 0 36px',
+                background: 'var(--surface-1)', border: '1px solid var(--divider)',
+                borderRadius: 10, fontSize: 14, color: 'var(--ink-0)', outline: 'none',
+              }}
+            />
+            {searchInput && (
+              <button
+                onClick={() => handleSearchChange('')}
+                aria-label="검색어 지우기"
+                style={{
+                  position: 'absolute', right: 8, width: 24, height: 24,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-3)',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
       </header>
 
       <div style={{ paddingTop: 20, paddingBottom: 32 }}>
-        {isLoading ? (
+        {isSearching ? (
+          <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {searchLoading ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-3)', fontSize: 14 }}>검색 중…</div>
+            ) : (searchResults?.length ?? 0) > 0 ? (
+              searchResults!.map((r) => (
+                <SearchResultRow key={r.id} result={r} onClick={() => navigate(`/sermon/category/${r.id}`)} />
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-3)', fontSize: 14 }}>
+                "{debouncedQuery}" 검색 결과가 없어요
+              </div>
+            )}
+          </div>
+        ) : isLoading ? (
           <SkeletonRows />
         ) : (
           (categories ?? []).map((cat, i) => (
