@@ -497,6 +497,21 @@ export async function downloadMedia(
     await writable.close()
     writable = null
 
+    // 무결성 검증: 완전히 받았고 OPFS에 온전히 써진 경우에만 complete로 기록한다.
+    // 강종/네트워크 truncation으로 잘린 스트림이 done=true로 끝나 손상 파일이
+    // "저장됨"으로 처리되는 것을 막는다. (헤더가 가려지지 않은 경우 Content-Length로,
+    // 가려진 경우엔 최소한 OPFS 실제 기록 크기와 수신 바이트 일치로 검증.)
+    if (received === 0) {
+      throw new Error('Incomplete download: received 0 bytes')
+    }
+    if (headerTotal > 0 && received !== headerTotal) {
+      throw new Error(`Incomplete download: ${received}/${headerTotal} bytes`)
+    }
+    const writtenFile = await fileHandle.getFile()
+    if (writtenFile.size !== received) {
+      throw new Error(`Corrupt download: OPFS file ${writtenFile.size}B != received ${received}B`)
+    }
+
     await idbPut('files', {
       id: cacheKey,
       filename: cacheKey,
@@ -581,6 +596,50 @@ export async function storageInfo(): Promise<StorageInfo> {
   else limit = offlineStorageCustomMB * 1024 * 1024
 
   return { used, limit, count: complete.length, entries: complete }
+}
+
+// 부트스트랩 1회 정리가 중복 실행(StrictMode 더블마운트 등)되지 않도록 가드.
+let _reconcilePromise: Promise<void> | null = null
+
+/**
+ * 앱 시작 시 1회 호출. 강종(force-quit)으로 남은 미완료 다운로드 잠금과 손상 파일을 정리한다.
+ * 어떤 다운로드도 시작되기 전(부트스트랩)에 호출해야 진행 중 다운로드를 오판해 지우지 않는다.
+ *
+ * - status='downloading' 고아 엔트리: 다운로드 도중 프로세스가 죽어 남은 잠금 →
+ *   부분 OPFS 파일과 함께 제거 (다음 재생/다운로드가 깨끗하게 다시 받도록).
+ * - status='complete'이지만 OPFS 파일이 없거나 크기가 기록과 다른 엔트리: 손상 → 제거.
+ */
+export function reconcileMediaStore(): Promise<void> {
+  if (_reconcilePromise) return _reconcilePromise
+  _reconcilePromise = (async () => {
+    if (!isOpfsSupported()) return
+    let entries: FileEntry[]
+    try {
+      entries = await idbGetAll<FileEntry>('files')
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      try {
+        if (entry.status !== 'complete') {
+          // 미완료(다운로드 중) 잠금 = 강종 잔재 → 부분 파일/엔트리 제거
+          await removeMediaCacheKey(entry.id)
+          continue
+        }
+        // 완료 엔트리: 실제 OPFS 파일 존재 + 크기 일치 확인 (truncation/손상 감지)
+        const mediaDir = await getMediaDir(false)
+        const fileHandle = await mediaDir.getFileHandle(entry.filename)
+        const file = await fileHandle.getFile()
+        if (entry.size > 0 && file.size !== entry.size) {
+          await removeMediaCacheKey(entry.id)
+        }
+      } catch {
+        // 파일 없음/접근 불가 → 손상으로 간주, 엔트리 제거
+        await removeMediaCacheKey(entry.id)
+      }
+    }
+  })()
+  return _reconcilePromise
 }
 
 export async function clearAllMedia(): Promise<void> {

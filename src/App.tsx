@@ -5,6 +5,7 @@ import MediaDebugOverlay from '@/components/MediaDebugOverlay'
 import { AudioProvider } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
+import { reconcileMediaStore } from '@/lib/mediaStore'
 import HomePage from '@/pages/HomePage'
 import PlaylistPage from '@/pages/PlaylistPage'
 import PlayerPage from '@/pages/PlayerPage'
@@ -43,7 +44,12 @@ import ProfilePage from '@/pages/admin/profile/ProfilePage'
 
 function CachedMediaLoader() {
   const refresh = useCachedMediaStore((s) => s.refresh)
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    let cancelled = false
+    // 부트스트랩: 강종 잔재/손상 파일 정리 후 캐시 목록 새로고침.
+    void reconcileMediaStore().finally(() => { if (!cancelled) void refresh() })
+    return () => { cancelled = true }
+  }, [refresh])
   return null
 }
 
