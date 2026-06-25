@@ -158,7 +158,7 @@ export default function PlaylistPage() {
         style={{ background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         {/* Title row */}
-        <div className="flex items-center gap-3 px-3" style={{ height: 56 }}>
+        <div className="flex items-center gap-3 px-3" style={{ minHeight: 56 }}>
           <button
             onClick={() => navigate(-1)}
             className="p-2 rounded-full"
@@ -199,7 +199,7 @@ export default function PlaylistPage() {
               placeholder="장 또는 시편 번호"
               className="w-full text-sm outline-none pl-9 pr-8"
               style={{
-                height: 34,
+                minHeight: 34,
                 background: 'var(--surface-1)',
                 border: '1px solid var(--divider)',
                 borderRadius: 8,

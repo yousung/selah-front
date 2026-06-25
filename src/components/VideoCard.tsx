@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { usePlaylistStore } from '@/store/playlistStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useSettingsStore } from '@/store/settingsStore'
+import { fs } from '@/lib/fontScale'
 import PlaylistBottomSheet from './PlaylistBottomSheet'
 import HighlightText from './HighlightText'
 
@@ -65,7 +66,7 @@ function NewBadge() {
   return (
     <span
       className="absolute top-1.5 right-1.5 text-white text-[9px] font-bold px-1.5 rounded select-none"
-      style={{ background: 'var(--accent-500)', lineHeight: '16px', letterSpacing: '0.04em' }}
+      style={{ background: 'var(--accent-500)', lineHeight: fs(16), letterSpacing: '0.04em' }}
     >
       NEW
     </span>
@@ -112,7 +113,7 @@ function ChapterBadge({ chapter, type }: { chapter: number; type?: string | null
       className="absolute top-1.5 left-1.5 text-white text-[10px] font-bold px-1.5 rounded"
       style={{
         background: 'rgba(40,40,40,0.82)',
-        lineHeight: '17px',
+        lineHeight: fs(17),
         letterSpacing: '0.02em',
       }}
     >
@@ -170,7 +171,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
             {isCached ? <CachedBadge /> : isDownloading ? <DownloadingBadge /> : null}
             {dur && (
               <span className="absolute bottom-1 right-1 text-white text-[10px] font-semibold px-1 rounded"
-                style={{ background: 'rgba(0,0,0,0.75)', lineHeight: '16px' }}>{dur}</span>
+                style={{ background: 'rgba(0,0,0,0.75)', lineHeight: fs(16) }}>{dur}</span>
             )}
           </div>
 
@@ -224,7 +225,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
           {isCached && <CachedBadge />}
           {dur && (
             <span className="absolute bottom-1.5 right-1.5 text-white font-semibold rounded"
-              style={{ fontSize: 11, background: 'rgba(0,0,0,0.78)', padding: '1px 5px', lineHeight: '18px' }}>{dur}</span>
+              style={{ fontSize: fs(11), background: 'rgba(0,0,0,0.78)', padding: '1px 5px', lineHeight: fs(18) }}>{dur}</span>
           )}
         </div>
         <div className="pt-2 pb-1">

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { fs } from '@/lib/fontScale'
 
 interface MenuItem {
   label: string
@@ -77,8 +78,8 @@ export default function MyPage() {
           zIndex: 10,
         }}
       >
-        <div style={{ padding: '0 16px', height: 56, display: 'flex', alignItems: 'center' }}>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)' }}>MY</h1>
+        <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center' }}>
+          <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>MY</h1>
         </div>
       </header>
 
@@ -88,7 +89,7 @@ export default function MyPage() {
             <p
               style={{
                 padding: '8px 16px 6px',
-                fontSize: 12,
+                fontSize: fs(12),
                 fontWeight: 600,
                 color: 'var(--ink-3)',
                 letterSpacing: '0.05em',
@@ -130,9 +131,9 @@ export default function MyPage() {
                     {item.icon}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-0)' }}>{item.label}</p>
+                    <p style={{ fontSize: fs(15), fontWeight: 600, color: 'var(--ink-0)' }}>{item.label}</p>
                     {item.sub && (
-                      <p style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 1 }}>{item.sub}</p>
+                      <p style={{ fontSize: fs(12), color: 'var(--ink-3)', marginTop: 1 }}>{item.sub}</p>
                     )}
                   </div>
                   <ChevronRight />

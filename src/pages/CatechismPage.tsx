@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { getConfessions, ConfessionListItem } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
 import CatechismSearchSheet from '@/components/CatechismSearchSheet'
+import { fs } from '@/lib/fontScale'
 
 interface ConfessionGroup {
   groupCode: string
@@ -75,12 +76,12 @@ function ConfessionCard({ confession, onClick }: { confession: ConfessionListIte
         e.currentTarget.style.boxShadow = 'none'
       }}
     >
-      <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 8 }}>
+      <h3 style={{ fontSize: fs(16), fontWeight: 600, color: 'var(--ink-0)', marginBottom: 8 }}>
         {confession.title}
       </h3>
       <p
         style={{
-          fontSize: 14,
+          fontSize: fs(14),
           color: 'var(--ink-2)',
           lineHeight: 1.6,
           overflow: 'hidden',
@@ -100,7 +101,7 @@ function ConfessionCard({ confession, onClick }: { confession: ConfessionListIte
         {badgeLabel && (
           <div
             style={{
-              fontSize: 11,
+              fontSize: fs(11),
               fontWeight: 600,
               padding: '4px 10px',
               borderRadius: 14,
@@ -148,8 +149,8 @@ export default function CatechismPage() {
           zIndex: 10,
         }}
       >
-        <div style={{ padding: '0 16px', height: 56, display: 'flex', alignItems: 'center' }}>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)' }}>교리서</h1>
+        <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center' }}>
+          <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>교리서</h1>
         </div>
       </header>
 
@@ -171,8 +172,8 @@ export default function CatechismPage() {
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
-            <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)' }}>데이터를 불러올 수 없어요</p>
-            <p style={{ fontSize: 14, color: 'var(--ink-2)', textAlign: 'center' }}>잠시 후 다시 시도해주세요.</p>
+            <p style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>데이터를 불러올 수 없어요</p>
+            <p style={{ fontSize: fs(14), color: 'var(--ink-2)', textAlign: 'center' }}>잠시 후 다시 시도해주세요.</p>
           </div>
         ) : !confessions || confessions.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 32px', gap: 16 }}>
@@ -182,8 +183,8 @@ export default function CatechismPage() {
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
             </div>
-            <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)' }}>교리서</p>
-            <p style={{ fontSize: 14, color: 'var(--ink-2)', textAlign: 'center', lineHeight: 1.6 }}>
+            <p style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>교리서</p>
+            <p style={{ fontSize: fs(14), color: 'var(--ink-2)', textAlign: 'center', lineHeight: 1.6 }}>
               교리 콘텐츠가 곧 추가됩니다.
             </p>
           </div>
@@ -193,7 +194,7 @@ export default function CatechismPage() {
               <section key={group.groupCode} style={{ marginBottom: 32 }}>
                 <h2
                   style={{
-                    fontSize: 20,
+                    fontSize: fs(20),
                     fontWeight: 700,
                     color: 'var(--ink-0)',
                     marginBottom: 16,

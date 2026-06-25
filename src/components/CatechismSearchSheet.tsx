@@ -5,6 +5,7 @@ import { searchConfessions, getConfessionTags, ConfessionSearchResult, Section, 
 import HighlightText from './HighlightText'
 import { isSearchable } from '@/lib/searchable'
 import { makeSnippet } from '@/lib/snippet'
+import { fs } from '@/lib/fontScale'
 
 interface Props {
   onClose: () => void
@@ -79,12 +80,12 @@ function sectionToResult(
 }
 
 const inputStyle: React.CSSProperties = {
-  height: 40,
+  minHeight: 40,
   background: 'var(--surface-1)',
   border: '1px solid var(--divider)',
   borderRadius: 10,
   color: 'var(--ink-0)',
-  fontSize: 14,
+  fontSize: fs(14),
   outline: 'none',
 }
 
@@ -359,7 +360,7 @@ export default function CatechismSearchSheet({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 4,
-                  fontSize: 12,
+                  fontSize: fs(12),
                   fontWeight: 600,
                   padding: '4px 8px 4px 12px',
                   borderRadius: 20,
@@ -403,7 +404,7 @@ export default function CatechismSearchSheet({
                   {!isLocalMode && (
                     <h3
                       style={{
-                        fontSize: 13,
+                        fontSize: fs(13),
                         fontWeight: 700,
                         color: 'var(--primary-700)',
                         padding: '10px 16px 6px',
@@ -429,12 +430,12 @@ export default function CatechismSearchSheet({
                       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-700)', flexShrink: 0 }}>
+                        <span style={{ fontSize: fs(13), fontWeight: 600, color: 'var(--primary-700)', flexShrink: 0 }}>
                           {resultLabel(item)}
                         </span>
                         <span
                           style={{
-                            fontSize: 14,
+                            fontSize: fs(14),
                             fontWeight: 500,
                             color: 'var(--ink-0)',
                             overflow: 'hidden',
@@ -453,7 +454,7 @@ export default function CatechismSearchSheet({
                       {item.question && item.contentSnippet && (
                         <p
                           style={{
-                            fontSize: 13,
+                            fontSize: fs(13),
                             color: 'var(--ink-2)',
                             lineHeight: 1.5,
                             overflow: 'hidden',
@@ -484,7 +485,7 @@ export default function CatechismSearchSheet({
                                   toggleTag(tag.name)
                                 }}
                                 style={{
-                                  fontSize: 11,
+                                  fontSize: fs(11),
                                   fontWeight: 500,
                                   padding: '2px 8px',
                                   borderRadius: 12,
@@ -521,7 +522,7 @@ export default function CatechismSearchSheet({
                     key={tag.id}
                     onClick={() => toggleTag(tag.name)}
                     style={{
-                      fontSize: 12,
+                      fontSize: fs(12),
                       fontWeight: 600,
                       padding: '6px 12px',
                       borderRadius: 20,

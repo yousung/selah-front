@@ -334,7 +334,7 @@ export default function HomePage() {
         className="sticky top-0 z-10"
         style={{ background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
-        <div className="flex items-center px-4" style={{ height: 56 }}>
+        <div className="flex items-center px-4" style={{ minHeight: 56 }}>
           <div className="flex-shrink-0 lg:hidden">
             <p className="text-[11px] font-medium tracking-wider" style={{ color: 'var(--ink-2)' }}>주님의 교회</p>
             <p className="text-base font-bold leading-tight" style={{ color: 'var(--primary-700)' }}>셀라</p>
@@ -356,7 +356,7 @@ export default function HomePage() {
               placeholder="제목 또는 장 검색 (예: 영광, 10)"
               className="w-full text-sm outline-none pl-8 pr-7"
               style={{
-                height: 34,
+                minHeight: 34,
                 background: 'var(--surface-1)',
                 border: '1px solid var(--divider)',
                 borderRadius: 8,

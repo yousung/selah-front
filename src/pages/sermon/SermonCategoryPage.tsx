@@ -8,6 +8,7 @@ import { useQueueStore } from '@/store/queueStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { downloadMedia, isOfflineMediaSupported, cancelDownload, deleteMedia } from '@/lib/mediaStore'
+import { fs } from '@/lib/fontScale'
 
 interface CategoryNode {
   id: string
@@ -65,16 +66,16 @@ function ChildSubCatCard({ node, accent, onClick }: { node: CategoryNode; accent
             <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 30%, rgba(255,255,255,0.18) 0%, transparent 60%)' }} />
           </>
         )}
-        <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>
+        <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: fs(12), color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>
           {node.children.length > 0 ? `${node.children.length}개` : (total > 0 ? `${total}편` : '준비중')}
         </div>
         {node.isCompleted && (
-          <div style={{ position: 'absolute', top: 6, right: 6, padding: '2px 7px', borderRadius: 4, border: '1.5px solid rgba(220,38,38,0.85)', color: 'rgba(220,38,38,0.95)', fontSize: 10, fontWeight: 800, background: 'rgba(255,255,255,0.88)', letterSpacing: '0.05em', transform: 'rotate(8deg)', lineHeight: 1.4 }}>
+          <div style={{ position: 'absolute', top: 6, right: 6, padding: '2px 7px', borderRadius: 4, border: '1.5px solid rgba(220,38,38,0.85)', color: 'rgba(220,38,38,0.95)', fontSize: fs(10), fontWeight: 800, background: 'rgba(255,255,255,0.88)', letterSpacing: '0.05em', transform: 'rotate(8deg)', lineHeight: 1.4 }}>
             완결
           </div>
         )}
       </div>
-      <div style={{ marginTop: 7, fontSize: 13, fontWeight: 600, color: 'var(--ink-0)', lineHeight: 1.4, overflow: 'hidden', maxHeight: '2.8em' }}>
+      <div style={{ marginTop: 7, fontSize: fs(13), fontWeight: 600, color: 'var(--ink-0)', lineHeight: 1.4, overflow: 'hidden', maxHeight: '2.8em' }}>
         {node.title}
       </div>
     </div>
@@ -88,8 +89,8 @@ function ChildCategoryRow({ node, accent }: { node: CategoryNode; accent: string
     <section style={{ marginBottom: 36 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', marginBottom: 12 }}>
         <div style={{ width: 4, height: 18, background: accent, borderRadius: 2, flexShrink: 0 }} />
-        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-0)' }}>{node.title}</span>
-        <span style={{ fontSize: 12, color: 'var(--ink-3)', marginLeft: 2 }}>
+        <span style={{ fontSize: fs(16), fontWeight: 700, color: 'var(--ink-0)' }}>{node.title}</span>
+        <span style={{ fontSize: fs(12), color: 'var(--ink-3)', marginLeft: 2 }}>
           {`${node.children.length}개 시리즈`}
         </span>
       </div>
@@ -336,7 +337,7 @@ export default function SermonCategoryPage() {
         borderBottom: '1px solid var(--divider)',
         position: 'sticky', top: 0, zIndex: 10,
       }}>
-        <div style={{ padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button
               onClick={() => selectMode ? handleExitSelectMode() : navigate(-1)}
@@ -346,14 +347,14 @@ export default function SermonCategoryPage() {
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-            <h1 style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink-0)' }}>{category?.title}</h1>
+            <h1 style={{ fontSize: fs(17), fontWeight: 700, color: 'var(--ink-0)' }}>{category?.title}</h1>
             {category?.isCompleted && (
               <span style={{
                 padding: '2px 8px',
                 borderRadius: 4,
                 border: '1.5px solid rgba(220,38,38,0.8)',
                 color: 'rgba(220,38,38,0.9)',
-                fontSize: 11, fontWeight: 800,
+                fontSize: fs(11), fontWeight: 800,
                 letterSpacing: '0.05em',
                 lineHeight: 1.4,
                 transform: 'rotate(4deg)',
@@ -364,7 +365,7 @@ export default function SermonCategoryPage() {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {total > 0 && <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>총 {total}편</span>}
+            {total > 0 && <span style={{ fontSize: fs(12), color: 'var(--ink-2)' }}>총 {total}편</span>}
             {offlineMediaOk && offlineStorageMode !== 'thrift' && total > 0 && !selectMode && (
               <button
                 onClick={() => setSelectMode(true)}
@@ -380,7 +381,7 @@ export default function SermonCategoryPage() {
             {selectMode && (
               <button
                 onClick={handleExitSelectMode}
-                style={{ fontSize: 14, color: 'var(--primary-700)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: '4px 0' }}
+                style={{ fontSize: fs(14), color: 'var(--primary-700)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: '4px 0' }}
               >
                 취소
               </button>
@@ -409,7 +410,7 @@ export default function SermonCategoryPage() {
                 borderRadius: 20,
                 border: '1px solid var(--divider)',
                 background: 'var(--surface-0)',
-                fontSize: 12, fontWeight: 600,
+                fontSize: fs(12), fontWeight: 600,
                 color: 'var(--ink-1)',
                 cursor: 'pointer',
                 WebkitTapHighlightColor: 'transparent',
@@ -454,7 +455,7 @@ export default function SermonCategoryPage() {
         <div style={{ marginTop: category.children.length > 0 ? 16 : 8 }}>
           {category.children.length > 0 && (
             <div style={{ padding: '0 16px 8px' }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>영상</span>
+              <span style={{ fontSize: fs(13), fontWeight: 600, color: 'var(--ink-2)' }}>영상</span>
             </div>
           )}
           {videosLoading ? (
@@ -505,7 +506,7 @@ export default function SermonCategoryPage() {
               })}
               <div ref={sentinelCallbackRef} style={{ height: 1 }} />
               {isFetchingNextPage && (
-                <div style={{ textAlign: 'center', padding: '16px', fontSize: 13, color: 'var(--ink-3)' }}>
+                <div style={{ textAlign: 'center', padding: '16px', fontSize: fs(13), color: 'var(--ink-3)' }}>
                   불러오는 중…
                 </div>
               )}
@@ -527,7 +528,7 @@ export default function SermonCategoryPage() {
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
             </svg>
           </div>
-          <p style={{ fontSize: 14, color: 'var(--ink-2)', textAlign: 'center', lineHeight: 1.6 }}>
+          <p style={{ fontSize: fs(14), color: 'var(--ink-2)', textAlign: 'center', lineHeight: 1.6 }}>
             아직 등록된 설교가 없습니다.
           </p>
         </div>
@@ -545,7 +546,7 @@ export default function SermonCategoryPage() {
             style={{
               padding: '10px 16px', borderRadius: 8,
               border: '1.5px solid var(--divider)',
-              background: 'var(--surface-0)', fontSize: 14, fontWeight: 600,
+              background: 'var(--surface-0)', fontSize: fs(14), fontWeight: 600,
               color: 'var(--ink-1)', cursor: 'pointer', flexShrink: 0,
               WebkitTapHighlightColor: 'transparent',
             }}
@@ -559,7 +560,7 @@ export default function SermonCategoryPage() {
               flex: 1, padding: '10px 16px', borderRadius: 8,
               background: selected.size > 0 ? 'var(--primary-700)' : 'var(--surface-2)',
               color: selected.size > 0 ? 'white' : 'var(--ink-3)',
-              border: 'none', fontSize: 14, fontWeight: 700,
+              border: 'none', fontSize: fs(14), fontWeight: 700,
               cursor: selected.size > 0 ? 'pointer' : 'default',
               WebkitTapHighlightColor: 'transparent',
             }}
@@ -584,21 +585,21 @@ export default function SermonCategoryPage() {
               <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" />
               <path d="M12 3a9 9 0 0 1 9 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
             </svg>
-            <p style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>다운로드 중입니다</p>
-            <p style={{ fontSize: 14, opacity: 0.85 }}>{bulkState.done} / {bulkState.total}</p>
+            <p style={{ fontSize: fs(17), fontWeight: 700, marginBottom: 6 }}>다운로드 중입니다</p>
+            <p style={{ fontSize: fs(14), opacity: 0.85 }}>{bulkState.done} / {bulkState.total}</p>
           </div>
           <button
             onClick={handleBulkCancel}
             style={{
               padding: '12px 32px', borderRadius: 10,
               background: 'var(--white)', color: 'var(--error, #d92d20)',
-              border: 'none', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              border: 'none', fontSize: fs(15), fontWeight: 700, cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',
             }}
           >
             취소
           </button>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>취소하면 받은 항목도 모두 삭제됩니다</p>
+          <p style={{ fontSize: fs(12), color: 'rgba(255,255,255,0.6)' }}>취소하면 받은 항목도 모두 삭제됩니다</p>
         </div>
       )}
     </div>

@@ -14,6 +14,7 @@ import TagBadge from '@/components/TagBadge'
 import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
 import { downloadMedia, isMediaCached, isOfflineMediaSupported } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
+import { fs } from '@/lib/fontScale'
 
 interface Video {
   id: string
@@ -855,12 +856,12 @@ export default function PlayerPage() {
       {/* AppBar */}
       <header
         className="flex items-center justify-between px-2"
-        style={{ height: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
+        style={{ minHeight: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         <button
           onClick={handleBack}
           className="p-2 flex items-center gap-1"
-          style={{ color: 'var(--ink-2)', fontSize: 13 }}
+          style={{ color: 'var(--ink-2)', fontSize: fs(13) }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <path d="M19 12H5M12 5l-7 7 7 7" />
@@ -876,9 +877,9 @@ export default function PlayerPage() {
                 background: 'rgba(61,107,68,0.12)',
                 border: '1px solid rgba(61,107,68,0.22)',
                 color: 'var(--primary-700)',
-                fontSize: 12,
+                fontSize: fs(12),
                 fontWeight: 700,
-                lineHeight: '16px',
+                lineHeight: fs(16),
                 whiteSpace: 'nowrap',
               }}
               title="다운로드 완료"
@@ -916,11 +917,11 @@ export default function PlayerPage() {
       {/* 다운로드 진행 바 — 다운로드 중일 때 전체폭으로 명확히 표시 */}
       {dlStatus === 'downloading' && (
         <div style={{ background: 'var(--primary-50)', borderBottom: '1px solid var(--divider)' }}>
-          <div className="flex items-center justify-between px-4" style={{ height: 30 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary-700)' }}>
+          <div className="flex items-center justify-between px-4" style={{ minHeight: 30 }}>
+            <span style={{ fontSize: fs(12), fontWeight: 600, color: 'var(--primary-700)' }}>
               {mediaMode === 'video' ? '영상' : '음원'} 저장 중…
             </span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-700)' }}>
+            <span style={{ fontSize: fs(12), fontWeight: 700, color: 'var(--primary-700)' }}>
               {dlProgress < 0.01 ? '' : `${Math.round(dlProgress * 100)}%`}
             </span>
           </div>

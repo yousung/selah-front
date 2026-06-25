@@ -7,6 +7,7 @@ import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
 import { cancelDownload } from '@/lib/mediaStore'
+import { fs } from '@/lib/fontScale'
 import React, { useState, useEffect } from 'react'
 
 /* ─── Icons ─────────────────────────────────────────── */
@@ -80,6 +81,7 @@ export default function Layout() {
     onVideoEnded, onVideoError,
   } = useAudio()
   const mediaMode = useSettingsStore((s) => s.mediaMode)
+  const fontScale = useSettingsStore((s) => s.fontScale)
   const queueIds = useQueueStore((s) => s.ids)
   const location = useLocation()
   const isHymnPlayerPage = location.pathname.startsWith('/player/') || location.pathname.startsWith('/hymn/player/')
@@ -131,7 +133,7 @@ export default function Layout() {
       {/* ═══════════════ Desktop Sidebar (lg+) ═══════════════ */}
       <aside
         className="hidden lg:flex flex-col fixed inset-y-0 left-0 z-40"
-        style={{ width: 240, background: 'var(--white)', borderRight: '1px solid var(--divider)' }}
+        style={{ width: 240, background: 'var(--white)', borderRight: '1px solid var(--divider)', ['--font-scale' as string]: fontScale } as React.CSSProperties}
       >
         {/* Logo */}
         <div className="px-5 py-5 flex-shrink-0" style={{ borderBottom: '1px solid var(--divider)' }}>
@@ -176,13 +178,13 @@ export default function Layout() {
             position:sticky 헤더가 window 스크롤을 따라 사라진다. 실제 스크롤러는 window
             (body/#root min-h-dvh, SermonCategoryPage가 window.scrollTo 사용). overflow를
             visible로 두어야 sticky 헤더가 viewport 기준으로 고정된다. */}
-        <main className="flex-1">
+        <main className="flex-1" style={{ ['--font-scale' as string]: fontScale } as React.CSSProperties}>
           <Outlet />
           {/* Bottom spacer so content isn't hidden behind mini player / nav */}
           <div style={{
             height: showMini
-              ? 'calc(68px + 24px + 64px)'
-              : 64
+              ? 'calc(68px + 24px + 64px * var(--font-scale, 1))'
+              : 'calc(64px * var(--font-scale, 1))'
           }} className="lg:hidden" />
           {!isPlayerPage && (
             <div style={{ height: showMini ? 108 : 0 }} className="hidden lg:block" />
@@ -402,11 +404,12 @@ export default function Layout() {
         <nav
           className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center"
           style={{
-            height: 64,
+            minHeight: 64,
             background: 'var(--white)',
             borderTop: '1px solid var(--divider)',
             paddingBottom: 'env(safe-area-inset-bottom)',
-          }}
+            ['--font-scale' as string]: fontScale,
+          } as React.CSSProperties}
         >
           {navItems.map((item) => {
             const active = isActive(item.to)
@@ -419,7 +422,7 @@ export default function Layout() {
                 <div className="relative">
                   <item.Icon active={active} />
                   {item.beta && (
-                    <span className="absolute -top-1.5 -right-4 text-[8px] font-bold px-1 rounded-full leading-[14px]" style={{ background: '#FEF3C7', color: '#D97706' }}>
+                    <span className="absolute -top-1.5 -right-4 text-[8px] font-bold px-1 rounded-full" style={{ background: '#FEF3C7', color: '#D97706', lineHeight: fs(14) }}>
                       beta
                     </span>
                   )}

@@ -5,6 +5,7 @@ import { getConfession, Section } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import CatechismSearchSheet from '@/components/CatechismSearchSheet'
+import { fs } from '@/lib/fontScale'
 
 interface TocGroup {
   majorSection: string | null
@@ -43,7 +44,7 @@ function TocList({ tocGroups, sectionAnchors, onItemClick, isMobile }: TocListPr
           {group.majorSection && (
             <div
               style={{
-                fontSize: isMobile ? 12 : 11,
+                fontSize: fs(isMobile ? 12 : 11),
                 fontWeight: 700,
                 color: 'var(--ink-2)',
                 padding: isMobile ? '8px 12px' : '8px 12px',
@@ -72,7 +73,7 @@ function TocList({ tocGroups, sectionAnchors, onItemClick, isMobile }: TocListPr
                     color: 'var(--ink-0)',
                     border: 'none',
                     cursor: 'pointer',
-                    fontSize: isMobile ? 13 : 12,
+                    fontSize: fs(isMobile ? 13 : 12),
                     textAlign: 'left',
                     transition: 'all 0.2s ease',
                     fontWeight: 500,
@@ -111,7 +112,7 @@ function TocList({ tocGroups, sectionAnchors, onItemClick, isMobile }: TocListPr
               color: 'var(--primary-700)',
               border: 'none',
               cursor: 'pointer',
-              fontSize: isMobile ? 12 : 11,
+              fontSize: fs(isMobile ? 12 : 11),
               fontWeight: 600,
               transition: 'all 0.2s ease',
             }}
@@ -141,22 +142,22 @@ function SectionRenderer({ section, onTagClick, sectionAnchor, activeTags = [] }
         // Q&A format
         <>
           {section.number && (
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary-700)', marginBottom: 8 }}>
+            <div style={{ fontSize: fs(14), fontWeight: 600, color: 'var(--primary-700)', marginBottom: 8 }}>
               제{section.number}문
             </div>
           )}
           {section.heading && !headingEqualQuestion && showCatechismHeadings && (
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, fontFamily: 'var(--font-serif)' }}>
+            <h3 style={{ fontSize: fs(16), fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, fontFamily: 'var(--font-serif)' }}>
               {section.heading}
             </h3>
           )}
           <div style={{ background: 'var(--surface-1)', padding: 16, borderRadius: 10, marginBottom: 12 }}>
-            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-0)', lineHeight: 1.6 }}>
+            <p style={{ fontSize: fs(15), fontWeight: 600, color: 'var(--ink-0)', lineHeight: 1.6 }}>
               {section.question}
             </p>
           </div>
           <div style={{ marginBottom: 12 }}>
-            <p style={{ fontSize: 14, color: 'var(--ink-0)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+            <p style={{ fontSize: fs(14), color: 'var(--ink-0)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
               {section.content}
             </p>
           </div>
@@ -165,17 +166,17 @@ function SectionRenderer({ section, onTagClick, sectionAnchor, activeTags = [] }
         // Prose format
         <>
           {section.number && (
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary-700)', marginBottom: 8 }}>
+            <div style={{ fontSize: fs(14), fontWeight: 600, color: 'var(--primary-700)', marginBottom: 8 }}>
               제{section.number}조
             </div>
           )}
           {section.heading && showCatechismHeadings && (
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, fontFamily: 'var(--font-serif)' }}>
+            <h3 style={{ fontSize: fs(16), fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, fontFamily: 'var(--font-serif)' }}>
               {section.heading}
             </h3>
           )}
           <div style={{ marginBottom: 12 }}>
-            <p style={{ fontSize: 14, color: 'var(--ink-0)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+            <p style={{ fontSize: fs(14), color: 'var(--ink-0)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
               {section.content}
             </p>
           </div>
@@ -184,8 +185,8 @@ function SectionRenderer({ section, onTagClick, sectionAnchor, activeTags = [] }
 
       {section.scripture && section.scripture.trim().length > 0 && section.scripture.trim() !== '[]' && (
         <div style={{ background: 'var(--surface-1)', padding: 12, borderRadius: 8, marginBottom: 12 }}>
-          <p style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 4 }}>성경</p>
-          <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-0)', lineHeight: 1.6, fontStyle: 'italic' }}>
+          <p style={{ fontSize: fs(12), color: 'var(--ink-2)', marginBottom: 4 }}>성경</p>
+          <p style={{ fontSize: fs(13), fontWeight: 500, color: 'var(--ink-0)', lineHeight: 1.6, fontStyle: 'italic' }}>
             {section.scripture}
           </p>
         </div>
@@ -200,7 +201,7 @@ function SectionRenderer({ section, onTagClick, sectionAnchor, activeTags = [] }
                 key={tag.id}
                 onClick={() => onTagClick(tag.name)}
                 style={{
-                  fontSize: 11,
+                  fontSize: fs(11),
                   fontWeight: 600,
                   padding: '4px 10px',
                   borderRadius: 14,
@@ -436,7 +437,7 @@ export default function CatechismDetailPage() {
           zIndex: 10,
         }}
       >
-        <div style={{ padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between' }}>
+        <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
             <button
               onClick={() => navigate(-1)}
@@ -455,7 +456,7 @@ export default function CatechismDetailPage() {
                 <path d="M19 12H5M12 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)' }}>교리서</h1>
+            <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>교리서</h1>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -496,7 +497,7 @@ export default function CatechismDetailPage() {
             padding: '12px 16px',
           }}
         >
-          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 13 }}>
+          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: fs(13) }}>
             <span style={{ color: 'var(--ink-1)', flexShrink: 0 }}>태그:</span>
             {activeTagFilters.map((name) => (
               <button
@@ -507,7 +508,7 @@ export default function CatechismDetailPage() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 4,
-                  fontSize: 12,
+                  fontSize: fs(12),
                   fontWeight: 600,
                   padding: '4px 8px 4px 12px',
                   borderRadius: 20,
@@ -525,7 +526,7 @@ export default function CatechismDetailPage() {
             <button
               onClick={() => setActiveTagFilters([])}
               style={{
-                fontSize: 12,
+                fontSize: fs(12),
                 fontWeight: 600,
                 padding: '4px 8px',
                 borderRadius: 4,
@@ -537,7 +538,7 @@ export default function CatechismDetailPage() {
             >
               전체 해제
             </button>
-            <span style={{ fontSize: 12, color: 'var(--ink-2)', marginLeft: 'auto' }}>
+            <span style={{ fontSize: fs(12), color: 'var(--ink-2)', marginLeft: 'auto' }}>
               {filteredSections.length}개
             </span>
           </div>
@@ -574,7 +575,7 @@ export default function CatechismDetailPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ padding: '16px' }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12 }}>
+              <h3 style={{ fontSize: fs(14), fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12 }}>
                 제목 가이드
               </h3>
               <TocList
@@ -602,7 +603,7 @@ export default function CatechismDetailPage() {
               minHeight: 0,
             }}
           >
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            <h3 style={{ fontSize: fs(13), fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               제목 가이드
             </h3>
             <nav style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -633,23 +634,23 @@ export default function CatechismDetailPage() {
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
-            <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)' }}>데이터를 불러올 수 없어요</p>
-            <p style={{ fontSize: 14, color: 'var(--ink-2)' }}>잠시 후 다시 시도해주세요.</p>
+            <p style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>데이터를 불러올 수 없어요</p>
+            <p style={{ fontSize: fs(14), color: 'var(--ink-2)' }}>잠시 후 다시 시도해주세요.</p>
           </div>
         ) : confession ? (
           <>
             {activeTagFilters.length === 0 && (
               <div style={{ marginBottom: 24 }}>
-                <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 8, fontFamily: 'var(--font-serif)' }}>
+                <h1 style={{ fontSize: fs(24), fontWeight: 700, color: 'var(--ink-0)', marginBottom: 8, fontFamily: 'var(--font-serif)' }}>
                   {confession.title}
                 </h1>
                 {confession.groupTitle && (
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-700)', marginBottom: 12 }}>
+                  <p style={{ fontSize: fs(13), fontWeight: 600, color: 'var(--primary-700)', marginBottom: 12 }}>
                     {confession.groupTitle}
                   </p>
                 )}
                 {confession.description && (
-                  <p style={{ fontSize: 14, color: 'var(--ink-1)', lineHeight: 1.7 }}>
+                  <p style={{ fontSize: fs(14), color: 'var(--ink-1)', lineHeight: 1.7 }}>
                     {confession.description}
                   </p>
                 )}
@@ -672,7 +673,7 @@ export default function CatechismDetailPage() {
                         {showMajorSectionDivider && (
                           <div
                             style={{
-                              fontSize: 12,
+                              fontSize: fs(12),
                               fontWeight: 700,
                               color: 'var(--ink-2)',
                               padding: '16px 0 12px',
@@ -697,8 +698,8 @@ export default function CatechismDetailPage() {
                 </>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 16px', gap: 12, textAlign: 'center' }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)' }}>결과가 없어요</p>
-                  <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>다른 검색어를 시도해보세요.</p>
+                  <p style={{ fontSize: fs(14), fontWeight: 600, color: 'var(--ink-0)' }}>결과가 없어요</p>
+                  <p style={{ fontSize: fs(13), color: 'var(--ink-2)' }}>다른 검색어를 시도해보세요.</p>
                 </div>
               )}
             </div>
@@ -711,7 +712,7 @@ export default function CatechismDetailPage() {
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
             </div>
-            <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)' }}>찾을 수 없어요</p>
+            <p style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>찾을 수 없어요</p>
           </div>
         )}
         </div>

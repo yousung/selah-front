@@ -223,7 +223,7 @@ export default function SearchPage() {
               placeholder={placeholder}
               className="w-full text-sm outline-none pl-9 pr-8"
               style={{
-                height: 36,
+                minHeight: 36,
                 background: 'var(--surface-1)',
                 border: '1px solid var(--divider)',
                 borderRadius: 8,

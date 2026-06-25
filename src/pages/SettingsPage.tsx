@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
-import type { Theme, AudioQuality, AutoNextDelay, MediaMode, OfflineStorageMode } from '@/store/settingsStore'
+import type { Theme, AudioQuality, AutoNextDelay, MediaMode, OfflineStorageMode, FontScale } from '@/store/settingsStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
@@ -11,6 +11,12 @@ const PLAYBACK_RATE_OPTIONS: { value: number; label: string }[] = [
   { value: 1, label: '1x' },
   { value: 1.25, label: '1.25x' },
   { value: 1.5, label: '1.5x' },
+]
+
+const FONT_SCALE_OPTIONS: { value: FontScale; label: string }[] = [
+  { value: 1, label: '보통' },
+  { value: 1.5, label: '크게' },
+  { value: 2, label: '매우크게' },
 ]
 
 const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings'])
@@ -114,10 +120,10 @@ export default function SettingsPage() {
   const {
     theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, playbackRate,
     showCatechismHeadings, showCatechismToc,
-    offlineStorageMode, autoDownload,
+    offlineStorageMode, autoDownload, fontScale,
     setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay,
     setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
-    setOfflineStorageMode, setAutoDownload,
+    setOfflineStorageMode, setAutoDownload, setFontScale,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
   const [clearing, setClearing] = useState(false)
@@ -397,6 +403,36 @@ export default function SettingsPage() {
                 )
               })}
             </div>
+
+            {/* 글자 크기 */}
+            <div className="card overflow-hidden">
+              <div className="flex" style={{ borderBottom: 'none' }}>
+                {FONT_SCALE_OPTIONS.map((opt, i) => {
+                  const active = fontScale === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setFontScale(opt.value)}
+                      className="flex-1 flex items-center justify-center py-3 text-sm font-medium transition-colors"
+                      style={{
+                        borderRight: i < FONT_SCALE_OPTIONS.length - 1 ? '1px solid var(--divider)' : 'none',
+                        background: active ? 'var(--primary-50)' : 'transparent',
+                        color: active ? 'var(--primary-700)' : 'var(--ink-1)',
+                        fontWeight: active ? 700 : 500,
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <p className="text-xs px-1 -mt-1" style={{ color: 'var(--ink-2)' }}>
+              화면의 글자 크기를 조절합니다.
+            </p>
+            <p className="text-sm px-1" style={{ color: 'var(--ink-2)' }}>
+              가나다 ABC 미리보기 · 잠시 멈추어, 듣다
+            </p>
 
             {/* 교리서 */}
             <div className="card overflow-hidden">

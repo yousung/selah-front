@@ -6,6 +6,7 @@ import { useAudio } from '@/contexts/AudioContext'
 import { useQueueStore } from '@/store/queueStore'
 import { setSelahMenu } from '@/lib/selahMenu'
 import { getSermonResume, clearSermonResume, type SermonResumeData } from '@/lib/sermonResume'
+import { fs } from '@/lib/fontScale'
 
 interface CategoryNode {
   id: string
@@ -67,7 +68,7 @@ function VideoThumbCard({ video, onPlay }: { video: Video; onPlay: () => void })
         {typeof video.duration === 'number' && video.duration > 0 && (
           <span style={{
             position: 'absolute', bottom: 5, right: 6,
-            fontSize: 11, fontWeight: 600,
+            fontSize: fs(11), fontWeight: 600,
             background: 'rgba(0,0,0,0.72)', color: '#fff',
             padding: '1px 5px', borderRadius: 4,
           }}>
@@ -76,7 +77,7 @@ function VideoThumbCard({ video, onPlay }: { video: Video; onPlay: () => void })
         )}
       </div>
       <div style={{
-        marginTop: 7, fontSize: 13, fontWeight: 500,
+        marginTop: 7, fontSize: fs(13), fontWeight: 500,
         color: 'var(--ink-1)', lineHeight: 1.4,
         overflow: 'hidden', maxHeight: '2.8em',
       }}>
@@ -115,7 +116,7 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
             }} />
           </>
         )}
-        <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>
+        <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: fs(12), color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>
           {node.children.length > 0 ? `${node.children.length}개` : (total > 0 ? `${total}편` : '준비중')}
         </div>
         {node.isCompleted && (
@@ -125,7 +126,7 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
             borderRadius: 4,
             border: '1.5px solid rgba(220,38,38,0.85)',
             color: 'rgba(220,38,38,0.95)',
-            fontSize: 10, fontWeight: 800,
+            fontSize: fs(10), fontWeight: 800,
             background: 'rgba(255,255,255,0.88)',
             letterSpacing: '0.05em',
             transform: 'rotate(8deg)',
@@ -136,7 +137,7 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
         )}
       </div>
       <div style={{
-        marginTop: 7, fontSize: 13, fontWeight: 600,
+        marginTop: 7, fontSize: fs(13), fontWeight: 600,
         color: 'var(--ink-0)', lineHeight: 1.4,
         overflow: 'hidden', maxHeight: '2.8em',
       }}>
@@ -200,7 +201,7 @@ function VideoRowContent({ categoryId, accent }: { categoryId: string; accent: s
             <div style={{
               position: 'absolute', inset: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.9)',
+              fontSize: fs(13), fontWeight: 700, color: 'rgba(255,255,255,0.9)',
             }}>
               준비중
             </div>
@@ -230,8 +231,8 @@ function CategoryRow({ node, accent }: { node: CategoryNode; accent: string }) {
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', marginBottom: 12 }}>
           <div style={{ width: 4, height: 18, background: accent, borderRadius: 2, flexShrink: 0 }} />
-          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink-0)' }}>{node.title}</span>
-          <span style={{ fontSize: 12, color: 'var(--ink-3)', marginLeft: 2 }}>
+          <span style={{ fontSize: fs(16), fontWeight: 700, color: 'var(--ink-0)' }}>{node.title}</span>
+          <span style={{ fontSize: fs(12), color: 'var(--ink-3)', marginLeft: 2 }}>
             {isLeaf ? (total > 0 ? `${total}편` : '준비중') : `${node.children.length}개 시리즈`}
           </span>
       </div>
@@ -303,14 +304,14 @@ function SearchResultRow({ result, onClick }: { result: SeriesSearchResult; onCl
     >
       <div style={{ minWidth: 0 }}>
         {parentPath && (
-          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: fs(11), color: 'var(--ink-3)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {parentPath}
           </div>
         )}
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink-0)' }}>{result.title}</div>
+        <div style={{ fontSize: fs(15), fontWeight: 600, color: 'var(--ink-0)' }}>{result.title}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 12 }}>
-        <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{count}</span>
+        <span style={{ fontSize: fs(12), color: 'var(--ink-3)' }}>{count}</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
           <polyline points="9 18 15 12 9 6" />
         </svg>
@@ -386,8 +387,8 @@ export default function SermonPage() {
         borderBottom: '1px solid var(--divider)',
         position: 'sticky', top: 0, zIndex: 10,
       }}>
-        <div style={{ height: 56, padding: '0 16px', display: 'flex', alignItems: 'center' }}>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)' }}>설교</h1>
+        <div style={{ minHeight: 56, padding: '0 16px', display: 'flex', alignItems: 'center' }}>
+          <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>설교</h1>
         </div>
         <div style={{ padding: '0 16px 12px' }}>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -404,9 +405,9 @@ export default function SermonPage() {
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="시리즈 검색"
               style={{
-                width: '100%', height: 40, padding: '0 36px 0 36px',
+                width: '100%', minHeight: 40, padding: '0 36px 0 36px',
                 background: 'var(--surface-1)', border: '1px solid var(--divider)',
-                borderRadius: 10, fontSize: 14, color: 'var(--ink-0)', outline: 'none',
+                borderRadius: 10, fontSize: fs(14), color: 'var(--ink-0)', outline: 'none',
               }}
             />
             {searchInput && (
@@ -433,13 +434,13 @@ export default function SermonPage() {
         {isSearching ? (
           <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {searchLoading ? (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-3)', fontSize: 14 }}>검색 중…</div>
+              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-3)', fontSize: fs(14) }}>검색 중…</div>
             ) : (searchResults?.length ?? 0) > 0 ? (
               searchResults!.map((r) => (
                 <SearchResultRow key={r.id} result={r} onClick={() => navigate(`/sermon/category/${r.id}`)} />
               ))
             ) : (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-3)', fontSize: 14 }}>
+              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-3)', fontSize: fs(14) }}>
                 "{debouncedQuery}" 검색 결과가 없어요
               </div>
             )}
@@ -478,11 +479,11 @@ export default function SermonPage() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-700)', marginBottom: 4 }}>이어서 듣기</p>
-            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink-0)', marginBottom: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+            <p style={{ fontSize: fs(13), fontWeight: 600, color: 'var(--primary-700)', marginBottom: 4 }}>이어서 듣기</p>
+            <p style={{ fontSize: fs(15), fontWeight: 700, color: 'var(--ink-0)', marginBottom: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
               {resumeData.videoTitle}
             </p>
-            <p style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 22 }}>
+            <p style={{ fontSize: fs(13), color: 'var(--ink-3)', marginBottom: 22 }}>
               {formatDuration(Math.floor(resumeData.position))}까지 들으셨어요
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -491,7 +492,7 @@ export default function SermonPage() {
                 style={{
                   width: '100%', padding: '14px',
                   background: 'var(--primary-700)', color: 'var(--white)',
-                  borderRadius: 12, fontSize: 15, fontWeight: 700,
+                  borderRadius: 12, fontSize: fs(15), fontWeight: 700,
                   border: 'none', cursor: 'pointer',
                 }}
               >
@@ -502,7 +503,7 @@ export default function SermonPage() {
                 style={{
                   width: '100%', padding: '14px',
                   background: 'var(--surface-1)', color: 'var(--ink-1)',
-                  borderRadius: 12, fontSize: 15, fontWeight: 600,
+                  borderRadius: 12, fontSize: fs(15), fontWeight: 600,
                   border: 'none', cursor: 'pointer',
                 }}
               >

@@ -1,3 +1,5 @@
+import { fs } from '@/lib/fontScale'
+
 interface Props {
   tag: string
   size?: 'sm' | 'md'
@@ -11,7 +13,7 @@ export default function TagBadge({ tag, size = 'sm' }: Props) {
   if (!isAR && !isMR) return null
 
   return (
-    <span className={isAR ? 'tag-ar' : 'tag-mr'} style={size === 'md' ? { fontSize: 13 } : undefined}>
+    <span className={isAR ? 'tag-ar' : 'tag-mr'} style={size === 'md' ? { fontSize: fs(13) } : undefined}>
       <span style={{ fontSize: size === 'md' ? 10 : 8 }}>{isAR ? '●' : '■'}</span>
       {upper}
     </span>

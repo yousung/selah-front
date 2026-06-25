@@ -30,7 +30,7 @@ export default function RecentPage() {
         className="sticky top-0 z-10"
         style={{ background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
-        <div className="flex items-center justify-between px-4" style={{ height: 56 }}>
+        <div className="flex items-center justify-between px-4" style={{ minHeight: 56 }}>
           <h1 className="text-base font-medium" style={{ color: 'var(--ink-0)' }}>최근 재생</h1>
           {items.length > 0 && (
             <button onClick={clear} className="text-xs" style={{ color: 'var(--ink-2)' }}>

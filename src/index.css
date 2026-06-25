@@ -83,6 +83,9 @@
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
@@ -174,22 +177,33 @@
 }
 
 @layer utilities {
+  /* ─── 글자 크기(--font-scale) 연동 ───────────────────────────────
+     콘텐츠 텍스트만 스케일. var 기본값 1 → scale=1에서 픽셀 동일(시각 회귀 0).
+     <main>에만 --font-scale가 걸리므로 크롬/오버레이는 상속받지 않아 자동 1 유지.
+     text-xs/sm/base/lg/xl/2xl 는 tailwind.config.js theme.extend.fontSize 에서 스케일
+     (leading-* cascade 보존 위해 index.css가 아닌 config에 정의). 아래는 폰트크기만
+     쓰는 arbitrary/serif 유틸이라 line-height 미설정 → leading-* 충돌 없음. */
+  .text-\[8px\]  { font-size: calc(8px * var(--font-scale, 1)); }
+  .text-\[9px\]  { font-size: calc(9px * var(--font-scale, 1)); }
+  .text-\[10px\] { font-size: calc(10px * var(--font-scale, 1)); }
+  .text-\[11px\] { font-size: calc(11px * var(--font-scale, 1)); }
+
   .text-display {
     font-family: 'Noto Serif KR', serif;
-    font-size: 32px;
-    line-height: 42px;
+    font-size: calc(32px * var(--font-scale, 1));
+    line-height: calc(42px * var(--font-scale, 1));
     font-weight: 500;
   }
   .text-serif-title {
     font-family: 'Noto Serif KR', serif;
-    font-size: 22px;
-    line-height: 32px;
+    font-size: calc(22px * var(--font-scale, 1));
+    line-height: calc(32px * var(--font-scale, 1));
     font-weight: 500;
   }
   .text-heading {
     font-family: 'Noto Serif KR', serif;
-    font-size: 20px;
-    line-height: 28px;
+    font-size: calc(20px * var(--font-scale, 1));
+    line-height: calc(28px * var(--font-scale, 1));
     font-weight: 600;
   }
 

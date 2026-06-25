@@ -8,6 +8,7 @@ export type AutoNextDelay = 'immediate' | '3s' | '5s' | 'off'
 export type PlayMode = 'single' | 'playlist' | 'repeat' | 'loop'
 export type MediaMode = 'audio' | 'video'
 export type OfflineStorageMode = 'thrift' | 'normal' | 'generous' | 'custom'
+export type FontScale = 1 | 1.5 | 2
 
 interface SettingsState {
   theme: Theme
@@ -22,6 +23,7 @@ interface SettingsState {
   offlineStorageMode: OfflineStorageMode
   offlineStorageCustomMB: number
   autoDownload: boolean
+  fontScale: FontScale
   setTheme: (t: Theme) => void
   setQuality: (q: AudioQuality) => void
   setMediaMode: (m: MediaMode) => void
@@ -34,6 +36,7 @@ interface SettingsState {
   setOfflineStorageMode: (m: OfflineStorageMode) => void
   setOfflineStorageCustomMB: (mb: number) => void
   setAutoDownload: (v: boolean) => void
+  setFontScale: (v: FontScale) => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -51,6 +54,7 @@ export const useSettingsStore = create<SettingsState>()(
       offlineStorageMode: 'normal',
       offlineStorageCustomMB: 1024,
       autoDownload: true,
+      fontScale: 1,
       setTheme: (theme) => set({ theme }),
       setQuality: (quality) => set({ quality }),
       setMediaMode: (mediaMode) => set((s) => {
@@ -67,6 +71,7 @@ export const useSettingsStore = create<SettingsState>()(
       setOfflineStorageMode: (offlineStorageMode) => set({ offlineStorageMode }),
       setOfflineStorageCustomMB: (mb) => set({ offlineStorageCustomMB: Math.min(2048, Math.max(1, mb)) }),
       setAutoDownload: (autoDownload) => set({ autoDownload }),
+      setFontScale: (fontScale) => set({ fontScale }),
     }),
     {
       name: 'selah-settings',
