@@ -88,3 +88,19 @@ export async function getConfessionTags(): Promise<Tag[]> {
   const { data } = await api.get<Tag[]>('/confessions/tags')
   return data
 }
+
+// 말씀 암송
+export interface MemoryVerse {
+  id: string
+  ordering: number
+  period: string       // "6월 23일~28일"
+  startDate: string    // "2026-06-23"
+  endDate: string      // "2026-06-28"
+  reference: string    // "요한복음 14:6"
+  content: string      // 본문(여러 줄 가능)
+}
+
+export async function getMemoryVerses(): Promise<MemoryVerse[]> {
+  const { data } = await api.get<MemoryVerse[]>('/memory-verses')
+  return data
+}

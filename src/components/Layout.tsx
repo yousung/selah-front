@@ -50,10 +50,20 @@ function IconPerson({ active }: { active: boolean }) {
     </svg>
   )
 }
+// 암송 — 책갈피(간직한 말씀) 아이콘
+function IconMemorize({ active }: { active: boolean }) {
+  const c = active ? 'var(--primary-700)' : 'var(--ink-3)'
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" fill={active ? c : 'none'} />
+    </svg>
+  )
+}
 
 const navItems = [
   { to: '/', label: '찬송', Icon: IconNote },
   { to: '/sermon', label: '설교', Icon: IconMic, beta: true },
+  { to: '/memorize', label: '암송', Icon: IconMemorize },
   { to: '/catechism', label: '교리서', Icon: IconBook },
   { to: '/my', label: 'MY', Icon: IconPerson },
 ]
