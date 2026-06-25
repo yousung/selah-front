@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://e41cinm9d8.execute-api.ap-northeast-2.amazonaws.com/prod'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://e41cinm9d8.execute-api.ap-northeast-2.amazonaws.com/prod/api'
 
 export const api = axios.create({
   baseURL: apiBaseUrl,
@@ -89,18 +89,82 @@ export async function getConfessionTags(): Promise<Tag[]> {
   return data
 }
 
-// 말씀 암송
+// 한 주간의 양식
+export type WeeklyItemType =
+  | 'bible_reading'      // 성경 읽기(통독 범위)
+  | 'shorter_catechism'  // 소요리문답 암송
+  | 'memory_verse'       // 말씀 암송
+  | 'reading'            // 독서(신앙 서적)
+  | 'larger_catechism'   // 대요리문답(영상)
+
 export interface MemoryVerse {
   id: string
   ordering: number
-  period: string       // "6월 23일~28일"
-  startDate: string    // "2026-06-23"
-  endDate: string      // "2026-06-28"
-  reference: string    // "요한복음 14:6"
-  content: string      // 본문(여러 줄 가능)
+  type: WeeklyItemType
+  itemOrder: number         // 주 안 표시 순서
+  period: string            // "6월 22일~27일"
+  startDate: string         // "2026-06-22"
+  endDate: string           // "2026-06-27"
+  reference: string | null  // "요한복음 14:6" / "제34문"
+  title: string | null      // 소요리 질문, 독서 책/장, 대요리 제목
+  link: string | null       // 외부 링크(대요리 영상)
+  imageUrl: string | null   // 이미지(독서 책 표지)
+  content: string | null    // 본문/통독 범위/소요리 답(여러 줄 가능)
+}
+
+type MemoryVerseApiItem = Omit<Partial<MemoryVerse>, 'id' | 'ordering' | 'period' | 'startDate' | 'endDate'> & {
+  id: string
+  ordering: number
+  period: string
+  startDate: string
+  endDate: string
+}
+
+const WEEKLY_TYPE_BY_ORDERING: Record<number, WeeklyItemType> = {
+  27: 'memory_verse',
+  28: 'bible_reading',
+  29: 'shorter_catechism',
+  30: 'reading',
+  31: 'larger_catechism',
+}
+
+const WEEKLY_ORDER_BY_TYPE: Record<WeeklyItemType, number> = {
+  bible_reading: 1,
+  shorter_catechism: 2,
+  memory_verse: 3,
+  reading: 4,
+  larger_catechism: 5,
+}
+
+function inferWeeklyType(item: MemoryVerseApiItem): WeeklyItemType {
+  if (item.type) return item.type
+  if (item.link) return 'larger_catechism'
+  if (item.imageUrl) return 'reading'
+  if (item.reference?.startsWith('제')) return 'shorter_catechism'
+  if (WEEKLY_TYPE_BY_ORDERING[item.ordering]) return WEEKLY_TYPE_BY_ORDERING[item.ordering]
+  return 'memory_verse'
+}
+
+function normalizeMemoryVerse(item: MemoryVerseApiItem): MemoryVerse {
+  const type = inferWeeklyType(item)
+
+  return {
+    id: item.id,
+    ordering: item.ordering,
+    type,
+    itemOrder: item.itemOrder ?? WEEKLY_ORDER_BY_TYPE[type],
+    period: item.period,
+    startDate: item.startDate,
+    endDate: item.endDate,
+    reference: item.reference ?? null,
+    title: item.title ?? null,
+    link: item.link ?? null,
+    imageUrl: item.imageUrl ?? null,
+    content: item.content ?? null,
+  }
 }
 
 export async function getMemoryVerses(): Promise<MemoryVerse[]> {
-  const { data } = await api.get<MemoryVerse[]>('/memory-verses')
-  return data
+  const { data } = await api.get<MemoryVerseApiItem[]>('/memory-verses')
+  return data.map(normalizeMemoryVerse)
 }
