@@ -21,6 +21,7 @@ interface Video {
   chapter?: number | null
   publishedAt?: string | null
   duration?: number | null
+  isSecret?: boolean | null
 }
 
 interface VideoPage {

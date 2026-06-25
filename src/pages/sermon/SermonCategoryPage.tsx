@@ -32,6 +32,7 @@ interface Video {
   duration?: number | null
   viewCount?: number | null
   likeCount?: number | null
+  isSecret?: boolean | null
 }
 
 interface VideoPage {

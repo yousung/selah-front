@@ -19,6 +19,7 @@ interface VideoInfo {
   duration?: number | null
   chapter?: number | null
   playerPath?: string
+  isSecret?: boolean | null
 }
 
 interface VideoDetail {
@@ -32,6 +33,7 @@ interface VideoDetail {
   duration?: number | null
   playerPath?: string | null
   lyric?: { hymnTitle?: string | null } | null
+  isSecret?: boolean | null
 }
 
 interface AudioContextValue {
@@ -365,6 +367,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [applyPendingSeek, syncPosition, updateActualDuration])
 
   const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number }) => {
+    // 비공개 영상은 캐시 조회·스트리밍·다운로드 등 모든 미디어 요청을 차단
+    if (video.isSecret) {
+      setIsLoading(false)
+      return
+    }
+
     const autoPlay = options?.autoPlay ?? true
     const isVideoMode = mediaModeRef.current === 'video'
 
@@ -706,6 +714,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       // 2) async 작업
       const targetMeta = useQueueStore.getState().videos[targetIndex]
       const { data } = await api.get<VideoDetail>(`/videos/${targetId}`)
+
+      // 비공개 영상은 자동재생 스킵 (무한루프 방지: 그냥 멈춤)
+      if (data.isSecret) {
+        setIsLoading(false)
+        setIsEnded(false)
+        return
+      }
+
       const dbDuration = normalizeDbDuration(data.duration)
       hasAuthoritativeDurationRef.current = dbDuration != null
       setDuration(dbDuration ?? 0)

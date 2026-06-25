@@ -21,6 +21,7 @@ interface Video {
   viewCount?: number | null
   likeCount?: number | null
   lyricLine?: string | null
+  isSecret?: boolean | null
 }
 
 interface Props {
@@ -104,6 +105,14 @@ function DownloadingBadge() {
   )
 }
 
+function SecretThumbPlaceholder() {
+  return (
+    <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+      <span className="text-xs font-medium select-none" style={{ color: 'var(--ink-3)' }}>비공개 영상</span>
+    </div>
+  )
+}
+
 function ChapterBadge({ chapter, type }: { chapter: number; type?: string | null }) {
   const isHymn = type !== 'SERMON'
   const label = isHymn
@@ -161,17 +170,23 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
             className="relative flex-shrink-0 rounded-[8px] overflow-hidden"
             style={{ background: 'var(--surface-2)', width: 'clamp(80px, 22vw, 140px)', aspectRatio: '16/9' }}
           >
-            <Thumb
-              src={video.thumbnail}
-              className="w-full h-full object-cover"
-              fallback={<div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--ink-3)' }}>♪</div>}
-            />
-            {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
-            {isNew && <NewBadge />}
-            {isCached ? <CachedBadge /> : isDownloading ? <DownloadingBadge /> : null}
-            {dur && (
-              <span className="absolute bottom-1 right-1 text-white text-[10px] font-semibold px-1 rounded"
-                style={{ background: 'rgba(0,0,0,0.75)', lineHeight: fs(16) }}>{dur}</span>
+            {video.isSecret ? (
+              <SecretThumbPlaceholder />
+            ) : (
+              <>
+                <Thumb
+                  src={video.thumbnail}
+                  className="w-full h-full object-cover"
+                  fallback={<div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--ink-3)' }}>♪</div>}
+                />
+                {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
+                {isNew && <NewBadge />}
+                {isCached ? <CachedBadge /> : isDownloading ? <DownloadingBadge /> : null}
+                {dur && (
+                  <span className="absolute bottom-1 right-1 text-white text-[10px] font-semibold px-1 rounded"
+                    style={{ background: 'rgba(0,0,0,0.75)', lineHeight: fs(16) }}>{dur}</span>
+                )}
+              </>
             )}
           </div>
 
@@ -180,12 +195,14 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
             <p className="line-clamp-1 text-sm lg:text-base font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>
               <HighlightText text={mainTitle} query={highlight} />
             </p>
-            {subTitle && (
+            {video.isSecret ? (
+              <p className="line-clamp-1 text-xs mt-0.5" style={{ color: 'var(--ink-3)' }}>추후 기능 개발</p>
+            ) : subTitle ? (
               <p className="line-clamp-1 text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
                 <HighlightText text={subTitle} query={highlight} />
               </p>
-            )}
-            {(views || likes) && (
+            ) : null}
+            {!video.isSecret && (views || likes) && (
               <div className="flex items-center gap-2 mt-1">
                 {views && <span className="text-[11px]" style={{ color: 'var(--ink-3)' }}>조회 {views}</span>}
                 {likes && <span className="text-[11px]" style={{ color: 'var(--ink-3)' }}>좋아요 {likes}</span>}
@@ -215,33 +232,41 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
         onClick={onClick}
       >
         <div className="relative rounded-[10px] overflow-hidden" style={{ aspectRatio: '16/9', background: 'var(--surface-2)' }}>
-          <Thumb
-            src={video.thumbnail}
-            className="w-full h-full object-cover"
-            fallback={<div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--ink-3)' }}>♪</div>}
-          />
-          {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
-          {isNew && <NewBadge />}
-          {isCached && <CachedBadge />}
-          {dur && (
-            <span className="absolute bottom-1.5 right-1.5 text-white font-semibold rounded"
-              style={{ fontSize: fs(11), background: 'rgba(0,0,0,0.78)', padding: '1px 5px', lineHeight: fs(18) }}>{dur}</span>
+          {video.isSecret ? (
+            <SecretThumbPlaceholder />
+          ) : (
+            <>
+              <Thumb
+                src={video.thumbnail}
+                className="w-full h-full object-cover"
+                fallback={<div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--ink-3)' }}>♪</div>}
+              />
+              {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
+              {isNew && <NewBadge />}
+              {isCached && <CachedBadge />}
+              {dur && (
+                <span className="absolute bottom-1.5 right-1.5 text-white font-semibold rounded"
+                  style={{ fontSize: fs(11), background: 'rgba(0,0,0,0.78)', padding: '1px 5px', lineHeight: fs(18) }}>{dur}</span>
+              )}
+            </>
           )}
         </div>
         <div className="pt-2 pb-1">
           <p className="line-clamp-1 text-sm font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>
             <HighlightText text={mainTitle} query={highlight} />
           </p>
-          {subTitle && (
+          {video.isSecret ? (
+            <p className="line-clamp-1 text-[11px] mt-0.5" style={{ color: 'var(--ink-3)' }}>추후 기능 개발</p>
+          ) : subTitle ? (
             <p className="line-clamp-1 text-[11px] mt-0.5" style={{ color: 'var(--ink-2)' }}>
               <HighlightText text={subTitle} query={highlight} />
             </p>
-          )}
+          ) : null}
           <div className="flex items-center justify-between mt-1.5">
             <div className="flex items-center gap-2">
-              {views && <span className="text-[10px]" style={{ color: 'var(--ink-3)' }}>{views}</span>}
-              {likes && <span className="text-[10px]" style={{ color: 'var(--ink-3)' }}>좋아요 {likes}</span>}
-              {!views && !likes && <span />}
+              {!video.isSecret && views && <span className="text-[10px]" style={{ color: 'var(--ink-3)' }}>{views}</span>}
+              {!video.isSecret && likes && <span className="text-[10px]" style={{ color: 'var(--ink-3)' }}>좋아요 {likes}</span>}
+              {(!views && !likes) && <span />}
             </div>
             <button
               onClick={handlePlaylist}

@@ -2,7 +2,7 @@ import React, { useEffect, useCallback, useState, useMemo, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { getSelahMenu, clearSelahMenu } from '@/lib/selahMenu'
+import { clearSelahMenu } from '@/lib/selahMenu'
 import { useAudio } from '@/contexts/AudioContext'
 import { usePlaylistStore } from '@/store/playlistStore'
 import PlaylistBottomSheet from '@/components/PlaylistBottomSheet'
@@ -29,6 +29,7 @@ interface Video {
   playlist?: { id: string; title: string }
   lyric?: Lyric | null
   description?: string | null
+  isSecret?: boolean | null
 }
 
 interface Lyric {
@@ -311,9 +312,11 @@ export default function PlayerPage() {
   const playerBase = location.pathname.startsWith('/sermon/player/') ? '/sermon/player' : '/player'
   const isSermonPlayer = playerBase === '/sermon/player'
   const handleBack = () => {
-    const menu = getSelahMenu()
     clearSelahMenu()
-    navigate(menu ?? '/')
+    // 히스토리에 돌아갈 곳이 있으면 이전 페이지로(카테고리 등), 없으면(직접 진입/공유링크) 홈으로.
+    const canGoBack = (window.history.state?.idx ?? 0) > 0
+    if (canGoBack) navigate(-1)
+    else navigate('/')
   }
   const [searchParams] = useSearchParams()
   const isInAnyPlaylist = usePlaylistStore((s) => s.isInAnyPlaylist)
@@ -502,6 +505,7 @@ export default function PlayerPage() {
 
   useEffect(() => {
     if (!video) return
+    if (video.isSecret) return
     if (hasPlayedRef.current) return
     if (currentVideo?.id !== video.id) {
       hasPlayedRef.current = true
@@ -580,6 +584,7 @@ export default function PlayerPage() {
 
   const handleDownload = useCallback(async () => {
     if (!id || !video) return
+    if (video.isSecret) return
     if (!offlineMediaOk) return
     // 절약(thrift)도 다운로드-후-재생을 위해 다운로드한다(스트림 직접 재생 안 함).
     // 다운로드 후 enforceStoragePolicy가 현재+최근 곡 2개만 남기고 정리한다.
@@ -626,6 +631,7 @@ export default function PlayerPage() {
     // 그 외 모드는 autoDownload 켜진 경우에만 자동 다운로드.
     if (offlineStorageMode !== 'thrift' && !autoDownload) return
     if (!video || !offlineMediaOk) return
+    if (video.isSecret) return
     handleDownload()
   // video?.id로 의존: 백그라운드 refetch(같은 id, 새 ref)로 재발화하지 않도록
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -664,7 +670,11 @@ export default function PlayerPage() {
         border: '1px solid var(--divider)',
       }}
     >
-      {mediaMode === 'video' ? (
+      {video?.isSecret ? (
+        <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+          <span className="text-sm font-medium select-none" style={{ color: 'var(--ink-3)' }}>비공개 영상</span>
+        </div>
+      ) : mediaMode === 'video' ? (
         <div ref={videoSlotRef as React.RefObject<HTMLDivElement>} style={{ display: 'block', width: '100%', height: '100%' }} />
       ) : (
         <Thumb
@@ -704,14 +714,22 @@ export default function PlayerPage() {
         )}
       </div>
 
-      {error && (
+      {video?.isSecret && (
+        <div className="mb-6 py-4 px-4 rounded-xl text-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--divider)' }}>
+          <p className="text-sm font-medium" style={{ color: 'var(--ink-1)' }}>비공개 영상입니다</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--ink-3)' }}>재생할 수 없습니다</p>
+        </div>
+      )}
+
+      {error && !video?.isSecret && (
         <div className="mb-4 text-center">
           <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>
           <button className="text-sm mt-2 underline" style={{ color: 'var(--primary-700)' }} onClick={handleRetry}>다시 시도</button>
         </div>
       )}
 
-      {/* Seek bar */}
+      {/* Seek bar + Play controls + Playback mode — 비공개 영상은 숨김 */}
+      {!video?.isSecret && <>
       <div className="mb-2">
         <input
           type="range" min={0} max={1} step={0.001} value={progress}
@@ -835,6 +853,7 @@ export default function PlayerPage() {
           <PlayModeIcon mode={playMode} />
         </button>
       </div>
+      </>}
     </div>
   )
 
@@ -872,7 +891,7 @@ export default function PlayerPage() {
           돌아가기
         </button>
         <div className="flex items-center gap-2">
-          {isDownloaded && (
+          {isDownloaded && !video?.isSecret && (
             <span
               className="flex items-center gap-1 rounded-full"
               style={{
@@ -895,7 +914,7 @@ export default function PlayerPage() {
             </span>
           )}
           {/* 수동 다운로드 트리거 — 미저장(idle) 상태에서만. 진행은 하단 가로 바로 표시 */}
-          {id && offlineMediaOk && offlineStorageMode !== 'thrift' && !isDownloaded && dlStatus === 'idle' && (
+          {id && offlineMediaOk && offlineStorageMode !== 'thrift' && !isDownloaded && dlStatus === 'idle' && !video?.isSecret && (
             <button
               onClick={handleDownload}
               className="transition-opacity active:opacity-60 flex items-center p-2"
@@ -946,7 +965,7 @@ export default function PlayerPage() {
           <div className="w-full lg:flex-1 mb-8 lg:mb-0">{Artwork}</div>
           <div className="w-full lg:flex-1">{Controls}</div>
         </div>
-        <LyricsDescriptionTabs lyric={lyric} description={video?.description} />
+        <LyricsDescriptionTabs lyric={video?.isSecret ? null : lyric} description={video?.isSecret ? '추후 기능 개발' : video?.description} />
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
       </div>
       {playlistSheetOpen && id && (

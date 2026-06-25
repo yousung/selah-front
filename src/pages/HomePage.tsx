@@ -40,6 +40,7 @@ interface Video {
   publishedAt?: string | null
   createdAt?: string | null
   duration?: number | null
+  isSecret?: boolean | null
 }
 
 interface PlaylistMeta {

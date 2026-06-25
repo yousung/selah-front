@@ -19,6 +19,7 @@ interface Video {
   publishedAt?: string | null
   duration?: number | null
   lyricLine?: string | null
+  isSecret?: boolean | null
 }
 
 interface VideoPage {

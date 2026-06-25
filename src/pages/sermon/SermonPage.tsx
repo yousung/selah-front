@@ -29,6 +29,7 @@ interface Video {
   duration?: number | null
   viewCount?: number | null
   likeCount?: number | null
+  isSecret?: boolean | null
 }
 
 const ACCENT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#0ea5e9']

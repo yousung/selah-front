@@ -11,7 +11,7 @@ export default function VideoFormPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
 
-  const [form, setForm] = useState({ youtubeId: '', tag: '', playlistId: '', chapter: '' })
+  const [form, setForm] = useState({ youtubeId: '', tag: '', playlistId: '', chapter: '', isSecret: false })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fetching, setFetching] = useState(isEdit)
@@ -25,7 +25,7 @@ export default function VideoFormPage() {
     if (!isEdit) return
     adminApi.get(`/admin/thelc/videos/${id}`).then((r) => {
       const d = r.data
-      setForm({ youtubeId: d.youtubeId ?? '', tag: d.tag ?? 'AR', playlistId: d.playlistId ?? '', chapter: String(d.chapter ?? '') })
+      setForm({ youtubeId: d.youtubeId ?? '', tag: d.tag ?? 'AR', playlistId: d.playlistId ?? '', chapter: String(d.chapter ?? ''), isSecret: d.isSecret ?? false })
       setFetching(false)
     })
   }, [id, isEdit])
@@ -42,6 +42,7 @@ export default function VideoFormPage() {
       tag: form.tag || undefined,
       playlistId: form.playlistId || undefined,
       chapter: form.chapter ? Number(form.chapter) : undefined,
+      isSecret: form.isSecret,
     }
     try {
       if (isEdit) {
@@ -84,6 +85,17 @@ export default function VideoFormPage() {
         </Field>
         <Field label="챕터">
           <input type="number" className="input-sm" style={inputStyle} value={form.chapter} onChange={(e) => set('chapter', e.target.value)} placeholder="0" min="0" />
+        </Field>
+        <Field label="비공개">
+          <label className="flex items-center gap-2 cursor-pointer" style={{ paddingTop: 4 }}>
+            <input
+              type="checkbox"
+              checked={form.isSecret}
+              onChange={(e) => setForm((f) => ({ ...f, isSecret: e.target.checked }))}
+              style={{ width: 16, height: 16, accentColor: 'var(--primary-700)', cursor: 'pointer' }}
+            />
+            <span className="text-sm" style={{ color: 'var(--ink-1)' }}>비공개 (스트리밍 차단)</span>
+          </label>
         </Field>
         {error && <p className="text-xs" style={{ color: '#B85450' }}>{error}</p>}
         <div className="flex gap-2 pt-1">
