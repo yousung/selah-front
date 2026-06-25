@@ -4,7 +4,7 @@ import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { api } from '@/lib/api'
-import { deleteMedia, getCachedMediaPlaybackUrl, isIosWebKit, isOpfsSupported, MEDIA_DOWNLOADED_EVENT } from '@/lib/mediaStore'
+import { deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT } from '@/lib/mediaStore'
 import type { MediaDownloadedDetail } from '@/lib/mediaStore'
 import { setLastPlayback, setLastPlaybackError } from '@/lib/mediaDiag'
 import { thumbUrl, thumbQualityFor } from '@/lib/thumb'
@@ -315,10 +315,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         if (localPlayback && activeVideo?.id === localPlayback.id && !localFallbackInProgressRef.current) {
           const seekTo = positionRef.current
           const errorCode = audio.error?.code ?? null
-          // iOS에서는 진짜 손상(MEDIA_ERR_DECODE=3)일 때만 파일 삭제. NETWORK(2)/
-          // SRC_NOT_SUPPORTED(4) 등 SW-라우팅 실패성 에러에선 파일을 보존하고
-          // 이번 세션만 스트림으로 폴백한다(멀쩡한 다운로드를 매번 파괴하던 버그 방지).
-          const shouldDelete = !isIosWebKit() || errorCode === MediaError.MEDIA_ERR_DECODE
+          // 진짜 손상(MEDIA_ERR_DECODE=3)일 때만 파일 삭제한다. NETWORK(2)/
+          // SRC_NOT_SUPPORTED(4)/ABORTED(1) 등 SW-라우팅 실패성 에러에선 파일을 보존하고
+          // 이번 세션만 스트림으로 폴백한다. (데스크탑 Chrome 포함 전 플랫폼 적용:
+          // 다운로드 직후 자동재생이 SW 경유 캐시재생에서 SRC_NOT_SUPPORTED로 실패하면
+          // 멀쩡한 다운로드 파일이 즉시 삭제 → 새로고침마다 재다운로드되던 버그를 막는다.)
+          const shouldDelete = errorCode === MediaError.MEDIA_ERR_DECODE
           setLastPlaybackError({
             code: errorCode,
             networkState: audio.networkState,
@@ -635,8 +637,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (localPlayback && activeVideo?.id === localPlayback.id && !localFallbackInProgressRef.current) {
       const seekTo = positionRef.current
       const errorCode = video?.error?.code ?? null
-      // audio 핸들러와 동일한 안전 픽스: iOS에선 MEDIA_ERR_DECODE(3)만 삭제, 그 외엔 파일 보존.
-      const shouldDelete = !isIosWebKit() || errorCode === MediaError.MEDIA_ERR_DECODE
+      // audio 핸들러와 동일한 안전 픽스: 진짜 손상(MEDIA_ERR_DECODE=3)일 때만 삭제.
+      // 그 외(NETWORK/SRC_NOT_SUPPORTED 등 라우팅 실패)는 전 플랫폼에서 파일 보존.
+      const shouldDelete = errorCode === MediaError.MEDIA_ERR_DECODE
       setLastPlaybackError({
         code: errorCode,
         networkState: video?.networkState ?? null,

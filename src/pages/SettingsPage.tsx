@@ -106,10 +106,10 @@ const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string }[] = [
 ]
 
 const OFFLINE_MODE_OPTIONS: { value: OfflineStorageMode; label: string; desc: string }[] = [
-  { value: 'thrift', label: '절약', desc: '현재 곡만 저장 · 이어듣기 지원 · 멀티 다운로드 미지원' },
+  { value: 'thrift', label: '절약', desc: '최근 2곡만 저장 · 이어듣기 지원 · 멀티 다운로드 미지원' },
   { value: 'normal', label: '보통', desc: '최대 500MB까지 저장' },
   { value: 'generous', label: '넉넉', desc: '최대 1GB까지 저장' },
-  { value: 'custom', label: '최대', desc: '최대 2GB까지 저장' },
+  { value: 'custom', label: '계속', desc: '용량 제한 없이 삭제 없이 계속 저장' },
 ]
 
 /** 외곽 섹션 박스 — 대분류(재생/표시/저장·데이터/정보)를 묶는 fieldset */
