@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAudio } from '@/contexts/AudioContext'
+import Thumb from '@/components/Thumb'
 
 function fmtTime(s: number) {
   if (!isFinite(s)) return '0:00'
@@ -80,14 +81,16 @@ export default function MiniPlayer({ onDismiss }: Props) {
       >
         {/* Thumbnail */}
         <div
-          className="rounded-[8px] overflow-hidden flex-shrink-0"
+          className="relative rounded-[8px] overflow-hidden flex-shrink-0"
           style={{ width: 44, height: 44, background: 'var(--surface-2)' }}
         >
-          {currentVideo.thumbnail ? (
-            <img src={currentVideo.thumbnail} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-lg" style={{ color: 'var(--ink-3)' }}>♪</div>
-          )}
+          <Thumb
+            src={currentVideo.thumbnail}
+            className="w-full h-full object-cover"
+            fallback={
+              <div className="w-full h-full flex items-center justify-center text-lg" style={{ color: 'var(--ink-3)' }}>♪</div>
+            }
+          />
         </div>
 
         {/* Title + time */}

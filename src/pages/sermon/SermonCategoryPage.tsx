@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
 import VideoCard from '@/components/VideoCard'
+import Thumb from '@/components/Thumb'
 import { useQueueStore } from '@/store/queueStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
@@ -57,7 +58,7 @@ function ChildSubCatCard({ node, accent, onClick }: { node: CategoryNode; accent
       <div style={{ width: '100%', height: 80, borderRadius: 10, position: 'relative', overflow: 'hidden' }}>
         {node.thumbnail ? (
           <>
-            <img src={node.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <Thumb src={node.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.32)' }} />
           </>
         ) : (

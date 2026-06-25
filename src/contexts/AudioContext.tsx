@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { deleteMedia, getCachedMediaPlaybackUrl, isIosWebKit, isOpfsSupported, MEDIA_DOWNLOADED_EVENT } from '@/lib/mediaStore'
 import type { MediaDownloadedDetail } from '@/lib/mediaStore'
 import { setLastPlayback, setLastPlaybackError } from '@/lib/mediaDiag'
+import { thumbUrl, thumbQualityFor } from '@/lib/thumb'
 
 interface VideoInfo {
   id: string
@@ -82,18 +83,21 @@ function updateMediaSessionMetadata(video: VideoInfo) {
   const subtitle = stripBrackets(video.title)
   const title = video.hymnTitle?.trim() || subtitle || video.title
 
+  const { mediaMode, quality } = useSettingsStore.getState()
+  const artworkSrc = thumbUrl(video.thumbnail, thumbQualityFor(mediaMode, quality))
+
   navigator.mediaSession.metadata = new MediaMetadata({
     title,
     artist: subtitle || '주님의 교회',
     album: 'Selah',
-    artwork: video.thumbnail
+    artwork: artworkSrc
       ? [
-          { src: video.thumbnail, sizes: '96x96' },
-          { src: video.thumbnail, sizes: '128x128' },
-          { src: video.thumbnail, sizes: '192x192' },
-          { src: video.thumbnail, sizes: '256x256' },
-          { src: video.thumbnail, sizes: '384x384' },
-          { src: video.thumbnail, sizes: '512x512' },
+          { src: artworkSrc, sizes: '96x96' },
+          { src: artworkSrc, sizes: '128x128' },
+          { src: artworkSrc, sizes: '192x192' },
+          { src: artworkSrc, sizes: '256x256' },
+          { src: artworkSrc, sizes: '384x384' },
+          { src: artworkSrc, sizes: '512x512' },
         ]
       : undefined,
   })

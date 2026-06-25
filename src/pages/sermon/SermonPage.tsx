@@ -7,6 +7,7 @@ import { useQueueStore } from '@/store/queueStore'
 import { setSelahMenu } from '@/lib/selahMenu'
 import { getSermonResume, clearSermonResume, type SermonResumeData } from '@/lib/sermonResume'
 import { fs } from '@/lib/fontScale'
+import Thumb from '@/components/Thumb'
 
 interface CategoryNode {
   id: string
@@ -61,7 +62,7 @@ function VideoThumbCard({ video, onPlay }: { video: Video; onPlay: () => void })
         position: 'relative',
       }}>
         {video.thumbnail ? (
-          <img src={video.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <Thumb src={video.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, var(--surface-2), var(--surface-3, #e0e0e0))' }} />
         )}
@@ -101,7 +102,7 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
       }}>
         {node.thumbnail ? (
           <>
-            <img src={node.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <Thumb src={node.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.32)' }} />
           </>
         ) : (

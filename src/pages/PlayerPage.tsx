@@ -11,6 +11,7 @@ import type { PlayMode } from '@/store/settingsStore'
 import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import TagBadge from '@/components/TagBadge'
+import Thumb from '@/components/Thumb'
 import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
 import { downloadMedia, isMediaCached, isOfflineMediaSupported } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
@@ -85,10 +86,12 @@ function AdjacentNav({
           <p className="text-xs font-medium line-clamp-2" style={{ color: 'var(--ink-1)' }}>{video.title}</p>
         </div>
       )}
-      <div className="flex-shrink-0 rounded-[6px] overflow-hidden" style={{ width: 72, aspectRatio: '16/9', background: 'var(--surface-2)' }}>
-        {video.thumbnail
-          ? <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
-          : <div className="w-full h-full flex items-center justify-center text-lg">🎵</div>}
+      <div className="relative flex-shrink-0 rounded-[6px] overflow-hidden" style={{ width: 72, aspectRatio: '16/9', background: 'var(--surface-2)' }}>
+        <Thumb
+          src={video.thumbnail}
+          className="w-full h-full object-cover"
+          fallback={<div className="w-full h-full flex items-center justify-center text-lg">🎵</div>}
+        />
       </div>
       {align === 'left' && (
         <div className="flex-1 min-w-0 text-left">
@@ -329,7 +332,6 @@ export default function PlayerPage() {
     playVideo, togglePlay, seekBy, seekFraction, cancelAutoNext, videoSlotRef,
   } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
-  const [imgErr, setImgErr] = useState(false)
   const [dlState, setDlState] = useState<{ key: string | null; status: DownloadStatus }>({ key: null, status: 'idle' })
   const [dlProgress, setDlProgress] = useState(0)
   const downloadingRef = useRef(false)
@@ -348,7 +350,6 @@ export default function PlayerPage() {
 
   useEffect(() => {
     setDragValue(null)
-    setImgErr(false)
     hasPlayedRef.current = false
   }, [id])
 
@@ -665,10 +666,12 @@ export default function PlayerPage() {
     >
       {mediaMode === 'video' ? (
         <div ref={videoSlotRef as React.RefObject<HTMLDivElement>} style={{ display: 'block', width: '100%', height: '100%' }} />
-      ) : video?.thumbnail && !imgErr ? (
-        <img src={video.thumbnail} alt="" className="w-full h-full object-cover" onError={() => setImgErr(true)} />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-5xl" style={{ color: 'var(--ink-3)' }}>🎵</div>
+        <Thumb
+          src={video?.thumbnail}
+          className="w-full h-full object-cover"
+          fallback={<div className="w-full h-full flex items-center justify-center text-5xl" style={{ color: 'var(--ink-3)' }}>🎵</div>}
+        />
       )}
 
     </div>

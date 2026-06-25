@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { fs } from '@/lib/fontScale'
 import PlaylistBottomSheet from './PlaylistBottomSheet'
 import HighlightText from './HighlightText'
+import Thumb from '@/components/Thumb'
 
 
 interface Video {
@@ -133,7 +134,6 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const isCached = useCachedMediaStore((s) => s.cachedIds.has(`${video.id}-${mediaMode}`))
   const isNew = isNewVideo(video.publishedAt)
-  const [imgErr, setImgErr] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const dur = fmtDuration(video.duration ?? undefined)
   const views = fmtCompactCount(video.viewCount)
@@ -161,11 +161,11 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
             className="relative flex-shrink-0 rounded-[8px] overflow-hidden"
             style={{ background: 'var(--surface-2)', width: 'clamp(80px, 22vw, 140px)', aspectRatio: '16/9' }}
           >
-            {video.thumbnail && !imgErr ? (
-              <img src={video.thumbnail} alt="" className="w-full h-full object-cover" onError={() => setImgErr(true)} />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--ink-3)' }}>♪</div>
-            )}
+            <Thumb
+              src={video.thumbnail}
+              className="w-full h-full object-cover"
+              fallback={<div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--ink-3)' }}>♪</div>}
+            />
             {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
             {isNew && <NewBadge />}
             {isCached ? <CachedBadge /> : isDownloading ? <DownloadingBadge /> : null}
@@ -215,11 +215,11 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
         onClick={onClick}
       >
         <div className="relative rounded-[10px] overflow-hidden" style={{ aspectRatio: '16/9', background: 'var(--surface-2)' }}>
-          {video.thumbnail && !imgErr ? (
-            <img src={video.thumbnail} alt="" className="w-full h-full object-cover" onError={() => setImgErr(true)} />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--ink-3)' }}>♪</div>
-          )}
+          <Thumb
+            src={video.thumbnail}
+            className="w-full h-full object-cover"
+            fallback={<div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--ink-3)' }}>♪</div>}
+          />
           {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
           {isNew && <NewBadge />}
           {isCached && <CachedBadge />}

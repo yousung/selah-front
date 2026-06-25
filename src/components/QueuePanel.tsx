@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAudio } from '@/contexts/AudioContext'
 import { useQueueStore } from '@/store/queueStore'
+import Thumb from '@/components/Thumb'
 
 function stripBrackets(s: string) {
   return s.replace(/\[.*?\]/g, '').trim()
@@ -322,22 +323,20 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
                   style={{ width: 60, height: 38, background: 'var(--surface-2)' }}
                   onClick={() => handleItemClick(idx)}
                 >
-                  {meta?.thumbnail ? (
-                    <img
-                      src={meta.thumbnail}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="w-full h-full flex items-center justify-center"
-                      style={{ color: 'var(--ink-3)' }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-                      </svg>
-                    </div>
-                  )}
+                  <Thumb
+                    src={meta?.thumbnail}
+                    className="w-full h-full object-cover"
+                    fallback={
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ color: 'var(--ink-3)' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                        </svg>
+                      </div>
+                    }
+                  />
                   {/* 재생 중 오버레이 */}
                   {isActive && (
                     <div

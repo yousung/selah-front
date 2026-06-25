@@ -4,6 +4,7 @@ import { useAudio } from '@/contexts/AudioContext'
 import { usePlaylistStore, PlaylistVideo } from '@/store/playlistStore'
 import { useQueueStore } from '@/store/queueStore'
 import { setSelahMenu } from '@/lib/selahMenu'
+import Thumb from '@/components/Thumb'
 function stripBrackets(s: string) {
   return s.replace(/\[.*?\]/g, '').trim()
 }
@@ -66,15 +67,16 @@ function SortableItem({ video, index, onPlay, onRemove }: SortableItemProps) {
 
       {/* Thumbnail */}
       <div
-        className="flex-shrink-0 rounded-[6px] overflow-hidden flex items-center justify-center cursor-pointer"
+        className="relative flex-shrink-0 rounded-[6px] overflow-hidden flex items-center justify-center cursor-pointer"
         style={{ width: 56, height: 40, background: 'var(--surface-2)' }}
         onClick={onPlay}
       >
-        {video.thumbnail ? (
-          <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <span style={{ color: 'var(--ink-3)', fontSize: 16 }}>♪</span>
-        )}
+        <Thumb
+          src={video.thumbnail}
+          alt=""
+          className="w-full h-full object-cover"
+          fallback={<span style={{ color: 'var(--ink-3)', fontSize: 16 }}>♪</span>}
+        />
       </div>
 
       {/* Title */}
