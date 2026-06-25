@@ -112,59 +112,12 @@ export interface MemoryVerse {
   content: string | null    // 본문/통독 범위/소요리 답(여러 줄 가능)
 }
 
-type MemoryVerseApiItem = Omit<Partial<MemoryVerse>, 'id' | 'ordering' | 'period' | 'startDate' | 'endDate'> & {
-  id: string
-  ordering: number
-  period: string
-  startDate: string
-  endDate: string
-}
-
-const WEEKLY_TYPE_BY_ORDERING: Record<number, WeeklyItemType> = {
-  27: 'memory_verse',
-  28: 'bible_reading',
-  29: 'shorter_catechism',
-  30: 'reading',
-  31: 'larger_catechism',
-}
-
-const WEEKLY_ORDER_BY_TYPE: Record<WeeklyItemType, number> = {
-  bible_reading: 1,
-  shorter_catechism: 2,
-  memory_verse: 3,
-  reading: 4,
-  larger_catechism: 5,
-}
-
-function inferWeeklyType(item: MemoryVerseApiItem): WeeklyItemType {
-  if (item.type) return item.type
-  if (item.link) return 'larger_catechism'
-  if (item.imageUrl) return 'reading'
-  if (item.reference?.startsWith('제')) return 'shorter_catechism'
-  if (WEEKLY_TYPE_BY_ORDERING[item.ordering]) return WEEKLY_TYPE_BY_ORDERING[item.ordering]
-  return 'memory_verse'
-}
-
-function normalizeMemoryVerse(item: MemoryVerseApiItem): MemoryVerse {
-  const type = inferWeeklyType(item)
-
-  return {
-    id: item.id,
-    ordering: item.ordering,
-    type,
-    itemOrder: item.itemOrder ?? WEEKLY_ORDER_BY_TYPE[type],
-    period: item.period,
-    startDate: item.startDate,
-    endDate: item.endDate,
-    reference: item.reference ?? null,
-    title: item.title ?? null,
-    link: item.link ?? null,
-    imageUrl: item.imageUrl ?? null,
-    content: item.content ?? null,
-  }
-}
-
 export async function getMemoryVerses(): Promise<MemoryVerse[]> {
-  const { data } = await api.get<MemoryVerseApiItem[]>('/memory-verses')
-  return data.map(normalizeMemoryVerse)
+  const { data } = await api.get<MemoryVerse[]>('/memory-verses')
+  return data
+}
+
+export async function getCurrentMemoryVerses(): Promise<MemoryVerse[]> {
+  const { data } = await api.get<MemoryVerse[]>('/memory-verses/current')
+  return data
 }

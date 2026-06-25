@@ -65,6 +65,34 @@ function fmtTime(s: number) {
 }
 
 
+const AdjacentNavCard = React.memo(({ video, label, align, onNav }: { video: AdjacentVideo; label: string; align: 'left' | 'right'; onNav: (target: AdjacentVideo) => void }) => (
+  <button
+    onClick={() => onNav(video)}
+    className="flex items-center gap-2.5 active:opacity-70 transition-opacity"
+    style={{ textAlign: align }}
+  >
+    {align === 'right' && (
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] mb-0.5" style={{ color: 'var(--ink-3)' }}>{label}</p>
+        <p className="text-xs font-medium line-clamp-2" style={{ color: 'var(--ink-1)' }}>{video.title}</p>
+      </div>
+    )}
+    <div className="relative flex-shrink-0 rounded-[6px] overflow-hidden" style={{ width: 72, aspectRatio: '16/9', background: 'var(--surface-2)' }}>
+      <Thumb
+        src={video.thumbnail}
+        className="w-full h-full object-cover"
+        fallback={<div className="w-full h-full flex items-center justify-center text-lg">🎵</div>}
+      />
+    </div>
+    {align === 'left' && (
+      <div className="flex-1 min-w-0 text-left">
+        <p className="text-[10px] mb-0.5" style={{ color: 'var(--ink-3)' }}>{label}</p>
+        <p className="text-xs font-medium line-clamp-2" style={{ color: 'var(--ink-1)' }}>{video.title}</p>
+      </div>
+    )}
+  </button>
+))
+
 function AdjacentNav({
   adjacent, hasCtx, onNav,
 }: {
@@ -74,38 +102,10 @@ function AdjacentNav({
 }) {
   if (!hasCtx || (!adjacent?.prev && !adjacent?.next)) return null
 
-  const Card = ({ video, label, align }: { video: AdjacentVideo; label: string; align: 'left' | 'right' }) => (
-    <button
-      onClick={() => onNav(video)}
-      className="flex items-center gap-2.5 active:opacity-70 transition-opacity"
-      style={{ textAlign: align }}
-    >
-      {align === 'right' && (
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] mb-0.5" style={{ color: 'var(--ink-3)' }}>{label}</p>
-          <p className="text-xs font-medium line-clamp-2" style={{ color: 'var(--ink-1)' }}>{video.title}</p>
-        </div>
-      )}
-      <div className="relative flex-shrink-0 rounded-[6px] overflow-hidden" style={{ width: 72, aspectRatio: '16/9', background: 'var(--surface-2)' }}>
-        <Thumb
-          src={video.thumbnail}
-          className="w-full h-full object-cover"
-          fallback={<div className="w-full h-full flex items-center justify-center text-lg">🎵</div>}
-        />
-      </div>
-      {align === 'left' && (
-        <div className="flex-1 min-w-0 text-left">
-          <p className="text-[10px] mb-0.5" style={{ color: 'var(--ink-3)' }}>{label}</p>
-          <p className="text-xs font-medium line-clamp-2" style={{ color: 'var(--ink-1)' }}>{video.title}</p>
-        </div>
-      )}
-    </button>
-  )
-
   return (
     <section className="mt-6 pt-5 flex flex-col gap-2" style={{ borderTop: '1px solid var(--divider)' }}>
-      {adjacent?.prev && <Card video={adjacent.prev} label="← 이전곡" align="left" />}
-      {adjacent?.next && <Card video={adjacent.next} label="다음곡 →" align="right" />}
+      {adjacent?.prev && <AdjacentNavCard video={adjacent.prev} label="← 이전곡" align="left" onNav={onNav} />}
+      {adjacent?.next && <AdjacentNavCard video={adjacent.next} label="다음곡 →" align="right" onNav={onNav} />}
     </section>
   )
 }
@@ -582,7 +582,7 @@ export default function PlayerPage() {
     if (!id || !video) return
     if (!offlineMediaOk) return
     // 절약(thrift)도 다운로드-후-재생을 위해 다운로드한다(스트림 직접 재생 안 함).
-    // 다운로드 후 enforceStoragePolicy가 현재 곡 1개만 남기고 정리한다.
+    // 다운로드 후 enforceStoragePolicy가 현재+최근 곡 2개만 남기고 정리한다.
     // 동기 in-flight 가드: autoDownload가 video ref 변경(React Query 백그라운드 refetch)으로
     // 중복 발화해도 두 번째 호출을 즉시 차단. dlStatus(상태)는 비동기 지연이 있어 가드로 부적합.
     if (downloadingRef.current) return
@@ -622,7 +622,7 @@ export default function PlayerPage() {
   }, [id, video, offlineMediaOk, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
 
   useEffect(() => {
-    // 절약(thrift)은 autoDownload 토글과 무관하게 항상 다운로드-후-재생(1곡 보관).
+    // 절약(thrift)은 autoDownload 토글과 무관하게 항상 다운로드-후-재생(2곡 보관).
     // 그 외 모드는 autoDownload 켜진 경우에만 자동 다운로드.
     if (offlineStorageMode !== 'thrift' && !autoDownload) return
     if (!video || !offlineMediaOk) return

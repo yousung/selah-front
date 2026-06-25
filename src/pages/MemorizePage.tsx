@@ -1,7 +1,6 @@
-import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getMemoryVerses, MemoryVerse, WeeklyItemType } from '@/lib/api'
+import { getCurrentMemoryVerses, MemoryVerse, WeeklyItemType } from '@/lib/api'
 import { fs } from '@/lib/fontScale'
 
 const SERIF = 'var(--font-serif)'
@@ -19,14 +18,6 @@ const TYPE_LABEL: Record<WeeklyItemType, string> = {
   memory_verse: '말씀 암송',
   reading: '독서',
   larger_catechism: '대요리문답',
-}
-
-/** 로컬 기준 오늘(YYYY-MM-DD). */
-function todayStr(): string {
-  const d = new Date()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${m}-${day}`
 }
 
 /** 유형 라벨 — 본문과 같은 좌측선에 플러시 정렬(배경 없음) */
@@ -279,33 +270,18 @@ function ItemList({ items, hero }: { items: MemoryVerse[]; hero: boolean }) {
 
 export default function MemorizePage() {
   const { data: items, isLoading, error } = useQuery({
-    queryKey: ['memory-verses'],
-    queryFn: getMemoryVerses,
+    queryKey: ['memory-verses', 'current'],
+    queryFn: getCurrentMemoryVerses,
   })
 
-  const weeks = useMemo<Week[]>(() => {
-    const map = new Map<string, Week>()
-    for (const v of items ?? []) {
-      const key = `${v.startDate}|${v.endDate}`
-      let w = map.get(key)
-      if (!w) {
-        w = { period: v.period, startDate: v.startDate, endDate: v.endDate, items: [] }
-        map.set(key, w)
+  const current: Week | null = items && items.length > 0
+    ? {
+        period: items[0].period,
+        startDate: items[0].startDate,
+        endDate: items[0].endDate,
+        items: [...items].sort((a, b) => a.itemOrder - b.itemOrder),
       }
-      w.items.push(v)
-    }
-    for (const w of map.values()) w.items.sort((a, b) => a.itemOrder - b.itemOrder)
-    return [...map.values()].sort((a, b) => a.startDate.localeCompare(b.startDate))
-  }, [items])
-
-  const today = useMemo(todayStr, [])
-
-  // 이번 주: 오늘이 포함된 주만(없으면 null → 미등록 안내)
-  const currentIdx = useMemo(
-    () => weeks.findIndex((w) => w.startDate <= today && today <= w.endDate),
-    [weeks, today],
-  )
-  const current = currentIdx >= 0 ? weeks[currentIdx] : null
+    : null
 
   return (
     <div style={{ background: 'var(--surface-0)', minHeight: '100dvh' }}>
@@ -330,7 +306,7 @@ export default function MemorizePage() {
           </div>
         )}
 
-        {!isLoading && !error && weeks.length > 0 && (
+        {!isLoading && !error && (
           <>
             {/* ── 이번 주 양식 (Hero) ── */}
             <section
@@ -365,12 +341,6 @@ export default function MemorizePage() {
             </section>
 
           </>
-        )}
-
-        {!isLoading && !error && weeks.length === 0 && (
-          <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: fs(14) }}>
-            등록된 양식이 없습니다.
-          </div>
         )}
         </div>
       </div>

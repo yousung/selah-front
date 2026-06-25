@@ -5,7 +5,7 @@ import MediaDebugOverlay from '@/components/MediaDebugOverlay'
 import { AudioProvider } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
-import { reconcileMediaStore } from '@/lib/mediaStore'
+import { reconcileMediaStore, requestPersistentStorage } from '@/lib/mediaStore'
 import HomePage from '@/pages/HomePage'
 import PlaylistPage from '@/pages/PlaylistPage'
 import PlayerPage from '@/pages/PlayerPage'
@@ -47,6 +47,9 @@ function CachedMediaLoader() {
   const refresh = useCachedMediaStore((s) => s.refresh)
   useEffect(() => {
     let cancelled = false
+    // 영속 저장소 권한 요청 → OPFS/IDB가 best-effort로 evict되어 다운로드 곡이
+    // 새로고침 후 사라지는 것을 방지(재다운로드 근본 원인).
+    void requestPersistentStorage()
     // 부트스트랩: 강종 잔재/손상 파일 정리 후 캐시 목록 새로고침.
     void reconcileMediaStore().finally(() => { if (!cancelled) void refresh() })
     return () => { cancelled = true }

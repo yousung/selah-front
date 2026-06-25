@@ -182,6 +182,23 @@ export function isOfflineMediaSupported(): boolean {
   )
 }
 
+/**
+ * 영속 저장소(persistent storage) 권한을 요청한다. 부트스트랩 1회 호출.
+ * 요청하지 않으면 OPFS/IDB는 best-effort 저장소로 취급되어 브라우저가 세션 간
+ * (특히 비설치 탭/Safari, 저장 압박 시) 임의로 evict한다 → 다운로드한 곡이 새로고침
+ * 후 사라져 재다운로드된다. persist()로 durable 저장을 확보해 이를 방지한다.
+ * 이미 부여됐으면 재요청하지 않는다. 반환값은 영속 보장 여부.
+ */
+export async function requestPersistentStorage(): Promise<boolean> {
+  try {
+    if (typeof navigator === 'undefined' || typeof navigator.storage?.persist !== 'function') return false
+    if (typeof navigator.storage.persisted === 'function' && (await navigator.storage.persisted())) return true
+    return await navigator.storage.persist()
+  } catch {
+    return false
+  }
+}
+
 export function canInstallPwa(): boolean {
   if (typeof window === 'undefined') return false
   if (isPwa()) return true
@@ -335,8 +352,16 @@ export async function getCachedMediaPlaybackUrl(id: string, type: 'audio' | 'vid
           // 타임아웃 필수: Safari SW hang 시 무한 로딩 방지. 실패하면 아래 blob 폴백으로.
           const probe = await fetchWithTimeout(swUrl, { headers: { Range: 'bytes=0-0' } })
           if (probe.status === 206) {
+            // SW가 실제 OPFS 미디어를 서빙하는지 검증한다. dev(SW 미디어 핸들러 미동작)나
+            // SW 폴백이 SPA index.html(text/html, 수 KB)을 206으로 돌려주는 케이스가 있어,
+            // status만 보면 가짜 응답을 미디어로 오인 → audio가 SRC_NOT_SUPPORTED로 터지고
+            // "재생 오류"가 뜬다. Content-Range 총 크기가 엔트리 크기와 일치할 때만 SW URL을
+            // 신뢰하고, 불일치하면 break → 아래 blob 경로로 OPFS 파일을 직접 재생한다.
+            const totalStr = (probe.headers.get('Content-Range') || '').split('/')[1]
+            const total = totalStr ? parseInt(totalStr, 10) : NaN
             if (probe.body) await probe.body.cancel().catch(() => {})
-            return swUrl
+            if (entry.size > 0 && total === entry.size) return swUrl
+            break
           }
         } catch {}
         if (attempt === 0) await new Promise((r) => setTimeout(r, 150))
@@ -375,29 +400,36 @@ async function evictByCacheKey(cacheKey: string): Promise<void> {
  * 시점(사용자 클릭)에 호출한다. excludeKey(현재 재생 중인 cacheKey)는 절대 삭제하지 않는다
  * — SW/blob 재생 중인 파일을 지우면 재생이 끊긴다.
  *
- * - thrift(절약): 1곡만 저장. 현재 재생 곡 외 전부 삭제(다음 곡으로 넘어가면 이전 곡 제거).
+ * - thrift(절약): 2곡 저장. 현재 곡 + 최근 1곡만 남기고 삭제(더 넘어가면 가장 오래된 곡 제거).
  * - normal(보통): 500MB 한도, 초과 시 오래된 것부터 삭제.
  * - generous(넉넉): 1GB 한도.
- * - custom(최대): offlineStorageCustomMB(기본 2GB) 한도.
+ * - custom(계속): 무제한. 자동 삭제 없음(용량 제한 미적용).
  */
 export async function enforceStoragePolicy(excludeKey?: string): Promise<void> {
-  const { offlineStorageMode, offlineStorageCustomMB } = useSettingsStore.getState()
+  const { offlineStorageMode } = useSettingsStore.getState()
+
+  // '계속'(custom) 모드: 용량 제한 없음 — 어떤 다운로드도 자동 삭제하지 않는다.
+  // (사용자가 직접 '저장된 내용 모두 지우기'로만 삭제. 개별 삭제는 todo.md 참고.)
+  if (offlineStorageMode === 'custom') return
+
   const all = await idbGetAll<FileEntry>('files')
   const complete = all
     .filter((f) => f.status === 'complete' && f.id !== excludeKey)
     .sort((a, b) => a.lastPlayedAt - b.lastPlayedAt)
 
   if (offlineStorageMode === 'thrift') {
-    for (const f of complete) await evictByCacheKey(f.id)
+    // 절약 모드: 현재 곡(excludeKey) + 최근 1곡 = 총 2곡 보관, 나머지 제거.
+    // complete는 excludeKey 제외 + lastPlayedAt 오름차순(오래된 것 먼저)이므로
+    // 가장 최근 1개만 남기고 앞쪽(오래된 것)을 제거한다.
+    const toEvict = complete.slice(0, Math.max(0, complete.length - 1))
+    for (const f of toEvict) await evictByCacheKey(f.id)
     return
   }
 
   const limitBytes =
-    offlineStorageMode === 'custom'
-      ? offlineStorageCustomMB * 1024 * 1024
-      : offlineStorageMode === 'generous'
-        ? 1 * 1024 * 1024 * 1024
-        : 500 * 1024 * 1024
+    offlineStorageMode === 'generous'
+      ? 1 * 1024 * 1024 * 1024
+      : 500 * 1024 * 1024
 
   let totalUsed = complete.reduce((sum, f) => sum + f.size, 0)
   for (const f of complete) {
@@ -422,9 +454,7 @@ export async function downloadMedia(
 ): Promise<void> {
   if (!isOfflineMediaSupported()) throw new Error('Offline media is not supported on this device')
 
-  const { offlineStorageMode } = useSettingsStore.getState()
-  if (offlineStorageMode === 'thrift') throw new Error('Storage disabled in thrift mode')
-
+  // 절약 모드도 2곡까지 저장한다(다운로드 후 enforceStoragePolicy가 현재+최근 1곡만 남김).
   const mediaType = opts.type ?? 'audio'
   const cacheKey = `${id}-${mediaType}`
 
@@ -575,7 +605,7 @@ export async function loadPosition(id: string): Promise<number> {
 }
 
 export async function storageInfo(): Promise<StorageInfo> {
-  const { offlineStorageMode, offlineStorageCustomMB } = useSettingsStore.getState()
+  const { offlineStorageMode } = useSettingsStore.getState()
   const entries = await idbGetAll<FileEntry>('files')
   const complete: FileEntry[] = []
   for (const entry of entries) {
@@ -593,7 +623,7 @@ export async function storageInfo(): Promise<StorageInfo> {
   if (offlineStorageMode === 'thrift') limit = 0
   else if (offlineStorageMode === 'normal') limit = null
   else if (offlineStorageMode === 'generous') limit = 1 * 1024 * 1024 * 1024
-  else limit = offlineStorageCustomMB * 1024 * 1024
+  else limit = null // custom('계속'): 무제한
 
   return { used, limit, count: complete.length, entries: complete }
 }
@@ -631,11 +661,20 @@ export function reconcileMediaStore(): Promise<void> {
         const fileHandle = await mediaDir.getFileHandle(entry.filename)
         const file = await fileHandle.getFile()
         if (entry.size > 0 && file.size !== entry.size) {
+          if (import.meta.env.DEV) console.warn('[mediaStore] reconcile evicting (size mismatch):', entry.id, file.size, '!=', entry.size)
           await removeMediaCacheKey(entry.id)
         }
-      } catch {
-        // 파일 없음/접근 불가 → 손상으로 간주, 엔트리 제거
-        await removeMediaCacheKey(entry.id)
+      } catch (e) {
+        // 파일이 실제로 없을 때(NotFoundError)만 손상으로 간주해 제거한다.
+        // 일시적 접근 오류(권한/락 등)로 멀쩡한 complete 엔트리를 지우면 새로고침 시
+        // 재다운로드가 발생하므로, 그 외 에러는 엔트리를 보존한다.
+        const name = (e as DOMException)?.name
+        if (name === 'NotFoundError') {
+          if (import.meta.env.DEV) console.warn('[mediaStore] reconcile evicting (file missing):', entry.id)
+          await removeMediaCacheKey(entry.id)
+        } else {
+          if (import.meta.env.DEV) console.warn('[mediaStore] reconcile keeping entry despite error:', entry.id, name, (e as Error)?.message)
+        }
       }
     }
   })()
