@@ -367,9 +367,29 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [applyPendingSeek, syncPosition, updateActualDuration])
 
   const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number }) => {
-    // 비공개 영상은 캐시 조회·스트리밍·다운로드 등 모든 미디어 요청을 차단
+    // 비공개 영상: 모든 미디어 요청 차단 + 현재 재생 중인 미디어를 즉시 멈춘다.
+    // (early-return만 하면 이전 곡 오디오가 계속 재생되고, currentVideo가 이전 곡으로
+    //  남아 그 곡 다운로드 완료 시 재생되는 버그가 생긴다.)
     if (video.isSecret) {
+      cancelAutoNext()
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
+      if (reactPlayerRef.current) { reactPlayerRef.current.pause(); reactPlayerRef.current.src = '' }
+      clearMediaSessionMetadata()
+      setVideoUrl(null)
+      localPlaybackRef.current = null
+      pendingAutoPlayRef.current = false
+      pendingSeekRef.current = null
+      currentVideoDataRef.current = video
+      currentVideoIdRef.current = video.id
+      setCurrentVideo(video)
+      setIsPlaying(false)
       setIsLoading(false)
+      setIsEnded(false)
+      hasAuthoritativeDurationRef.current = false
+      positionRef.current = 0
+      setPosition(0)
+      setDuration(0)
+      setError(null)
       return
     }
 
