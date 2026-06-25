@@ -13,7 +13,7 @@ import { useQueueStore } from '@/store/queueStore'
 import TagBadge from '@/components/TagBadge'
 import Thumb from '@/components/Thumb'
 import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
-import { downloadMedia, isMediaCached, isOfflineMediaSupported } from '@/lib/mediaStore'
+import { downloadMedia, isMediaCached, isOfflineMediaSupported, cancelDownload } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { fs } from '@/lib/fontScale'
 
@@ -639,6 +639,15 @@ export default function PlayerPage() {
   // video?.id로 의존: 백그라운드 refetch(같은 id, 새 ref)로 재발화하지 않도록
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video?.id, autoDownload, offlineStorageMode])
+
+  // 영상에서 벗어날 때(id 변경/언마운트) 진행 중이던 다운로드 취소.
+  // 특히 비공개 영상으로 넘어갈 때, 이전 곡 다운로드가 완료되면 그 완료 이벤트로
+  // 이전 곡이 다시 재생되던 버그(currentVideo가 비공개로 안 바뀌어 발생)를 막는다.
+  useEffect(() => {
+    return () => {
+      if (downloadingRef.current && id) cancelDownload(id, mediaType)
+    }
+  }, [id, mediaType])
 
   const handleRetry = useCallback(() => {
     if (video) {
