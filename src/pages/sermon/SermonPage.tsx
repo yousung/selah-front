@@ -115,6 +115,9 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
               position: 'absolute', inset: 0,
               background: 'radial-gradient(circle at 70% 30%, rgba(255,255,255,0.18) 0%, transparent 60%)',
             }} />
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', textAlign: 'center', color: '#fff', fontSize: fs(15), fontWeight: 800, lineHeight: fs(19), textShadow: '0 1px 3px rgba(0,0,0,0.28)', overflow: 'hidden' }}>
+              <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{node.title}</span>
+            </div>
           </>
         )}
         <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: fs(12), color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>
