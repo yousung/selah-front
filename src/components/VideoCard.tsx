@@ -195,9 +195,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
             <p className="line-clamp-1 text-sm lg:text-base font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>
               <HighlightText text={mainTitle} query={highlight} />
             </p>
-            {video.isSecret ? (
-              <p className="line-clamp-1 text-xs mt-0.5" style={{ color: 'var(--ink-3)' }}>추후 기능 개발</p>
-            ) : subTitle ? (
+            {subTitle ? (
               <p className="line-clamp-1 text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>
                 <HighlightText text={subTitle} query={highlight} />
               </p>
@@ -255,9 +253,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
           <p className="line-clamp-1 text-sm font-medium leading-snug" style={{ color: 'var(--ink-0)' }}>
             <HighlightText text={mainTitle} query={highlight} />
           </p>
-          {video.isSecret ? (
-            <p className="line-clamp-1 text-[11px] mt-0.5" style={{ color: 'var(--ink-3)' }}>추후 기능 개발</p>
-          ) : subTitle ? (
+          {subTitle ? (
             <p className="line-clamp-1 text-[11px] mt-0.5" style={{ color: 'var(--ink-2)' }}>
               <HighlightText text={subTitle} query={highlight} />
             </p>

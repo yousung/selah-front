@@ -10,6 +10,7 @@ export interface RecentItem {
   hymnTitle?: string | null
   duration?: number | null
   chapter?: number | null
+  isSecret?: boolean | null
   playedAt: number
 }
 

@@ -18,7 +18,7 @@ export default function RecentPage() {
       return
     }
     playVideo(
-      { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, type: item.type, hymnTitle: item.hymnTitle, duration: item.duration, chapter: item.chapter },
+      { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, type: item.type, hymnTitle: item.hymnTitle, duration: item.duration, chapter: item.chapter, isSecret: item.isSecret },
       { autoPlay: autoPlayOnDetail, skipRecentAdd: true },
     )
     navigate(`/${item.type === 'SERMON' ? 'sermon/player' : 'player'}/${item.id}?recentMode=1`)

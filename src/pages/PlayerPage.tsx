@@ -253,6 +253,7 @@ interface AdjacentVideo {
   chapter: number
   hymnTitle?: string | null
   duration?: number | null
+  isSecret?: boolean | null
 }
 
 interface Adjacent {
@@ -495,6 +496,7 @@ export default function PlayerPage() {
         duration: target.duration,
         chapter: target.chapter,
         playerPath: isSermonPlayer ? `/sermon/player/${target.id}` : undefined,
+        isSecret: target.isSecret,
       },
       { autoPlay: true, skipRecentAdd: recentMode },
     )
@@ -520,6 +522,7 @@ export default function PlayerPage() {
           duration: video.duration,
           chapter: video.chapter,
           playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
+          isSecret: video.isSecret,
         },
         { autoPlay: autoPlayOnDetail, seekTo: sermonSeek },
       )
@@ -649,6 +652,7 @@ export default function PlayerPage() {
         duration: video.duration,
         chapter: video.chapter,
         playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
+        isSecret: video.isSecret,
       })
     }
   }, [isSermonPlayer, playVideo, video])
@@ -965,7 +969,7 @@ export default function PlayerPage() {
           <div className="w-full lg:flex-1 mb-8 lg:mb-0">{Artwork}</div>
           <div className="w-full lg:flex-1">{Controls}</div>
         </div>
-        <LyricsDescriptionTabs lyric={video?.isSecret ? null : lyric} description={video?.isSecret ? '추후 기능 개발' : video?.description} />
+        <LyricsDescriptionTabs lyric={lyric} description={video?.description} />
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
       </div>
       {playlistSheetOpen && id && (

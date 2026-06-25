@@ -176,7 +176,7 @@ function VideoRowContent({ categoryId, accent }: { categoryId: string; accent: s
       playerPath: `/sermon/player/${v.id}`,
     }))
     setQueue(ids, index, metas)
-    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: null, type: 'SERMON', hymnTitle: video.title })
+    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: null, type: 'SERMON', hymnTitle: video.title, isSecret: video.isSecret })
     navigate(`/sermon/player/${video.id}`, { state: { categoryId } })
   }, [videos, setQueue, playVideo, navigate])
 

@@ -8,6 +8,7 @@ export interface PlaylistVideo {
   tag: string | null
   hymnTitle?: string | null
   duration?: number | null
+  isSecret?: boolean | null
 }
 
 export interface UserPlaylist {

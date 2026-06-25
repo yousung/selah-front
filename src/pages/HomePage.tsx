@@ -216,7 +216,7 @@ function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: P
     }))
     setQueue(allIds, idx, allVideos)
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration, isSecret: v.isSecret },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}`)
@@ -322,7 +322,7 @@ export default function HomePage() {
       return
     }
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration },
+      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration, isSecret: v.isSecret },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}`)

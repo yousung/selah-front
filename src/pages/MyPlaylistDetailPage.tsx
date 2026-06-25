@@ -144,7 +144,7 @@ export default function MyPlaylistDetailPage() {
     setQueue(ids, 0, buildQueueMetas(playlist.videos))
     const first = playlist.videos[0]
     setSelahMenu(`/my-playlists/${playlist.id}`)
-    playVideo({ id: first.id, title: first.title, thumbnail: first.thumbnail, tag: first.tag, hymnTitle: first.hymnTitle, duration: first.duration })
+    playVideo({ id: first.id, title: first.title, thumbnail: first.thumbnail, tag: first.tag, hymnTitle: first.hymnTitle, duration: first.duration, isSecret: first.isSecret })
     navigate(`/player/${first.id}`)
   }
 
@@ -154,7 +154,7 @@ export default function MyPlaylistDetailPage() {
     const idx = ids.indexOf(video.id)
     setQueue(ids, idx, buildQueueMetas(playlist.videos))
     setSelahMenu(`/my-playlists/${playlist.id}`)
-    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.hymnTitle, duration: video.duration })
+    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.hymnTitle, duration: video.duration, isSecret: video.isSecret })
     navigate(`/player/${video.id}`)
   }
 
