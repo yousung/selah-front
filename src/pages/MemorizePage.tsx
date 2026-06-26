@@ -13,8 +13,8 @@ interface Week {
 }
 
 const TYPE_LABEL: Record<WeeklyItemType, string> = {
-  bible_reading: '성경 읽기',
-  shorter_catechism: '소요리문답',
+  bible_reading: '말씀 묵상',
+  shorter_catechism: '소요리문답 암송',
   memory_verse: '말씀 암송',
   reading: '독서',
   larger_catechism: '대요리문답',
