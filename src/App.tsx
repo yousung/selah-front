@@ -21,6 +21,7 @@ import MemorizePage from '@/pages/MemorizePage'
 import CatechismPage from '@/pages/CatechismPage'
 import CatechismDetailPage from '@/pages/CatechismDetailPage'
 import MyPage from '@/pages/MyPage'
+import OnboardingGuide from '@/components/OnboardingGuide'
 import AdminLoginPage from '@/pages/admin/AdminLoginPage'
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
 import AdminLayout from '@/components/admin/AdminLayout'
@@ -70,6 +71,7 @@ export default function App() {
     <AudioProvider>
       <MediaDebugOverlay />
       <HashRouter>
+        <OnboardingGuide />
         <ThemeApplicator />
         <CachedMediaLoader />
         <NaverAnalyticsTracker />

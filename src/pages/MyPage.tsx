@@ -102,6 +102,7 @@ export default function MyPage() {
               {section.items.map((item, i) => (
                 <button
                   key={item.to}
+                  data-tour={item.to === '/settings' ? 'settings-link' : undefined}
                   onClick={() => navigate(item.to)}
                   style={{
                     width: '100%',

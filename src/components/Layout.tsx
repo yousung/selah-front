@@ -167,6 +167,7 @@ export default function Layout() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                {...(item.to === '/my' ? { 'data-tour': 'my-tab' } : {})}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-colors text-sm font-medium"
                 style={{
                   background: active ? 'var(--primary-50)' : 'transparent',
@@ -435,6 +436,7 @@ export default function Layout() {
                 key={item.to}
                 to={item.to}
                 className="flex-1 flex flex-col items-center justify-center gap-1 py-2"
+                {...(item.to === '/my' ? { 'data-tour': 'my-tab' } : {})}
               >
                 <div className="relative">
                   <item.Icon active={active} />

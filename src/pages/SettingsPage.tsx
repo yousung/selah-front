@@ -21,7 +21,7 @@ const FONT_SCALE_OPTIONS: { value: FontScale; label: string }[] = [
   { value: 2, label: '매우크게' },
 ]
 
-const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings'])
+const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings', 'selah-onboarding-v1'])
 const CACHE_BUST_PARAM = 'selah-cache-bust'
 
 function clearLocalStorageExcept(keysToKeep: Set<string>) {
@@ -107,9 +107,9 @@ const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string }[] = [
 
 const OFFLINE_MODE_OPTIONS: { value: OfflineStorageMode; label: string; desc: string }[] = [
   { value: 'thrift', label: '절약', desc: '최근 2곡만 저장 · 이어듣기 지원 · 멀티 다운로드 미지원' },
-  { value: 'normal', label: '보통', desc: '최대 500MB까지 저장' },
-  { value: 'generous', label: '넉넉', desc: '최대 1GB까지 저장' },
-  { value: 'custom', label: '계속', desc: '용량 제한 없이 삭제 없이 계속 저장' },
+  { value: 'normal', label: '보통', desc: '최대 500MB까지 저장 · Wi-Fi에서 받아 두면 밖에서 데이터 없이 재생됩니다' },
+  { value: 'generous', label: '넉넉', desc: '최대 1GB까지 저장 · 더 많은 찬송·설교를 오래 보관합니다' },
+  { value: 'custom', label: '최대', desc: '최대 2GB까지 저장 · 가장 많은 찬송·설교를 기기에 보관합니다' },
 ]
 
 /** 외곽 섹션 박스 — 대분류(재생/표시/저장·데이터/정보)를 묶는 fieldset */
@@ -249,23 +249,27 @@ export default function SettingsPage() {
 
         {/* ════════════ 재생 ════════════ */}
         <SectionBox title="재생">
-          <Field title="미디어 모드" description="오디오는 음악만, 비디오는 영상과 함께 재생합니다.">
-            <Segmented value={mediaMode} onChange={setMediaMode} options={MEDIA_MODE_OPTIONS} />
-          </Field>
+          <div data-tour="setting-media">
+            <Field title="미디어 모드" description="오디오는 영상 없이 소리만 재생해 데이터 사용량을 크게 줄일 수 있습니다. 비디오는 영상과 함께 재생됩니다. 데이터 절약을 원하시면 오디오를 권장합니다.">
+              <Segmented value={mediaMode} onChange={setMediaMode} options={MEDIA_MODE_OPTIONS} />
+            </Field>
+          </div>
 
-          {mediaMode === 'video' ? (
-            <Field title="음질" description="비디오는 음질을 조절할 수 없습니다.">
-              <div style={{ opacity: 0.5, pointerEvents: 'none' }}>
+          <div data-tour="setting-quality">
+            {mediaMode === 'video' ? (
+              <Field title="음질" description="비디오 모드에서는 음질을 조절할 수 없습니다.">
+                <div style={{ opacity: 0.5, pointerEvents: 'none' }}>
+                  <Segmented value={quality} onChange={setQuality} options={QUALITY_OPTIONS} />
+                </div>
+              </Field>
+            ) : (
+              <Field title="음질" description="음질이 높을수록 데이터를 더 씁니다. 저음질로 설정하면 가장 적은 데이터로 또렷하게 들을 수 있습니다.">
                 <Segmented value={quality} onChange={setQuality} options={QUALITY_OPTIONS} />
-              </div>
-            </Field>
-          ) : (
-            <Field title="음질" description="음질이 높을수록 데이터 사용량이 늘어납니다.">
-              <Segmented value={quality} onChange={setQuality} options={QUALITY_OPTIONS} />
-            </Field>
-          )}
+              </Field>
+            )}
+          </div>
 
-          <Field title="재생 속도" description="재생 속도는 설교에만 적용됩니다. 찬송은 항상 정속으로 재생됩니다.">
+          <Field title="재생 속도" description="설교를 빠르게 들어 시간을 아낄 수 있습니다. 배속은 설교에만 적용되며, 찬송은 항상 정속(원래 속도)으로 재생됩니다.">
             <Segmented value={playbackRate} onChange={setPlaybackRate} options={PLAYBACK_RATE_OPTIONS} />
           </Field>
 
@@ -294,16 +298,18 @@ export default function SettingsPage() {
             />
           </Field>
 
-          <Field title="글자 크기" description="화면 전체의 글자 크기를 조절합니다.">
-            <Segmented<number>
-              value={fontScale}
-              onChange={(v) => setFontScale(v as FontScale)}
-              options={FONT_SCALE_OPTIONS}
-            />
-            <p className="px-1 mt-2.5" style={{ color: 'var(--ink-2)', fontSize: fs(14) }}>
-              가나다 ABC 미리보기 · 잠시 멈추어, 듣다
-            </p>
-          </Field>
+          <div data-tour="setting-font">
+            <Field title="글자 크기" description="화면 전체의 글자 크기를 조절합니다. 글씨가 잘 안 보이시는 분은 '매우크게'를 권장합니다.">
+              <Segmented<number>
+                value={fontScale}
+                onChange={(v) => setFontScale(v as FontScale)}
+                options={FONT_SCALE_OPTIONS}
+              />
+              <p className="px-1 mt-2.5" style={{ color: 'var(--ink-2)', fontSize: fs(14) }}>
+                가나다 ABC 미리보기 · 잠시 멈추어, 듣다
+              </p>
+            </Field>
+          </div>
 
           <ToggleField
             title="교리서 본문 제목"
@@ -323,16 +329,18 @@ export default function SettingsPage() {
         {/* ════════════ 저장 · 데이터 ════════════ */}
         {offlineMediaOk && (
           <SectionBox title="저장 · 데이터">
-            <Field
-              title="저장 용량"
-              description={OFFLINE_MODE_OPTIONS.find((o) => o.value === offlineStorageMode)?.desc}
-            >
-              <Segmented value={offlineStorageMode} onChange={handleStorageModeChange} options={OFFLINE_MODE_OPTIONS} />
-            </Field>
+            <div data-tour="setting-cache">
+              <Field
+                title="저장 용량"
+                description={OFFLINE_MODE_OPTIONS.find((o) => o.value === offlineStorageMode)?.desc}
+              >
+                <Segmented value={offlineStorageMode} onChange={handleStorageModeChange} options={OFFLINE_MODE_OPTIONS} />
+              </Field>
+            </div>
 
             <ToggleField
               title="자동 다운로드"
-              description="영상 재생 시작 시 자동으로 오프라인 저장합니다."
+              description="재생을 시작하면 자동으로 기기에 저장합니다. 이미 저장된 콘텐츠는 다음부터 데이터 없이 재생됩니다. Wi-Fi에서 미리 들어 두면 밖에서도 데이터 걱정 없이 즐길 수 있습니다."
               checked={autoDownload}
               onChange={() => setAutoDownload(!autoDownload)}
             />
