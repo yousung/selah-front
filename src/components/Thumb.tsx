@@ -9,6 +9,11 @@ interface ThumbProps {
   alt?: string
   fallback?: React.ReactNode
 }
+// 세션 내에서 한번 성공적으로 로드된 썸네일 URL 기억.
+// LazyRow가 행을 unmount→remount해도 이 URL이면 loaded=true로 시작 →
+// 브라우저 캐시 그대로 즉시 표시(skeleton/페이드 없이). "한번 받으면 캐시" 체감 구현.
+const loadedThumbUrls = new Set<string>()
+
 /** 썸네일: 설정별 화질 + lazy + 로딩 스켈레톤 + 404 다운그레이드 + 캐시버스트.
  *  부모 컨테이너는 position relative + overflow hidden 이어야 스켈레톤이 제대로 깔린다. */
 export default function Thumb({ src, className, style, alt = '', fallback }: ThumbProps) {
@@ -18,10 +23,14 @@ export default function Thumb({ src, className, style, alt = '', fallback }: Thu
   const startIdx = THUMB_ORDER.indexOf(thumbQualityFor(mediaMode, quality))
   const [cb] = useState(() => getImageCacheBust())
   const [qIdx, setQIdx] = useState(startIdx)
-  const [loaded, setLoaded] = useState(false)
+  // 이미 로드된 적 있는 URL이면 loaded=true로 시작 → 즉시 표시(페이드 없음)
+  const [loaded, setLoaded] = useState(() => !!id && loadedThumbUrls.has(buildThumb(id, THUMB_ORDER[startIdx], cb)))
   const [failed, setFailed] = useState(false)
   const [triedHq, setTriedHq] = useState(false)
-  useEffect(() => { setQIdx(startIdx); setLoaded(false); setFailed(false); setTriedHq(false) }, [src, startIdx])
+  useEffect(() => {
+    setQIdx(startIdx); setFailed(false); setTriedHq(false)
+    setLoaded(!!id && loadedThumbUrls.has(buildThumb(id, THUMB_ORDER[startIdx], cb)))
+  }, [src, startIdx, id, cb])
 
   if (!id) {
     if (src) return <img src={src} alt={alt} className={className} style={style} loading="lazy" decoding="async" />
@@ -44,6 +53,7 @@ export default function Thumb({ src, className, style, alt = '', fallback }: Thu
           // → mount 커밋 시점에 동기로 반영해 페이드 깜빡임/빈칸 없이 즉시 표시.
           if (el.complete && el.naturalWidth > 0) {
             if (el.naturalWidth <= 120 && THUMB_ORDER[qIdx] !== 'default') { setFailed(true); return }
+            loadedThumbUrls.add(url)
             setLoaded(true)
           }
         }}
@@ -54,6 +64,7 @@ export default function Thumb({ src, className, style, alt = '', fallback }: Thu
           if (e.currentTarget.naturalWidth <= 120 && THUMB_ORDER[qIdx] !== 'default') {
             setFailed(true); return
           }
+          loadedThumbUrls.add(url)
           setLoaded(true)
         }}
         onError={() => {

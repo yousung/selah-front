@@ -112,7 +112,7 @@ function ChildCategoryRow({ node, accent }: { node: CategoryNode; accent: string
 
 const PAGE_LIMIT = 100
 // 점프 칩(1~10, 11~20 …) 묶음 크기. fetch 페이지 크기(PAGE_LIMIT)와 분리.
-const JUMP_CHUNK = 10
+const JUMP_CHUNK = 20 // 점프 단위 고정 20개
 
 export default function SermonCategoryPage() {
   const { id } = useParams<{ id: string }>()
@@ -163,8 +163,44 @@ export default function SermonCategoryPage() {
   const total = data?.pages[0]?.total ?? 0
   const dlType = mediaMode === 'video' ? 'video' : 'audio'
 
-  const [pendingJumpIndex, setPendingJumpIndex] = useState<number | null>(null)
+  const [pendingJumpChapter, setPendingJumpChapter] = useState<number | null>(null)
   const videoRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+  // 상단 고정(sticky) 헤더 영역(앱바+정렬+점프행) ref → 점프 시 그 높이만큼 보정(폰트배율에도 정확).
+  const stickyRef = useRef<HTMLDivElement>(null)
+  const fontScale = useSettingsStore((s) => s.fontScale)
+  // 측정한 행 높이(스켈레톤/LazyRow placeholder 통일용) + 점프 중 여부.
+  const [rowHeight, setRowHeight] = useState(96)
+  const [isJumping, setIsJumping] = useState(false)
+
+  // LazyRow가 화면 밖 행을 unmount(placeholder 높이)하다 진입 시 실제 높이로 바뀌어
+  // 한 번 스크롤로는 위치가 어긋난다. 마운트가 안정될 때까지 여러 번 재보정해 수렴시킨다.
+  // 부드러운 점프: 매 프레임 목표까지 남은 거리를 다시 재서 20%씩 접근(ease-out).
+  // 매 프레임 재계산이라 LazyRow가 스크롤 중 마운트되며 높이가 바뀌어도 끊김 없이 흡수·수렴한다.
+  const scrollAnimRef = useRef<number>(0)
+  const scrollToIndex = useCallback((idx: number) => {
+    cancelAnimationFrame(scrollAnimRef.current)
+    setIsJumping(true) // 점프 중엔 행을 스켈레톤(균일 높이)으로 → 렌더 안 하고 스무스하게 통과
+    const off = () => (stickyRef.current?.offsetHeight ?? 64) + 8
+    let frames = 0
+    let settle = 0
+    const stop = () => { setIsJumping(false) }
+    const step = () => {
+      const el = videoRefs.current.get(idx)
+      if (el) {
+        const cur = window.scrollY
+        const dist = el.getBoundingClientRect().top - off() // 남은 거리(매 프레임 재계산)
+        if (Math.abs(dist) < 1.5) {
+          if (++settle > 2) { stop(); return } // 정착 → 실콘텐츠 복귀
+        } else {
+          settle = 0
+          window.scrollTo(0, cur + dist * 0.2)
+        }
+      }
+      if (frames++ < 150) scrollAnimRef.current = requestAnimationFrame(step)
+      else stop()
+    }
+    scrollAnimRef.current = requestAnimationFrame(step)
+  }, [])
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -172,43 +208,144 @@ export default function SermonCategoryPage() {
 
   useEffect(() => {
     setSortMode(getSortPref('sermon', id))
+    // 카테고리 바뀌면 이전 점프/활성 잔존 제거 — 새 데이터 로드 전까지 칩 숨김(아래 게이트).
+    setActiveKey('start')
+    setIsJumping(false)
   }, [id])
 
+  // 아직 로드 안 된 편으로 점프 요청 시: 발견될 때까지 다음 페이지를 로드한 뒤 스크롤.
   useEffect(() => {
-    if (pendingJumpIndex === null) return
-    const el = videoRefs.current.get(pendingJumpIndex)
-    if (!el) return
-    const offset = total > JUMP_CHUNK ? 104 : 64
-    const top = el.getBoundingClientRect().top + window.scrollY - offset
-    window.scrollTo({ top, behavior: 'smooth' })
-    setPendingJumpIndex(null)
-  }, [pendingJumpIndex, allVideos.length, total])
-
-  const handleJumpTo = useCallback(async (startIndex: number) => {
-    const neededPage = Math.ceil((startIndex + 1) / PAGE_LIMIT)
-    const loadedPages = data?.pages.length ?? 0
-    if (loadedPages >= neededPage) {
-      const el = videoRefs.current.get(startIndex)
-      if (el) {
-        const offset = total > JUMP_CHUNK ? 104 : 64
-        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' })
-      }
-    } else {
-      setPendingJumpIndex(startIndex)
-      for (let p = loadedPages; p < neededPage; p++) {
-        if (hasNextPage) await fetchNextPage()
-      }
+    if (pendingJumpChapter === null) return
+    const idx = allVideos.findIndex((v) => v.chapter === pendingJumpChapter)
+    if (idx >= 0) {
+      scrollToIndex(idx)
+      setPendingJumpChapter(null)
+    } else if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage()
+    } else if (!hasNextPage) {
+      setPendingJumpChapter(null) // 끝까지 로드했는데 해당 편 없음 → 포기
     }
-  }, [data?.pages.length, hasNextPage, fetchNextPage, total])
+  }, [pendingJumpChapter, allVideos, hasNextPage, isFetchingNextPage, fetchNextPage, scrollToIndex])
 
-  const pageChips: { label: string; startIndex: number }[] = []
-  if (total > JUMP_CHUNK) {
-    for (let i = 0; i < total; i += JUMP_CHUNK) {
-      const start = i + 1
-      const end = Math.min(i + JUMP_CHUNK, total)
-      pageChips.push({ label: `${start}~${end}편`, startIndex: i })
+  // 점프: 해당 편 번호가 있는 위치로 스크롤. 현재 정렬 순서대로 찾으므로
+  // 끝부터(desc)면 같은 번호라도 스크롤 방향만 자동으로 반대가 된다.
+  const handleJumpTo = useCallback((chapter: number) => {
+    const idx = allVideos.findIndex((v) => v.chapter === chapter)
+    if (idx >= 0) scrollToIndex(idx)
+    else setPendingJumpChapter(chapter)
+  }, [allVideos, scrollToIndex])
+
+  // 처음으로 / 끝으로. 끝으로는 미로드 페이지가 있으면 끝까지 로드한 뒤 마지막으로.
+  const [pendingEnd, setPendingEnd] = useState(false)
+  useEffect(() => {
+    if (!pendingEnd) return
+    if (hasNextPage) {
+      if (!isFetchingNextPage) void fetchNextPage()
+    } else {
+      if (allVideos.length > 0) scrollToIndex(allVideos.length - 1)
+      setPendingEnd(false)
+    }
+  }, [pendingEnd, hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length, scrollToIndex])
+
+  const handleJumpToStart = useCallback(() => {
+    scrollToIndex(0)
+  }, [scrollToIndex])
+  const handleJumpToEnd = useCallback(() => {
+    if (hasNextPage) setPendingEnd(true)
+    else if (allVideos.length > 0) scrollToIndex(allVideos.length - 1)
+  }, [hasNextPage, allVideos.length, scrollToIndex])
+
+  // 점프 칩: 라벨은 항상 10,20,30…(정렬 무관). 점프 동작만 정렬 따라 반대로.
+  // 전체 로드됐으면 실제 최대 편번호까지만 마커 생성(존재하지 않는 번호 칩 방지).
+  const maxMark = !hasNextPage
+    ? allVideos.reduce((m, v) => Math.max(m, v.chapter ?? 0), 0)
+    : total
+  const pageChips: { label: string; chapter: number }[] = []
+  // 점프 단위 고정 20. 마지막 마커가 끝(끝으로)과 겹치면 생략 — n 다음에 한 청크가 더 남아야 표시.
+  if (maxMark > JUMP_CHUNK) {
+    for (let n = JUMP_CHUNK; n + JUMP_CHUNK <= maxMark; n += JUMP_CHUNK) {
+      pageChips.push({ label: `${n}`, chapter: n })
     }
   }
+
+  // 점프 항목 = 처음으로 + 숫자칩 + 끝으로. 스크롤 위치에 따라 현재 항목을 강조(스크롤 스파이).
+  // 끝부터(desc)면 숫자 칩 순서를 역순(…80,70,10)으로 — 리스트가 내림차순이라 점프도 거꾸로.
+  // 처음으로/끝으로는 정렬과 무관하게 양 끝 고정.
+  const numberItems = pageChips.map((c) => ({
+    key: String(c.chapter),
+    label: c.label,
+    index: allVideos.findIndex((v) => v.chapter === c.chapter),
+    onClick: () => handleJumpTo(c.chapter),
+  }))
+  const jumpItems = [
+    { key: 'start', label: '처음으로', index: 0, onClick: handleJumpToStart },
+    ...(sortMode === 'chapterDesc' ? [...numberItems].reverse() : numberItems),
+    { key: 'end', label: '끝으로', index: allVideos.length - 1, onClick: handleJumpToEnd },
+  ]
+  const jumpItemsRef = useRef(jumpItems)
+  jumpItemsRef.current = jumpItems
+  const chipRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
+  const [activeKey, setActiveKey] = useState('start')
+
+  const recomputeActive = useCallback(() => {
+    const items = jumpItemsRef.current
+    const stickyH = stickyRef.current?.offsetHeight ?? 64
+    const vh = window.innerHeight
+    let active: string | null = null
+    let best = Infinity
+    // 1순위: 화면에 보이는 마커 중 스크롤상 가장 위(top이 가장 작은 것)
+    for (const it of items) {
+      if (it.index < 0) continue
+      const el = videoRefs.current.get(it.index)
+      if (!el) continue
+      const r = el.getBoundingClientRect()
+      if (r.bottom > stickyH && r.top < vh && r.top < best) { best = r.top; active = it.key }
+    }
+    // 2순위(보이는 마커 없으면): 화면 위로 지나간 가장 가까운 마커
+    if (active === null) {
+      let bestAbove = -Infinity
+      for (const it of items) {
+        if (it.index < 0) continue
+        const el = videoRefs.current.get(it.index)
+        if (!el) continue
+        const r = el.getBoundingClientRect()
+        if (r.top <= stickyH + 1 && r.top > bestAbove) { bestAbove = r.top; active = it.key }
+      }
+    }
+    if (active !== null) setActiveKey(active)
+  }, [])
+
+  useEffect(() => {
+    let raf = 0
+    const onScroll = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(recomputeActive) }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf) }
+  }, [recomputeActive])
+
+  // 리스트/정렬 변경으로 행이 새로 그려지면 활성 재계산
+  useEffect(() => {
+    const raf = requestAnimationFrame(recomputeActive)
+    return () => cancelAnimationFrame(raf)
+  }, [allVideos.length, sortMode, recomputeActive])
+
+  // 활성 칩을 가로 점프바 안으로 스크롤(세로 스크롤엔 영향 없게 block:nearest)
+  useEffect(() => {
+    chipRefs.current.get(activeKey)?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [activeKey])
+
+  // 행 높이 측정(스켈레톤/LazyRow placeholder 높이 통일용). 폰트배율/리사이즈 반응.
+  const recomputeRowHeight = useCallback(() => {
+    const row = videoRefs.current.get(0)
+    const rowH = row?.offsetHeight ?? 0
+    if (rowH < 10) return
+    setRowHeight((prev) => (prev === rowH ? prev : rowH))
+  }, [])
+  useEffect(() => {
+    const raf = requestAnimationFrame(recomputeRowHeight)
+    const onResize = () => recomputeRowHeight()
+    window.addEventListener('resize', onResize)
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize) }
+  }, [recomputeRowHeight, allVideos.length, fontScale])
 
   const observerCb = useCallback(
     (entries: IntersectionObserverEntry[]) => {
@@ -345,11 +482,12 @@ export default function SermonCategoryPage() {
 
   return (
     <div style={{ background: 'var(--surface-0)', minHeight: '100dvh', paddingBottom: selectMode ? 80 : 0 }}>
+      {/* 상단 고정: 앱바 + 정렬 토글 + 점프 행까지 한 덩어리로 sticky */}
+      <div ref={stickyRef} style={{ position: 'sticky', top: 0, zIndex: 10 }}>
       {/* AppBar */}
       <header style={{
         background: 'var(--white)',
         borderBottom: '1px solid var(--divider)',
-        position: 'sticky', top: 0, zIndex: 10,
       }}>
         <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -425,37 +563,42 @@ export default function SermonCategoryPage() {
         </div>
       )}
 
-      {/* 편수 점프 chip row */}
-      {pageChips.length > 0 && (
+      {/* 편수 점프 chip row — 로딩 중(카테고리 전환 등)엔 숨겨 이전 점프 잔존 방지 */}
+      {!videosLoading && pageChips.length > 0 && (
         <div style={{
-          position: 'sticky', top: 56, zIndex: 9,
           background: 'var(--white)',
           borderBottom: '1px solid var(--divider)',
           display: 'flex', gap: 6, padding: '8px 16px',
           overflowX: 'auto',
           msOverflowStyle: 'none', scrollbarWidth: 'none',
         }}>
-          {pageChips.map((chip) => (
-            <button
-              key={chip.startIndex}
-              onClick={() => handleJumpTo(chip.startIndex)}
-              style={{
-                flexShrink: 0,
-                padding: '4px 12px',
-                borderRadius: 20,
-                border: '1px solid var(--divider)',
-                background: 'var(--surface-0)',
-                fontSize: fs(12), fontWeight: 600,
-                color: 'var(--ink-1)',
-                cursor: 'pointer',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              {chip.label}
-            </button>
-          ))}
+          {jumpItems.map((it) => {
+            const isActive = activeKey === it.key
+            return (
+              <button
+                key={it.key}
+                ref={(el) => { if (el) chipRefs.current.set(it.key, el); else chipRefs.current.delete(it.key) }}
+                onClick={it.onClick}
+                style={{
+                  flexShrink: 0,
+                  padding: '4px 12px',
+                  borderRadius: 20,
+                  border: isActive ? '1px solid var(--primary-700)' : '1px solid var(--divider)',
+                  background: isActive ? 'var(--primary-700)' : 'var(--surface-0)',
+                  fontSize: fs(12), fontWeight: isActive ? 700 : 600,
+                  color: isActive ? 'var(--white)' : 'var(--ink-1)',
+                  cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {it.label}
+              </button>
+            )
+          })}
         </div>
       )}
+      </div>
 
       {/* 하위 카테고리 — 넷플릭스 방식 */}
       {category && category.children.length > 0 && (
@@ -513,30 +656,51 @@ export default function SermonCategoryPage() {
                     ref={(el) => { if (el) videoRefs.current.set(i, el); else videoRefs.current.delete(i) }}
                     style={{ position: 'relative' }}
                   >
-                    <LazyRow estimatedHeight={88}>
-                      <VideoCard
-                        video={{ ...video, hymnTitle: video.title, title: video.description ?? '', tag: null }}
-                        layout="list"
-                        isDownloading={isDownloading}
-                        selectMode={selectMode}
-                        onClick={selectMode ? () => toggleSelect(video.id) : () => handleVideoClick(video, i)}
-                      />
-                    </LazyRow>
-                    {selectMode && !cachedIds.has(`${video.id}-${dlType}`) && (
-                      <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                        <div style={{
-                          width: 22, height: 22, borderRadius: '50%',
-                          border: `2px solid ${isSelected ? 'var(--primary-700)' : 'var(--ink-3)'}`,
-                          background: isSelected ? 'var(--primary-700)' : 'transparent',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {isSelected && (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          )}
+                    {isJumping ? (
+                      // 점프 중: 무거운 VideoCard/이미지 렌더 생략, 모양만 스켈레톤(썸네일+글자 바)으로 스무스 통과
+                      <div
+                        aria-hidden
+                        className="flex items-start gap-3 px-4 py-3 lg:gap-4 lg:px-6 lg:py-4"
+                        style={{ borderBottom: '1px solid var(--divider)', minHeight: rowHeight }}
+                      >
+                        <div
+                          className="flex-shrink-0 rounded-[8px]"
+                          style={{ background: 'var(--surface-2)', width: 'clamp(80px, 22vw, 140px)', aspectRatio: '16/9' }}
+                        />
+                        <div className="flex-1 min-w-0 py-0.5">
+                          <div style={{ height: fs(14), width: '80%', background: 'var(--surface-2)', borderRadius: 4 }} />
+                          <div style={{ height: fs(12), width: '55%', background: 'var(--surface-2)', borderRadius: 4, marginTop: 8 }} />
+                          <div style={{ height: fs(11), width: '32%', background: 'var(--surface-2)', borderRadius: 4, marginTop: 8 }} />
                         </div>
                       </div>
+                    ) : (
+                      <>
+                        <LazyRow estimatedHeight={rowHeight}>
+                          <VideoCard
+                            video={{ ...video, hymnTitle: video.title, title: video.description ?? '', tag: null }}
+                            layout="list"
+                            isDownloading={isDownloading}
+                            selectMode={selectMode}
+                            onClick={selectMode ? () => toggleSelect(video.id) : () => handleVideoClick(video, i)}
+                          />
+                        </LazyRow>
+                        {selectMode && !cachedIds.has(`${video.id}-${dlType}`) && (
+                          <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                            <div style={{
+                              width: 22, height: 22, borderRadius: '50%',
+                              border: `2px solid ${isSelected ? 'var(--primary-700)' : 'var(--ink-3)'}`,
+                              background: isSelected ? 'var(--primary-700)' : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {isSelected && (
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )
