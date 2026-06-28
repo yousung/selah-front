@@ -2,6 +2,18 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // 카카오톡 인앱 브라우저로 열리면 무조건 외부 브라우저(크롬/사파리)로 전환.
+      // 인앱 브라우저는 저장(OPFS/영속저장)이 제한돼 다운로드가 동작하지 않음.
+      // 앱 로드 전(head 파싱 시점)에 실행해 인앱 화면 노출 없이 바로 리다이렉트.
+      (function () {
+        try {
+          if (/kakaotalk/i.test(navigator.userAgent)) {
+            location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href);
+          }
+        } catch (e) { /* 스킴 미지원 등 — 무시하고 인앱에서 계속 */ }
+      })();
+    </script>
     <link rel="icon" type="image/png" href="/icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
