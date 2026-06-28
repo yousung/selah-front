@@ -46,7 +46,7 @@ export const useSettingsStore = create<SettingsState>()(
       quality: 'high',
       mediaMode: 'audio',
       autoPlayOnDetail: true,
-      autoNextDelay: '3s',
+      autoNextDelay: 'immediate',
       playMode: 'playlist',
       playbackRate: 1,
       showCatechismHeadings: true,

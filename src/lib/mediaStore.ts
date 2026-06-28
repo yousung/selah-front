@@ -31,6 +31,15 @@ export interface MediaDownloadedDetail {
   cacheKey: string
 }
 
+// 저장(다운로드) 파일이 손상됐다고 판정됐을 때(캐시 재생 후 3초간 진행 없음) 발화.
+// AudioContext가 손상 파일을 삭제한 뒤 쏘고, PlayerPage가 받아 메시지 표시 + 재다운로드한다.
+export const MEDIA_CORRUPT_EVENT = 'selah-media-corrupt'
+
+export interface MediaCorruptDetail {
+  id: string
+  type: 'audio' | 'video'
+}
+
 // ── IDB helpers ───────────────────────────────────────────────────────────────
 
 let _db: IDBDatabase | null = null
@@ -250,16 +259,24 @@ export async function fetchWithTimeout(input: RequestInfo | URL, init: RequestIn
  */
 export async function ensureServiceWorkerControl(timeoutMs = 3000): Promise<boolean> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return false
-  if (navigator.serviceWorker.controller) return true
+  const sw = navigator.serviceWorker
+  if (sw.controller) return true
+  // 등록된 SW가 하나도 없으면 제어가 잡힐 길이 없다 → 즉시 false 반환(dev 등에서 불필요한 3초 대기 제거).
+  // 프로덕션은 SW가 등록돼 있어 regs.length>0 → 아래 정상 대기 경로를 탄다.
   try {
-    await navigator.serviceWorker.ready
-  } catch {
-    return false
-  }
-  if (navigator.serviceWorker.controller) return true
+    const regs = await sw.getRegistrations()
+    if (regs.length === 0) return false
+  } catch {}
+  // 전체 대기를 timeoutMs로 단일 상한한다. navigator.serviceWorker.ready는 등록된 SW가
+  // 없으면(예: dev 서버, SW 등록 실패) 영영 resolve되지 않으므로, 타임아웃 없이 await하면
+  // getCachedMediaPlaybackUrl가 멈춰 저장(다운로드) 미디어 재생이 무한 로딩으로 hang한다
+  // (blob 폴백에 끝내 도달 못 함). controllerchange / ready(제어 확보) / 타임아웃을 레이스해
+  // SW가 없으면 timeoutMs 내 false로 빠져나가 blob 폴백 재생이 진행되도록 한다.
   return await new Promise<boolean>((resolve) => {
-    const sw = navigator.serviceWorker
+    let settled = false
     const done = (v: boolean) => {
+      if (settled) return
+      settled = true
       clearTimeout(timer)
       sw.removeEventListener('controllerchange', onChange)
       resolve(v)
@@ -267,6 +284,9 @@ export async function ensureServiceWorkerControl(timeoutMs = 3000): Promise<bool
     const onChange = () => done(true)
     const timer = setTimeout(() => done(!!sw.controller), timeoutMs)
     sw.addEventListener('controllerchange', onChange)
+    // 등록된 SW가 있으면 active 직후 controller가 잡힌다. ready가 영영 resolve되지 않는
+    // 환경에서는 이 then이 그냥 매달려 있고(부작용 없음) 타임아웃이 대기를 끝낸다.
+    sw.ready.then(() => { if (sw.controller) done(true) }).catch(() => {})
   })
 }
 

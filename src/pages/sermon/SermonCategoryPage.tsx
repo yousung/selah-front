@@ -376,9 +376,11 @@ export default function SermonCategoryPage() {
       hymnTitle: v.title,
       duration: v.duration ?? null,
       playerPath: `/sermon/player/${v.id}`,
+      categoryId: id,
+      categoryTitle: category?.title,
     }))
     setQueue(ids, index, metas)
-    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, type: 'SERMON', hymnTitle: video.title, isSecret: video.isSecret })
+    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, type: 'SERMON', hymnTitle: video.title, isSecret: video.isSecret, categoryId: id, categoryTitle: category?.title })
     navigate(`/sermon/player/${video.id}`, { state: { categoryId: id, categoryTitle: category?.title } })
   }
 

@@ -5,7 +5,7 @@ import { api } from '../../lib/api'
 import { useAudio } from '@/contexts/AudioContext'
 import { useQueueStore } from '@/store/queueStore'
 import { setSelahMenu } from '@/lib/selahMenu'
-import { getSermonResume, clearSermonResume, type SermonResumeData } from '@/lib/sermonResume'
+import { getLastSermonResume, dismissSermonLast, type SermonResumeData } from '@/lib/sermonResume'
 import { fs } from '@/lib/fontScale'
 import Thumb from '@/components/Thumb'
 
@@ -50,7 +50,7 @@ function formatDuration(secs: number): string {
 }
 
 // ── 영상 썸네일 카드 ───────────────────────────────────────────
-function VideoThumbCard({ video, onPlay }: { video: Video; onPlay: () => void }) {
+function VideoThumbCard({ video, onPlay, titleOnly }: { video: Video; onPlay: () => void; titleOnly?: boolean }) {
   return (
     <div
       onClick={onPlay}
@@ -83,7 +83,7 @@ function VideoThumbCard({ video, onPlay }: { video: Video; onPlay: () => void })
         color: 'var(--ink-1)', lineHeight: 1.4,
         overflow: 'hidden', maxHeight: '2.8em',
       }}>
-        {video.description || video.title}
+        {titleOnly ? video.title : (video.description || video.title)}
       </div>
     </div>
   )
@@ -153,7 +153,7 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
 }
 
 // ── 영상 row 콘텐츠 (lazy fetch) ───────────────────────────────
-function VideoRowContent({ categoryId, accent }: { categoryId: string; accent: string }) {
+function VideoRowContent({ categoryId, categoryTitle, accent }: { categoryId: string; categoryTitle?: string; accent: string }) {
   const navigate = useNavigate()
   const { playVideo } = useAudio()
   const setQueue = useQueueStore((s) => s.setQueue)
@@ -174,11 +174,12 @@ function VideoRowContent({ categoryId, accent }: { categoryId: string; accent: s
       id: v.id, title: v.title, thumbnail: v.thumbnail,
       tag: null, type: 'SERMON', hymnTitle: v.title, duration: v.duration ?? null,
       playerPath: `/sermon/player/${v.id}`,
+      categoryId, categoryTitle,
     }))
     setQueue(ids, index, metas)
-    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: null, type: 'SERMON', hymnTitle: video.title, isSecret: video.isSecret })
-    navigate(`/sermon/player/${video.id}`, { state: { categoryId } })
-  }, [videos, setQueue, playVideo, navigate])
+    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: null, type: 'SERMON', hymnTitle: video.title, isSecret: video.isSecret, categoryId, categoryTitle })
+    navigate(`/sermon/player/${video.id}`, { state: { categoryId, categoryTitle } })
+  }, [videos, setQueue, playVideo, navigate, categoryId, categoryTitle])
 
   if (isLoading) {
     return (
@@ -219,7 +220,7 @@ function VideoRowContent({ categoryId, accent }: { categoryId: string; accent: s
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 16px 4px' }}>
       {videos.map((video, i) => (
-        <VideoThumbCard key={video.id} video={video} onPlay={() => handlePlay(video, i)} />
+        <VideoThumbCard key={video.id} video={video} onPlay={() => handlePlay(video, i)} titleOnly={categoryId === 'recent-sermon'} />
       ))}
     </div>
   )
@@ -244,7 +245,7 @@ function CategoryRow({ node, accent }: { node: CategoryNode; accent: string }) {
 
       {/* 콘텐츠 */}
       {isLeaf ? (
-        <VideoRowContent categoryId={node.id} accent={accent} />
+        <VideoRowContent categoryId={node.id} categoryTitle={node.title} accent={accent} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(136px, 1fr))', gap: 10, padding: '0 16px 4px' }}>
           {node.children.map((child, i) => (
@@ -363,7 +364,7 @@ export default function SermonPage() {
   useEffect(() => {
     setSelahMenu('/sermon')
     if (currentVideo) return
-    const data = getSermonResume()
+    const data = getLastSermonResume()
     // 다운로드가 완료된 경우에만 이어듣기 팝업 표시
     if (data && data.downloaded) setResumeData(data)
   }, [])
@@ -381,7 +382,8 @@ export default function SermonPage() {
   }
 
   const handleDismissResume = () => {
-    clearSermonResume()
+    // 닫기: last만 null로 비운다(배열의 저장 위치는 유지 → 설교 직접 진입 시 A/B 팝업은 계속 뜸).
+    dismissSermonLast()
     setResumeData(null)
   }
 

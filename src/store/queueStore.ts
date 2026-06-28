@@ -12,6 +12,8 @@ export interface VideoMeta {
   chapter?: number | null
   playerPath?: string | null
   isSecret?: boolean | null
+  categoryId?: string | null
+  categoryTitle?: string | null
 }
 
 interface QueueState {

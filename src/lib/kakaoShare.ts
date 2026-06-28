@@ -51,7 +51,36 @@ export function shareSongToKakao(opts: {
       link: { mobileWebUrl: link, webUrl: link },
     },
     buttons: [
-      { title: '셀라에서 듣기', link: { mobileWebUrl: link, webUrl: link } },
+      { title: '셀라와 함께하기', link: { mobileWebUrl: link, webUrl: link } },
+    ],
+  })
+}
+
+/** 설교 카카오 공유 — feed 템플릿(썸네일+제목+버튼). 링크는 설교 플레이어로 연결. */
+export function shareSermonToKakao(opts: {
+  id: string
+  title: string
+  thumbnail?: string | null
+  description?: string
+}): void {
+  const k = ensureInit()
+  if (!k) {
+    alert('카카오 공유를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.')
+    return
+  }
+  const ytid = ytIdFromUrl(opts.thumbnail)
+  const imageUrl = ytid ? buildThumb(ytid, 'hqdefault', '') : `${SHARE_ORIGIN}/image.png`
+  const link = `${SHARE_ORIGIN}/#/sermon/player/${opts.id}`
+  k.Share.sendDefault({
+    objectType: 'feed',
+    content: {
+      title: opts.title || '셀라 설교',
+      description: opts.description || '셀라에서 함께 말씀을 들어요',
+      imageUrl,
+      link: { mobileWebUrl: link, webUrl: link },
+    },
+    buttons: [
+      { title: '셀라와 함께하기', link: { mobileWebUrl: link, webUrl: link } },
     ],
   })
 }

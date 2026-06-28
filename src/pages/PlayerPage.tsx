@@ -12,11 +12,12 @@ import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import TagBadge from '@/components/TagBadge'
 import Thumb from '@/components/Thumb'
-import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
-import { downloadMedia, isMediaCached, isOfflineMediaSupported, cancelDownload } from '@/lib/mediaStore'
+import { getSermonResume, clearSermonResume, type SermonResumeData } from '@/lib/sermonResume'
+import { downloadMedia, isMediaCached, isOfflineMediaSupported, cancelDownload, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
+import type { MediaCorruptDetail } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { fs } from '@/lib/fontScale'
-import { shareSongToKakao } from '@/lib/kakaoShare'
+import { shareSongToKakao, shareSermonToKakao } from '@/lib/kakaoShare'
 
 interface Video {
   id: string
@@ -333,12 +334,14 @@ export default function PlayerPage() {
   const mediaCacheKey = id ? `${id}-${mediaType}` : null
   const isCachedInStore = useCachedMediaStore((s) => !!mediaCacheKey && s.cachedIds.has(mediaCacheKey))
   const {
-    currentVideo, isPlaying, isLoading, isEnded, position, duration, autoNextProgress, error,
+    currentVideo, isPlaying, isLoading, position, duration, autoNextProgress, error,
     playVideo, togglePlay, seekBy, seekFraction, cancelAutoNext, videoSlotRef,
   } = useAudio()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [dlState, setDlState] = useState<{ key: string | null; status: DownloadStatus }>({ key: null, status: 'idle' })
   const [dlProgress, setDlProgress] = useState(0)
+  // 저장 파일 손상 감지 시 표시할 cacheKey(메시지 + 재다운로드 진행 중). null이면 숨김.
+  const [corruptKey, setCorruptKey] = useState<string | null>(null)
   const downloadingRef = useRef(false)
   const dlStatus = dlState.key === mediaCacheKey ? dlState.status : 'idle'
   const isDownloaded = isCachedInStore || dlStatus === 'done'
@@ -346,21 +349,22 @@ export default function PlayerPage() {
   const isDraggingRef = useRef(false)
   const dragValueRef = useRef<number | null>(null)
   const hasPlayedRef = useRef(false)
-  const resumePositionRef = useRef(0)
-  resumePositionRef.current = position
-  const resumeDurationRef = useRef(0)
-  resumeDurationRef.current = duration
-  const currentVideoRef = useRef(currentVideo)
-  currentVideoRef.current = currentVideo
+  // 특정 설교 직접 진입 시 "이어서/처음부터" 팝업 상태. pending이 true면 자동재생을 보류한다.
+  const [sermonResumeChoice, setSermonResumeChoice] = useState<SermonResumeData | null>(null)
+  const sermonResumePendingRef = useRef(false)
 
   useEffect(() => {
     setDragValue(null)
     hasPlayedRef.current = false
+    // 다른 설교로 이동 시 이전 팝업/보류 상태를 초기화(스테일 방지).
+    sermonResumePendingRef.current = false
+    setSermonResumeChoice(null)
   }, [id])
 
   useEffect(() => {
     setDlProgress(0)
     setDlState({ key: mediaCacheKey, status: 'idle' })
+    setCorruptKey(null)
   }, [mediaCacheKey])
 
   useEffect(() => {
@@ -483,6 +487,9 @@ export default function PlayerPage() {
   const adjacent = queueAdjacent
   const hasAdjacentCtx = recentMode || queueIds.length > 0
 
+  const sermonStateCategoryId = (location.state as { categoryId?: string } | null)?.categoryId
+  const sermonStateCategoryTitle = (location.state as { categoryTitle?: string } | null)?.categoryTitle
+
   const handleAdjacentNav = useCallback((target: AdjacentVideo) => {
     const idx = queueIds.indexOf(target.id)
     if (idx !== -1) setQueue(queueIds, idx)
@@ -498,18 +505,34 @@ export default function PlayerPage() {
         chapter: target.chapter,
         playerPath: isSermonPlayer ? `/sermon/player/${target.id}` : undefined,
         isSecret: target.isSecret,
+        categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
+        categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
       },
       { autoPlay: true, skipRecentAdd: recentMode },
     )
     navigate(`${playerBase}/${target.id}${recentMode ? '?recentMode=1' : ''}`)
-  }, [isSermonPlayer, playerBase, queueIds, setQueue, recentMode, navigate, playVideo])
+  }, [isSermonPlayer, playerBase, queueIds, setQueue, recentMode, navigate, playVideo, sermonStateCategoryId, sermonStateCategoryTitle])
 
   const sermonSeek = (location.state as { sermonSeek?: number } | null)?.sermonSeek
+
+  // ── sermon resume: 저장 위치 있으면 "이어서/처음부터" 팝업(자동재생 보류) ──
+  // play effect보다 먼저 선언되어, 같은 커밋에서 pending ref를 먼저 세팅한다.
+  // (C 팝업이 sermonSeek를 넘기는 경우는 이미 선택된 것이므로 팝업을 띄우지 않는다.)
+  useEffect(() => {
+    if (!isSermonPlayer || !video || video.isSecret || sermonSeek != null) return
+    const saved = getSermonResume(video.id)
+    if (saved && saved.position > 0 && saved.downloaded) {
+      sermonResumePendingRef.current = true
+      setSermonResumeChoice(saved)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSermonPlayer, video?.id, sermonSeek])
 
   useEffect(() => {
     if (!video) return
     if (video.isSecret) return
     if (hasPlayedRef.current) return
+    if (sermonResumePendingRef.current) return
     if (currentVideo?.id !== video.id) {
       hasPlayedRef.current = true
       playVideo(
@@ -524,45 +547,50 @@ export default function PlayerPage() {
           chapter: video.chapter,
           playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
           isSecret: video.isSecret,
+          categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
+          categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
         },
         { autoPlay: autoPlayOnDetail, seekTo: sermonSeek },
       )
     }
-  }, [autoPlayOnDetail, currentVideo?.id, isSermonPlayer, playVideo, video, sermonSeek])
+  }, [autoPlayOnDetail, currentVideo?.id, isSermonPlayer, playVideo, video, sermonSeek, sermonStateCategoryId, sermonStateCategoryTitle])
 
-  // ── sermon resume: 5초마다 저장 ──────────────────────────────
-  const sermonStateCategoryId = (location.state as { categoryId?: string } | null)?.categoryId
-  const sermonStateCategoryTitle = (location.state as { categoryTitle?: string } | null)?.categoryTitle
-  useEffect(() => {
-    if (playerBase !== '/sermon/player' || !sermonStateCategoryId) return
-    const interval = setInterval(() => {
-      const pos = resumePositionRef.current
-      const dur = resumeDurationRef.current
-      const vid = currentVideoRef.current
-      if (pos > 0 && dur > 0 && vid) {
-        // 현재 모드 다운로드 완료 여부를 함께 저장 — 팝업은 완료된 경우에만 뜬다.
-        const mode = useSettingsStore.getState().mediaMode
-        const downloaded = useCachedMediaStore.getState().cachedIds.has(`${vid.id}-${mode}`)
-        saveSermonResume({
-          videoId: vid.id,
-          videoTitle: vid.title,
-          categoryId: sermonStateCategoryId,
-          categoryTitle: sermonStateCategoryTitle,
-          position: pos,
-          downloaded,
-        })
-      }
-    }, 5000)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerBase, sermonStateCategoryId, sermonStateCategoryTitle])
+  const handleSermonResumeContinue = useCallback(() => {
+    if (!video || !sermonResumeChoice) return
+    sermonResumePendingRef.current = false
+    hasPlayedRef.current = true
+    playVideo(
+      {
+        id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag,
+        type: 'SERMON', hymnTitle: video.title,
+        duration: video.duration, chapter: video.chapter,
+        playerPath: `/sermon/player/${video.id}`, isSecret: video.isSecret,
+        categoryId: sermonResumeChoice.categoryId ?? sermonStateCategoryId,
+        categoryTitle: sermonResumeChoice.categoryTitle ?? sermonStateCategoryTitle,
+      },
+      { autoPlay: true, seekTo: sermonResumeChoice.position },
+    )
+    setSermonResumeChoice(null)
+  }, [video, sermonResumeChoice, sermonStateCategoryId, sermonStateCategoryTitle, playVideo])
 
-  // ── sermon resume: 완료 시 삭제 ──────────────────────────────
-  useEffect(() => {
-    if (isEnded && playerBase === '/sermon/player') {
-      clearSermonResume()
-    }
-  }, [isEnded, playerBase])
+  const handleSermonResumeRestart = useCallback(() => {
+    if (!video) return
+    clearSermonResume(video.id)
+    sermonResumePendingRef.current = false
+    hasPlayedRef.current = true
+    playVideo(
+      {
+        id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag,
+        type: 'SERMON', hymnTitle: video.title,
+        duration: video.duration, chapter: video.chapter,
+        playerPath: `/sermon/player/${video.id}`, isSecret: video.isSecret,
+        categoryId: sermonResumeChoice?.categoryId ?? sermonStateCategoryId,
+        categoryTitle: sermonResumeChoice?.categoryTitle ?? sermonStateCategoryTitle,
+      },
+      { autoPlay: true, seekTo: 0 },
+    )
+    setSermonResumeChoice(null)
+  }, [video, sermonResumeChoice, sermonStateCategoryId, sermonStateCategoryTitle, playVideo])
 
   // ── sermon resume: 큐 복원 ───────────────────────────────────
   useEffect(() => {
@@ -579,6 +607,8 @@ export default function PlayerPage() {
           tag: v.tag, type: 'SERMON', hymnTitle: v.title,
           duration: v.duration ?? null,
           playerPath: `/sermon/player/${v.id}`,
+          categoryId: sermonStateCategoryId,
+          categoryTitle: sermonStateCategoryTitle,
         }))
         setQueue(ids, idx !== -1 ? idx : 0, metas)
       }
@@ -663,9 +693,33 @@ export default function PlayerPage() {
         chapter: video.chapter,
         playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
         isSecret: video.isSecret,
+        categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
+        categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
       })
     }
-  }, [isSermonPlayer, playVideo, video])
+  }, [isSermonPlayer, playVideo, video, sermonStateCategoryId, sermonStateCategoryTitle])
+
+  // 저장 파일 손상 감지(캐시 재생 후 3초 무진행). AudioContext가 손상 파일을 삭제한 뒤
+  // MEDIA_CORRUPT_EVENT를 쏜다 → 메시지 표시 + 재다운로드. 완료 시 AudioContext가 자동 재생,
+  // 실패 시 스트림으로 폴백(handleRetry). 어느 경우든 메시지는 해제한다.
+  useEffect(() => {
+    const onCorrupt = (e: Event) => {
+      const detail = (e as CustomEvent<MediaCorruptDetail>).detail
+      if (!detail || detail.id !== id || detail.type !== mediaType) return
+      setCorruptKey(`${detail.id}-${detail.type}`)
+      void (async () => {
+        try {
+          await handleDownload()
+        } finally {
+          setCorruptKey(null)
+          const ok = await isMediaCached(detail.id, detail.type)
+          if (!ok) handleRetry()
+        }
+      })()
+    }
+    window.addEventListener(MEDIA_CORRUPT_EVENT, onCorrupt)
+    return () => window.removeEventListener(MEDIA_CORRUPT_EVENT, onCorrupt)
+  }, [id, mediaType, handleDownload, handleRetry])
 
   const progress = dragValue !== null ? dragValue : (duration > 0 ? position / duration : 0)
   const isFav = id ? isInAnyPlaylist(id) : false
@@ -918,13 +972,13 @@ export default function PlayerPage() {
                 lineHeight: fs(16),
                 whiteSpace: 'nowrap',
               }}
-              title="다운로드 완료"
+              title="저장됨"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 3v12M8 11l4 4 4-4" />
                 <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
               </svg>
-              완료됨
+              저장됨
             </span>
           )}
           {/* 수동 다운로드 트리거 — 미저장(idle) 상태에서만. 진행은 하단 가로 바로 표시 */}
@@ -941,9 +995,11 @@ export default function PlayerPage() {
               </svg>
             </button>
           )}
-          {id && !isSermonPlayer && video && (
+          {id && video && (
             <button
-              onClick={() => shareSongToKakao({ id, title: video.title, thumbnail: video.thumbnail })}
+              onClick={() => isSermonPlayer
+                ? shareSermonToKakao({ id, title: video.title, thumbnail: video.thumbnail, description: video.description ?? undefined })
+                : shareSongToKakao({ id, title: video.title, thumbnail: video.thumbnail, description: video.description ?? undefined })}
               className="p-2 transition-transform hover:scale-110"
               style={{ color: 'var(--ink-3)' }}
               aria-label="카카오톡 공유"
@@ -962,6 +1018,17 @@ export default function PlayerPage() {
           )}
         </div>
       </header>
+
+      {/* 저장 파일 손상 안내 — 재다운로드 진행은 아래 진행 바로 표시 */}
+      {corruptKey === mediaCacheKey && (
+        <div style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--divider)' }}>
+          <div className="flex items-center px-4" style={{ minHeight: 30 }}>
+            <span style={{ fontSize: fs(12), fontWeight: 600, color: 'var(--error)', lineHeight: 1.4 }}>
+              파일이 손상되어 재 다운로드합니다
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* 다운로드 진행 바 — 다운로드 중일 때 전체폭으로 명확히 표시 */}
       {dlStatus === 'downloading' && (
@@ -1005,6 +1072,60 @@ export default function PlayerPage() {
           videoDuration={video?.duration ?? null}
           onClose={() => setPlaylistSheetOpen(false)}
         />
+      )}
+
+      {/* 설교 직접 진입 시 "이어서 / 처음부터" 선택 팝업 — 배경 탭으로 닫히지 않음(선택 강제) */}
+      {sermonResumeChoice && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 200,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 24px',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              background: 'var(--white)',
+              borderRadius: 20,
+              padding: '28px 24px 24px',
+            }}
+          >
+            <p style={{ fontSize: fs(13), fontWeight: 600, color: 'var(--primary-700)', marginBottom: 4 }}>이어서 듣기</p>
+            <p style={{ fontSize: fs(15), fontWeight: 700, color: 'var(--ink-0)', marginBottom: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+              {sermonResumeChoice.videoTitle}
+            </p>
+            <p style={{ fontSize: fs(13), color: 'var(--ink-3)', marginBottom: 22 }}>
+              {fmtTime(Math.floor(sermonResumeChoice.position))}까지 들으셨어요
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={handleSermonResumeContinue}
+                style={{
+                  width: '100%', padding: '14px',
+                  background: 'var(--primary-700)', color: 'var(--white)',
+                  borderRadius: 12, fontSize: fs(15), fontWeight: 700,
+                  border: 'none', cursor: 'pointer',
+                }}
+              >
+                이어서 듣기
+              </button>
+              <button
+                onClick={handleSermonResumeRestart}
+                style={{
+                  width: '100%', padding: '14px',
+                  background: 'var(--surface-1)', color: 'var(--ink-1)',
+                  borderRadius: 12, fontSize: fs(15), fontWeight: 600,
+                  border: 'none', cursor: 'pointer',
+                }}
+              >
+                처음부터 다시 듣기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

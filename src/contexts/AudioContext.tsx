@@ -4,10 +4,11 @@ import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { api } from '@/lib/api'
-import { deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT } from '@/lib/mediaStore'
+import { deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
 import type { MediaDownloadedDetail } from '@/lib/mediaStore'
 import { setLastPlayback, setLastPlaybackError } from '@/lib/mediaDiag'
 import { thumbUrl, thumbQualityFor } from '@/lib/thumb'
+import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
 
 interface VideoInfo {
   id: string
@@ -20,6 +21,8 @@ interface VideoInfo {
   chapter?: number | null
   playerPath?: string
   isSecret?: boolean | null
+  categoryId?: string
+  categoryTitle?: string
 }
 
 interface VideoDetail {
@@ -75,6 +78,11 @@ const AudioCtx = createContext<AudioContextValue | null>(null)
 // 폴백할 때, 재생→getCachedMediaPlaybackUrl→swUrl→다시 에러 무한루프를 막는다.
 // (probe 0-0 206 성공이 전체 재생 성공을 보장하지 않기 때문.) reload 시 초기화.
 const _forceStreamThisSession = new Set<string>()
+
+// 손상 판정 후 1회 재다운로드를 시도한 cacheKey(id-type) 집합. 재다운로드한 파일이
+// 또 손상이면(3초 무진행) 무한 재다운로드 루프를 막기 위해 이번 세션은 스트림으로 폴백한다.
+// 재생이 실제로 진행되면(syncPosition) 해당 키를 비워 다음 손상 시 다시 재다운로드한다.
+const _corruptRetriedThisSession = new Set<string>()
 
 function stripBrackets(title: string) {
   return title.replace(/\[.*?\]/g, '').trim()
@@ -142,6 +150,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const playVideoRef = useRef<AudioContextValue['playVideo'] | null>(null)
   const localPlaybackRef = useRef<{ id: string; type: 'audio' | 'video' } | null>(null)
   const localFallbackInProgressRef = useRef(false)
+  // 저장 파일 재생 감시 타이머(3초 무진행 → 손상 판정). 캐시 재생에만 설치한다.
+  const cacheWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 손상→재다운로드 완료 시 재생을 재개할 대상(찬송 포함). MEDIA_DOWNLOADED 핸들러가 소비.
+  const pendingCorruptReplayRef = useRef<{ id: string; type: 'audio' | 'video' } | null>(null)
+  // 손상 판정 후 손상 파일을 떼어내는 동안(재다운로드 대기) 발생하는 미디어 error를
+  // "재생 오류" 배너로 표시하지 않고 삼키기 위한 가드. 새 재생/진행 감지 시 해제된다.
+  const corruptHandlingRef = useRef(false)
   const isPlayingRef = useRef(false)
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
   useEffect(() => { currentVideoDataRef.current = currentVideo }, [currentVideo])
@@ -149,6 +164,31 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (!('mediaSession' in navigator) || !currentVideo) return
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
   }, [currentVideo, isPlaying])
+  // ── 설교(SERMON) 재생위치 전역 저장: 5초마다 videoId별 맵에 기록 ──
+  // PlayerPage가 아닌 전역(AudioContext)에 두어 미니재생바 상태에서도 기록되게 한다.
+  // 끝나기 30초 전 이후면 다 들은 것으로 보고 해당 설교 위치를 삭제한다.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const vid = currentVideoDataRef.current
+      if (!vid || vid.type !== 'SERMON') return
+      const dur = durationRef.current
+      if (dur <= 0) return
+      const pos = positionRef.current
+      if (pos >= dur - 30) { clearSermonResume(vid.id); return }
+      if (pos <= 0) return
+      const mode = useSettingsStore.getState().mediaMode
+      const downloaded = useCachedMediaStore.getState().cachedIds.has(`${vid.id}-${mode}`)
+      saveSermonResume({
+        videoId: vid.id,
+        videoTitle: vid.title,
+        categoryId: vid.categoryId,
+        categoryTitle: vid.categoryTitle,
+        position: pos,
+        downloaded,
+      })
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [])
   const pendingAutoPlayRef = useRef(false)
   const autoNextTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const currentVideoIdRef = useRef<string | null>(null)
@@ -218,6 +258,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const knownDuration = durationRef.current
     const currentTime = media.currentTime
 
+    // 실제 재생 진행 감지 → 손상 감시 타이머 해제 + 재다운로드 시도 플래그 초기화
+    if (currentTime > 0) {
+      if (cacheWatchdogRef.current) { clearTimeout(cacheWatchdogRef.current); cacheWatchdogRef.current = null }
+      corruptHandlingRef.current = false
+      const lp = localPlaybackRef.current
+      if (lp) _corruptRetriedThisSession.delete(`${lp.id}-${lp.type}`)
+    }
+
     if (hasAuthoritativeDurationRef.current && knownDuration > 0 && currentTime >= knownDuration) {
       media.pause()
       positionRef.current = knownDuration
@@ -270,9 +318,79 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setAutoNextProgress(null)
   }, [])
 
+  const clearCacheWatchdog = useCallback(() => {
+    if (cacheWatchdogRef.current) {
+      clearTimeout(cacheWatchdogRef.current)
+      cacheWatchdogRef.current = null
+    }
+  }, [])
+
+  // 저장(다운로드) 파일을 자동재생으로 틀 때만 호출한다. 3초 내 실제 재생 진행(position>0)이
+  // 없으면 파일 손상으로 간주: 파일 삭제 후 재다운로드(MEDIA_CORRUPT_EVENT)를 트리거하고,
+  // 재다운로드 후에도 손상이면 무한루프 방지로 스트림 폴백한다.
+  const armCacheWatchdog = useCallback((id: string, type: 'audio' | 'video') => {
+    clearCacheWatchdog()
+    const key = `${id}-${type}`
+    cacheWatchdogRef.current = setTimeout(() => {
+      cacheWatchdogRef.current = null
+      const lp = localPlaybackRef.current
+      // 여전히 같은 로컬 재생이고, 다른 폴백이 진행 중이 아니며, 진행이 전혀 없을 때만 손상 처리
+      if (!lp || `${lp.id}-${lp.type}` !== key) return
+      if (localFallbackInProgressRef.current) return
+      const isVideo = mediaModeRef.current === 'video'
+      const media = isVideo ? reactPlayerRef.current : audioRef.current
+      if (positionRef.current > 0 || (media?.currentTime ?? 0) > 0) return
+      const activeVideo = currentVideoDataRef.current
+
+      // 손상 확정: 캐시 재생 요청 후 3초간 재생이 시작/진행되지 않음.
+      // 손상 파일을 떼어낸다(중단된 src로 인한 후속 error는 corruptHandlingRef로 삼킴).
+      localPlaybackRef.current = null
+      pendingAutoPlayRef.current = false
+      corruptHandlingRef.current = true
+      if (media) {
+        media.pause()
+        media.src = ''
+        if (isVideo) { media.load(); setVideoUrl(null) }
+      }
+      setIsLoading(false)
+      setIsPlaying(false)
+      setLastPlaybackError({
+        code: null,
+        networkState: media?.networkState ?? null,
+        readyState: media?.readyState ?? null,
+        src: media?.src || null,
+        preservedFile: false,
+      })
+
+      if (_corruptRetriedThisSession.has(key)) {
+        // 재다운로드한 파일도 손상 → 무한 재다운로드 방지: 이번 세션은 스트림으로 폴백.
+        _forceStreamThisSession.add(key)
+        pendingCorruptReplayRef.current = null
+        void deleteMedia(id, type).finally(() => {
+          useCachedMediaStore.getState().refresh()
+          if (activeVideo) {
+            void playVideoRef.current?.(activeVideo, { autoPlay: true, skipRecentAdd: true, seekTo: 0 })
+          }
+        })
+        return
+      }
+
+      // 첫 손상: 삭제 후 재다운로드 트리거. PlayerPage가 메시지 표시 + handleDownload 실행,
+      // 다운로드 완료 시 MEDIA_DOWNLOADED 핸들러가 pendingCorruptReplay로 재생을 재개한다.
+      _corruptRetriedThisSession.add(key)
+      pendingCorruptReplayRef.current = { id, type }
+      void deleteMedia(id, type)
+        .finally(() => useCachedMediaStore.getState().refresh())
+        .finally(() => window.dispatchEvent(new CustomEvent(MEDIA_CORRUPT_EVENT, { detail: { id, type } })))
+    }, 3000)
+  }, [clearCacheWatchdog])
+
   const isMountedRef = useRef(false)
   useEffect(() => {
     if (!isMountedRef.current) { isMountedRef.current = true; return }
+    clearCacheWatchdog()
+    pendingCorruptReplayRef.current = null
+    corruptHandlingRef.current = false
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
     if (reactPlayerRef.current) { reactPlayerRef.current.pause(); reactPlayerRef.current.src = '' }
     clearMediaSessionMetadata()
@@ -293,7 +411,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setPosition(0)
     setDuration(0)
     setError(null)
-  }, [cancelAutoNext, mediaMode])
+  }, [cancelAutoNext, clearCacheWatchdog, mediaMode])
 
   useEffect(() => {
     const audio = new Audio()
@@ -310,8 +428,15 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       ['pause', () => setIsPlaying(false)],
       ['waiting', () => setIsLoading(true)],
       ['canplay', () => { applyPendingSeek(audio); setIsLoading(false) }],
-      ['ended', () => { setIsPlaying(false); setIsEnded(true) }],
+      ['ended', () => {
+        setIsPlaying(false); setIsEnded(true)
+        const v = currentVideoDataRef.current
+        if (v?.type === 'SERMON') clearSermonResume(v.id)
+      }],
       ['error', () => {
+        if (cacheWatchdogRef.current) { clearTimeout(cacheWatchdogRef.current); cacheWatchdogRef.current = null }
+        // 손상 처리 중 떼어낸 src로 인한 후속 error는 무시(재다운로드 흐름 유지).
+        if (corruptHandlingRef.current) { setIsLoading(false); return }
         const localPlayback = localPlaybackRef.current
         const activeVideo = currentVideoDataRef.current
         if (localPlayback && activeVideo?.id === localPlayback.id && !localFallbackInProgressRef.current) {
@@ -372,6 +497,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     //  남아 그 곡 다운로드 완료 시 재생되는 버그가 생긴다.)
     if (video.isSecret) {
       cancelAutoNext()
+      clearCacheWatchdog()
+      pendingCorruptReplayRef.current = null
+      corruptHandlingRef.current = false
       if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
       if (reactPlayerRef.current) { reactPlayerRef.current.pause(); reactPlayerRef.current.src = '' }
       clearMediaSessionMetadata()
@@ -397,6 +525,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const isVideoMode = mediaModeRef.current === 'video'
 
     cancelAutoNext()
+    // 새 재생 요청 → 이전 손상 감시 타이머/대기 중인 손상 재생 해제(스테일 방지)
+    clearCacheWatchdog()
+    pendingCorruptReplayRef.current = null
+    corruptHandlingRef.current = false
     currentVideoDataRef.current = video
     setCurrentVideo(video)
     updateMediaSessionMetadata(video)
@@ -440,6 +572,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
             pendingAutoPlayRef.current = autoPlay
             if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
             setVideoUrl(localUrl)
+            // 저장 파일 재생: 3초 무진행 시 손상 판정 watchdog (자동재생일 때만).
+            if (autoPlay) armCacheWatchdog(video.id, mediaType)
             if (!autoPlay) setIsLoading(false)
           } else {
             setVideoUrl(null)
@@ -454,7 +588,21 @@ export function AudioProvider({ children }: { children: ReactNode }) {
               setIsLoading(false)
               return
             }
-            try { await audio.play() } catch { setIsLoading(false) }
+            // 저장 파일 재생: 3초 무진행 시 손상 판정 watchdog.
+            armCacheWatchdog(video.id, mediaType)
+            try {
+              await audio.play()
+            } catch (e) {
+              setIsLoading(false)
+              // 자동재생 차단(NotAllowedError)은 손상이 아니므로 watchdog 해제(오삭제 방지).
+              if (
+                (e as DOMException)?.name === 'NotAllowedError' &&
+                localPlaybackRef.current?.id === video.id &&
+                localPlaybackRef.current?.type === mediaType
+              ) {
+                clearCacheWatchdog()
+              }
+            }
           }
           return
         }
@@ -503,7 +651,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setError('스트림을 불러올 수 없습니다.')
       setIsLoading(false)
     }
-  }, [cancelAutoNext, volume, applyPlaybackRate])
+  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog])
 
   useEffect(() => {
     playVideoRef.current = playVideo
@@ -514,14 +662,18 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       const detail = (event as CustomEvent<MediaDownloadedDetail>).detail
       const activeVideo = currentVideoDataRef.current
       if (!detail || !activeVideo) return
-      if (activeVideo.type !== 'SERMON') return
+      const corrupt = pendingCorruptReplayRef.current
+      const isCorruptReplay = !!corrupt && corrupt.id === detail.id && corrupt.type === detail.type
+      // SERMON 자동 이어재생 외에, 손상→재다운로드 복구 시에도(찬송 포함) 재생을 재개한다.
+      if (activeVideo.type !== 'SERMON' && !isCorruptReplay) return
       if (activeVideo.id !== detail.id) return
 
       const activeMediaType = mediaModeRef.current === 'video' ? 'video' : 'audio'
       if (detail.type !== activeMediaType) return
 
+      if (isCorruptReplay) pendingCorruptReplayRef.current = null
       void playVideo(activeVideo, {
-        autoPlay: isPlayingRef.current,
+        autoPlay: isCorruptReplay ? true : isPlayingRef.current,
         skipRecentAdd: true,
         seekTo: positionRef.current,
       })
@@ -533,6 +685,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const stop = useCallback(() => {
     cancelAutoNext()
+    clearCacheWatchdog()
+    pendingCorruptReplayRef.current = null
+    corruptHandlingRef.current = false
     pendingAutoPlayRef.current = false
     if (mediaModeRef.current === 'video') {
       const video = reactPlayerRef.current
@@ -556,7 +711,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setPosition(0)
     setDuration(0)
     setError(null)
-  }, [cancelAutoNext])
+  }, [cancelAutoNext, clearCacheWatchdog])
 
   const togglePlay = useCallback(() => {
     if (mediaModeRef.current === 'video') {
@@ -635,9 +790,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
     if (pendingAutoPlayRef.current) {
       pendingAutoPlayRef.current = false
-      video?.play().catch(() => setIsLoading(false))
+      video?.play().catch((e) => {
+        setIsLoading(false)
+        // 자동재생 차단(NotAllowedError)은 손상이 아니므로 watchdog 해제(오삭제 방지).
+        if ((e as DOMException)?.name === 'NotAllowedError' && localPlaybackRef.current) clearCacheWatchdog()
+      })
     }
-  }, [applyPendingSeek, volume, applyPlaybackRate])
+  }, [applyPendingSeek, volume, applyPlaybackRate, clearCacheWatchdog])
 
   const onVideoTimeUpdate = useCallback((e: SyntheticEvent<HTMLVideoElement>) => {
     syncPosition(e.currentTarget)
@@ -656,9 +815,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const onVideoEnded = useCallback(() => {
     setIsPlaying(false)
     setIsEnded(true)
+    const v = currentVideoDataRef.current
+    if (v?.type === 'SERMON') clearSermonResume(v.id)
   }, [])
 
   const onVideoError = useCallback(() => {
+    if (cacheWatchdogRef.current) { clearTimeout(cacheWatchdogRef.current); cacheWatchdogRef.current = null }
+    if (corruptHandlingRef.current) { setIsLoading(false); return }
     const localPlayback = localPlaybackRef.current
     const activeVideo = currentVideoDataRef.current
     const video = reactPlayerRef.current
@@ -758,6 +921,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         duration: data.duration ?? targetMeta?.duration ?? null,
         chapter: data.chapter ?? targetMeta?.chapter ?? null,
         playerPath: targetMeta?.playerPath ?? data.playerPath ?? undefined,
+        categoryId: targetMeta?.categoryId ?? undefined,
+        categoryTitle: targetMeta?.categoryTitle ?? undefined,
       }, { autoPlay: true })
     } catch {
       setError('다음 곡을 불러올 수 없습니다.')
