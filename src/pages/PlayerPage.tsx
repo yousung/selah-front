@@ -520,6 +520,7 @@ export default function PlayerPage() {
   // (C 팝업이 sermonSeek를 넘기는 경우는 이미 선택된 것이므로 팝업을 띄우지 않는다.)
   useEffect(() => {
     if (!isSermonPlayer || !video || video.isSecret || sermonSeek != null) return
+    if (currentVideo?.id === video.id) return
     const saved = getSermonResume(video.id)
     if (saved && saved.position > 0 && saved.downloaded) {
       sermonResumePendingRef.current = true

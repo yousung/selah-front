@@ -46,7 +46,7 @@ export function shareSongToKakao(opts: {
     objectType: 'feed',
     content: {
       title: opts.title || '셀라 찬양',
-      description: opts.description || '셀라에서 함께 찬양해요',
+      description: (opts.description?.split('\n')[0]?.slice(0, 80)) || '셀라에서 함께 찬양해요',
       imageUrl,
       link: { mobileWebUrl: link, webUrl: link },
     },
@@ -75,7 +75,7 @@ export function shareSermonToKakao(opts: {
     objectType: 'feed',
     content: {
       title: opts.title || '셀라 설교',
-      description: opts.description || '셀라에서 함께 말씀을 들어요',
+      description: '셀라와 함께해요',
       imageUrl,
       link: { mobileWebUrl: link, webUrl: link },
     },

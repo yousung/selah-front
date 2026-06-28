@@ -392,7 +392,7 @@ export default function Layout() {
         {/* ── Universal Floating MiniPlayer ── */}
         {showMini && (
           <div
-            className="fixed z-30 left-12 right-12 bottom-[84px] lg:bottom-6 lg:right-6 lg:left-[264px]"
+            className="fixed z-30 left-4 right-4 bottom-[84px] lg:bottom-6 lg:right-6 lg:left-[264px]"
             style={{ filter: "drop-shadow(0 0 0 transparent)" }}
           >
             <MiniPlayer
