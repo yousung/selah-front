@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
 import VideoCard from '@/components/VideoCard'
+import LazyRow from '@/components/LazyRow'
 import Thumb from '@/components/Thumb'
 import { useQueueStore } from '@/store/queueStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { downloadMedia, isOfflineMediaSupported, cancelDownload, deleteMedia } from '@/lib/mediaStore'
 import { fs } from '@/lib/fontScale'
+import { getSortPref, setSortPref, type SortMode } from '@/lib/sortPref'
 
 interface CategoryNode {
   id: string
@@ -108,7 +110,7 @@ function ChildCategoryRow({ node, accent }: { node: CategoryNode; accent: string
   )
 }
 
-const PAGE_LIMIT = 20
+const PAGE_LIMIT = 100
 
 export default function SermonCategoryPage() {
   const { id } = useParams<{ id: string }>()
@@ -124,6 +126,7 @@ export default function SermonCategoryPage() {
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set())
   // 벌크(2개 이상) 다운로드 모달 상태 — null이면 모달 없음
   const [bulkState, setBulkState] = useState<{ total: number; done: number } | null>(null)
+  const [sortMode, setSortMode] = useState<SortMode>(() => getSortPref('sermon', id))
   const bulkIdsRef = useRef<string[]>([])
   const bulkCancelledRef = useRef(false)
   const { data: category, isLoading: catLoading } = useQuery({
@@ -142,11 +145,11 @@ export default function SermonCategoryPage() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery<VideoPage>({
-    queryKey: ['sermon-category-videos', id],
+    queryKey: ['sermon-category-videos', id, sortMode],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const { data } = await api.get<VideoPage>(
-        `/sermon-categories/${id}/videos?page=${pageParam}&limit=${PAGE_LIMIT}`,
+        `/sermon-categories/${id}/videos?page=${pageParam}&limit=${PAGE_LIMIT}&sort=${sortMode}`,
       )
       return data
     },
@@ -163,6 +166,10 @@ export default function SermonCategoryPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
+  }, [id])
+
+  useEffect(() => {
+    setSortMode(getSortPref('sermon', id))
   }, [id])
 
   useEffect(() => {
@@ -395,6 +402,27 @@ export default function SermonCategoryPage() {
         </div>
       </header>
 
+      {/* 정렬 토글 (non-sticky) */}
+      {total > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '8px 16px', background: 'var(--white)', borderBottom: '1px solid var(--divider)' }}>
+          <div className="flex items-center overflow-hidden" style={{ border: '1px solid var(--divider)', borderRadius: 7, background: 'var(--surface-1)' }}>
+            {(['chapterAsc', 'chapterDesc'] as const).map((mode, i) => {
+              const isActive = sortMode === mode
+              return (
+                <button
+                  key={mode}
+                  onClick={() => { setSortMode(mode); setSortPref('sermon', id, mode) }}
+                  className="text-xs font-medium transition-colors duration-150"
+                  style={{ padding: '4px 10px', color: isActive ? 'var(--white)' : 'var(--ink-2)', background: isActive ? 'var(--primary-700)' : 'transparent', borderRight: i === 0 ? '1px solid var(--divider)' : 'none' }}
+                >
+                  {mode === 'chapterAsc' ? '처음부터 ↑' : '끝부터 ↓'}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 편수 점프 chip row */}
       {pageChips.length > 0 && (
         <div style={{
@@ -483,13 +511,15 @@ export default function SermonCategoryPage() {
                     ref={(el) => { if (el) videoRefs.current.set(i, el); else videoRefs.current.delete(i) }}
                     style={{ position: 'relative' }}
                   >
-                    <VideoCard
-                      video={{ ...video, hymnTitle: video.title, title: video.description ?? '', tag: null }}
-                      layout="list"
-                      isDownloading={isDownloading}
-                      selectMode={selectMode}
-                      onClick={selectMode ? () => toggleSelect(video.id) : () => handleVideoClick(video, i)}
-                    />
+                    <LazyRow estimatedHeight={88}>
+                      <VideoCard
+                        video={{ ...video, hymnTitle: video.title, title: video.description ?? '', tag: null }}
+                        layout="list"
+                        isDownloading={isDownloading}
+                        selectMode={selectMode}
+                        onClick={selectMode ? () => toggleSelect(video.id) : () => handleVideoClick(video, i)}
+                      />
+                    </LazyRow>
                     {selectMode && !cachedIds.has(`${video.id}-${dlType}`) && (
                       <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                         <div style={{

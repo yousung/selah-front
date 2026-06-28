@@ -3,9 +3,11 @@ import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useAudio } from '@/contexts/AudioContext'
 import VideoCard from '@/components/VideoCard'
+import LazyRow from '@/components/LazyRow'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { getSortPref, setSortPref } from '@/lib/sortPref'
 
 type SortMode = 'chapterAsc' | 'chapterDesc'
 
@@ -36,7 +38,7 @@ interface Playlist {
   title: string
 }
 
-const PAGE_LIMIT = 20
+const PAGE_LIMIT = 100
 
 export default function PlaylistPage() {
   const { id } = useParams<{ id: string }>()
@@ -47,7 +49,7 @@ export default function PlaylistPage() {
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const setQueue = useQueueStore((s) => s.setQueue)
 
-  const [sortMode, setSortMode] = useState<SortMode>((searchParams.get('sort') as SortMode) ?? 'chapterAsc')
+  const [sortMode, setSortMode] = useState<SortMode>(() => (searchParams.get('sort') as SortMode) || getSortPref('playlist', id))
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '')
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') ?? '')
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -93,7 +95,7 @@ export default function PlaylistPage() {
     if (prevIdRef.current !== undefined && prevIdRef.current !== id) {
       setSearchQuery('')
       setDebouncedQuery('')
-      setSortMode('chapterAsc')
+      setSortMode(getSortPref('playlist', id))
       setSearchParams({}, { replace: true })
     }
     prevIdRef.current = id
@@ -115,6 +117,7 @@ export default function PlaylistPage() {
 
   const handleSortChange = (mode: SortMode) => {
     setSortMode(mode)
+    setSortPref('playlist', id, mode)
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
       if (mode !== 'chapterAsc') next.set('sort', mode); else next.delete('sort')
@@ -236,13 +239,13 @@ export default function PlaylistPage() {
                   onClick={() => handleSortChange(mode)}
                   className="flex items-center gap-0.5 text-xs font-medium transition-colors duration-150"
                   style={{
-                    padding: '4px 8px',
+                    padding: '4px 10px',
                     color: isActive ? 'var(--white)' : 'var(--ink-2)',
                     background: isActive ? 'var(--primary-700)' : 'transparent',
                     borderRight: i === 0 ? '1px solid var(--divider)' : 'none',
                   }}
                 >
-                  장{mode === 'chapterAsc' ? '↑' : '↓'}
+                  {mode === 'chapterAsc' ? '처음부터 ↑' : '끝부터 ↓'}
                 </button>
               )
             })}
@@ -262,7 +265,9 @@ export default function PlaylistPage() {
         ) : allVideos.length ? (
           <>
             {allVideos.map((v) => (
-              <VideoCard key={v.id} video={v} onClick={() => handlePlay(v)} layout="list" />
+              <LazyRow key={v.id}>
+                <VideoCard video={v} onClick={() => handlePlay(v)} layout="list" />
+              </LazyRow>
             ))}
 
             <div ref={sentinelRef} className="h-1" />

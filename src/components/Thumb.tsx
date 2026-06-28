@@ -38,6 +38,15 @@ export default function Thumb({ src, className, style, alt = '', fallback }: Thu
         className={className}
         loading="lazy"
         decoding="async"
+        ref={(el) => {
+          if (!el || loaded || failed) return
+          // LazyRow remount 시 브라우저 캐시로 이미 디코드 완료된 경우 onLoad가 안 올 수 있음
+          // → mount 커밋 시점에 동기로 반영해 페이드 깜빡임/빈칸 없이 즉시 표시.
+          if (el.complete && el.naturalWidth > 0) {
+            if (el.naturalWidth <= 120 && THUMB_ORDER[qIdx] !== 'default') { setFailed(true); return }
+            setLoaded(true)
+          }
+        }}
         style={{ ...style, opacity: loaded ? 1 : 0, transition: 'opacity 0.25s ease' }}
         onLoad={(e) => {
           // YouTube는 썸네일 없는 영상에 120x90 회색 placeholder를 200으로 반환.
