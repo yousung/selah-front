@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+      - "[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
 
 permissions:
@@ -38,6 +38,7 @@ jobs:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL }}
           VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/' }}
           VITE_APP_URL: ${{ vars.VITE_APP_URL || 'https://selah.day' }}
+          VITE_KAKAO_JS_KEY: ${{ vars.VITE_KAKAO_JS_KEY || 'be092035fa83b3074c9709095104aa99'  }}
         run: npm run build
 
       - name: Configure Pages

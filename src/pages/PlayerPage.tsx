@@ -16,6 +16,7 @@ import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
 import { downloadMedia, isMediaCached, isOfflineMediaSupported, cancelDownload } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { fs } from '@/lib/fontScale'
+import { shareSongToKakao } from '@/lib/kakaoShare'
 
 interface Video {
   id: string
@@ -937,6 +938,19 @@ export default function PlayerPage() {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 3v12M8 11l4 4 4-4" />
                 <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+              </svg>
+            </button>
+          )}
+          {id && !isSermonPlayer && video && (
+            <button
+              onClick={() => shareSongToKakao({ id, title: video.title, thumbnail: video.thumbnail })}
+              className="p-2 transition-transform hover:scale-110"
+              style={{ color: 'var(--ink-3)' }}
+              aria-label="카카오톡 공유"
+              title="카카오톡 공유"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 3C6.99 3 3 6.13 3 9.99c0 2.46 1.63 4.62 4.08 5.84-.18.63-.65 2.28-.74 2.64-.12.45.16.45.34.33.14-.1 2.27-1.54 3.19-2.17.36.05.74.08 1.13.08 5.01 0 9-3.13 9-6.99S17.01 3 12 3z"/>
               </svg>
             </button>
           )}
