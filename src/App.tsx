@@ -66,12 +66,15 @@ function ThemeApplicator() {
   return null
 }
 
+// 프롤로그(첫 실행 온보딩 가이드) 일시중지. 다음 배포 때 다시 켜려면 true로.
+const ONBOARDING_ENABLED = false
+
 export default function App() {
   return (
     <AudioProvider>
       <MediaDebugOverlay />
       <HashRouter>
-        <OnboardingGuide />
+        {ONBOARDING_ENABLED && <OnboardingGuide />}
         <ThemeApplicator />
         <CachedMediaLoader />
         <NaverAnalyticsTracker />
