@@ -111,6 +111,8 @@ function ChildCategoryRow({ node, accent }: { node: CategoryNode; accent: string
 }
 
 const PAGE_LIMIT = 100
+// 점프 칩(1~10, 11~20 …) 묶음 크기. fetch 페이지 크기(PAGE_LIMIT)와 분리.
+const JUMP_CHUNK = 10
 
 export default function SermonCategoryPage() {
   const { id } = useParams<{ id: string }>()
@@ -176,7 +178,7 @@ export default function SermonCategoryPage() {
     if (pendingJumpIndex === null) return
     const el = videoRefs.current.get(pendingJumpIndex)
     if (!el) return
-    const offset = total > PAGE_LIMIT ? 104 : 64
+    const offset = total > JUMP_CHUNK ? 104 : 64
     const top = el.getBoundingClientRect().top + window.scrollY - offset
     window.scrollTo({ top, behavior: 'smooth' })
     setPendingJumpIndex(null)
@@ -188,7 +190,7 @@ export default function SermonCategoryPage() {
     if (loadedPages >= neededPage) {
       const el = videoRefs.current.get(startIndex)
       if (el) {
-        const offset = total > PAGE_LIMIT ? 104 : 64
+        const offset = total > JUMP_CHUNK ? 104 : 64
         window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' })
       }
     } else {
@@ -200,10 +202,10 @@ export default function SermonCategoryPage() {
   }, [data?.pages.length, hasNextPage, fetchNextPage, total])
 
   const pageChips: { label: string; startIndex: number }[] = []
-  if (total > PAGE_LIMIT) {
-    for (let i = 0; i < total; i += PAGE_LIMIT) {
+  if (total > JUMP_CHUNK) {
+    for (let i = 0; i < total; i += JUMP_CHUNK) {
       const start = i + 1
-      const end = Math.min(i + PAGE_LIMIT, total)
+      const end = Math.min(i + JUMP_CHUNK, total)
       pageChips.push({ label: `${start}~${end}편`, startIndex: i })
     }
   }
