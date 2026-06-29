@@ -111,7 +111,7 @@ function SortableItem({ video, index, onPlay, onRemove }: SortableItemProps) {
 export default function MyPlaylistDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { playVideo } = useAudio()
+  const { playVideo, currentVideo } = useAudio()
   const setQueue = useQueueStore((s) => s.setQueue)
   const { playlists, removeVideoFromPlaylist, reorderVideos, renamePlaylist, removePlaylist } = usePlaylistStore()
   const playlist = playlists.find((p) => p.id === id)
@@ -140,20 +140,28 @@ export default function MyPlaylistDetailPage() {
 
   const handlePlayAll = () => {
     if (!playlist || playlist.videos.length === 0) return
-    const ids = playlist.videos.map((v) => v.id)
-    setQueue(ids, 0, buildQueueMetas(playlist.videos))
     const first = playlist.videos[0]
     setSelahMenu(`/my-playlists/${playlist.id}`)
+    if (currentVideo?.id === first.id) {
+      navigate(`/player/${first.id}`)
+      return
+    }
+    const ids = playlist.videos.map((v) => v.id)
+    setQueue(ids, 0, buildQueueMetas(playlist.videos))
     playVideo({ id: first.id, title: first.title, thumbnail: first.thumbnail, tag: first.tag, hymnTitle: first.hymnTitle, duration: first.duration, isSecret: first.isSecret })
     navigate(`/player/${first.id}`)
   }
 
   const handlePlay = (video: PlaylistVideo) => {
     if (!playlist) return
+    setSelahMenu(`/my-playlists/${playlist.id}`)
+    if (currentVideo?.id === video.id) {
+      navigate(`/player/${video.id}`)
+      return
+    }
     const ids = playlist.videos.map((v) => v.id)
     const idx = ids.indexOf(video.id)
     setQueue(ids, idx, buildQueueMetas(playlist.videos))
-    setSelahMenu(`/my-playlists/${playlist.id}`)
     playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.hymnTitle, duration: video.duration, isSecret: video.isSecret })
     navigate(`/player/${video.id}`)
   }

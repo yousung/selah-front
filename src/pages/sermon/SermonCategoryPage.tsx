@@ -117,7 +117,7 @@ const JUMP_CHUNK = 20 // 점프 단위 고정 20개
 export default function SermonCategoryPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { playVideo } = useAudio()
+  const { playVideo, currentVideo } = useAudio()
   const setQueue = useQueueStore((s) => s.setQueue)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
@@ -366,6 +366,10 @@ export default function SermonCategoryPage() {
   )
 
   const handleVideoClick = (video: Video, index: number) => {
+    if (currentVideo?.id === video.id) {
+      navigate(`/sermon/player/${video.id}`, { state: { categoryId: id, categoryTitle: category?.title } })
+      return
+    }
     const ids = allVideos.map((v) => v.id)
     const metas = allVideos.map((v) => ({
       id: v.id,

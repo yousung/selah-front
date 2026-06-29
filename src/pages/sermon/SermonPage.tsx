@@ -155,7 +155,7 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
 // ── 영상 row 콘텐츠 (lazy fetch) ───────────────────────────────
 function VideoRowContent({ categoryId, categoryTitle, accent }: { categoryId: string; categoryTitle?: string; accent: string }) {
   const navigate = useNavigate()
-  const { playVideo } = useAudio()
+  const { playVideo, currentVideo } = useAudio()
   const setQueue = useQueueStore((s) => s.setQueue)
 
   const { data, isLoading } = useQuery<{ videos: Video[]; total: number }>({
@@ -169,6 +169,10 @@ function VideoRowContent({ categoryId, categoryTitle, accent }: { categoryId: st
   const videos = data?.videos ?? []
 
   const handlePlay = useCallback((video: Video, index: number) => {
+    if (currentVideo?.id === video.id) {
+      navigate(`/sermon/player/${video.id}`, { state: { categoryId, categoryTitle } })
+      return
+    }
     const ids = videos.map((v) => v.id)
     const metas = videos.map((v) => ({
       id: v.id, title: v.title, thumbnail: v.thumbnail,
@@ -179,7 +183,7 @@ function VideoRowContent({ categoryId, categoryTitle, accent }: { categoryId: st
     setQueue(ids, index, metas)
     playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: null, type: 'SERMON', hymnTitle: video.title, isSecret: video.isSecret, categoryId, categoryTitle })
     navigate(`/sermon/player/${video.id}`, { state: { categoryId, categoryTitle } })
-  }, [videos, setQueue, playVideo, navigate, categoryId, categoryTitle])
+  }, [videos, setQueue, playVideo, navigate, categoryId, categoryTitle, currentVideo])
 
   if (isLoading) {
     return (

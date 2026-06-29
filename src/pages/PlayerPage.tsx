@@ -534,26 +534,28 @@ export default function PlayerPage() {
     if (video.isSecret) return
     if (hasPlayedRef.current) return
     if (sermonResumePendingRef.current) return
-    if (currentVideo?.id !== video.id) {
+    if (currentVideo?.id === video.id) {
       hasPlayedRef.current = true
-      playVideo(
-        {
-          id: video.id,
-          title: video.title,
-          thumbnail: video.thumbnail,
-          tag: video.tag,
-          type: isSermonPlayer ? 'SERMON' : video.type ?? null,
-          hymnTitle: isSermonPlayer ? video.title : video.lyric?.hymnTitle,
-          duration: video.duration,
-          chapter: video.chapter,
-          playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
-          isSecret: video.isSecret,
-          categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
-          categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
-        },
-        { autoPlay: autoPlayOnDetail, seekTo: sermonSeek },
-      )
+      return
     }
+    hasPlayedRef.current = true
+    playVideo(
+      {
+        id: video.id,
+        title: video.title,
+        thumbnail: video.thumbnail,
+        tag: video.tag,
+        type: isSermonPlayer ? 'SERMON' : video.type ?? null,
+        hymnTitle: isSermonPlayer ? video.title : video.lyric?.hymnTitle,
+        duration: video.duration,
+        chapter: video.chapter,
+        playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
+        isSecret: video.isSecret,
+        categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
+        categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
+      },
+      { autoPlay: autoPlayOnDetail, seekTo: sermonSeek },
+    )
   }, [autoPlayOnDetail, currentVideo?.id, isSermonPlayer, playVideo, video, sermonSeek, sermonStateCategoryId, sermonStateCategoryTitle])
 
   const handleSermonResumeContinue = useCallback(() => {

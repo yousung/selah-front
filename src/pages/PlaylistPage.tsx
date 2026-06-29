@@ -44,7 +44,7 @@ export default function PlaylistPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { playVideo } = useAudio()
+  const { playVideo, currentVideo } = useAudio()
 
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const setQueue = useQueueStore((s) => s.setQueue)
@@ -142,6 +142,10 @@ export default function PlaylistPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length])
 
   const handlePlay = (v: Video) => {
+    if (currentVideo?.id === v.id) {
+      navigate(`/player/${v.id}`)
+      return
+    }
     const allItems = data?.pages[0]?.playlists ?? []
     const allIds = allItems.map(p => p.id)
     const idx = allIds.indexOf(v.id)
