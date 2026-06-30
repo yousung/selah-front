@@ -2,7 +2,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
-import { useAudio } from '@/contexts/AudioContext'
 import VideoCard from '@/components/VideoCard'
 import LazyRow from '@/components/LazyRow'
 import Thumb from '@/components/Thumb'
@@ -117,7 +116,6 @@ const JUMP_CHUNK = 20 // 점프 단위 고정 20개
 export default function SermonCategoryPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { playVideo, currentVideo } = useAudio()
   const setQueue = useQueueStore((s) => s.setQueue)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
@@ -366,10 +364,6 @@ export default function SermonCategoryPage() {
   )
 
   const handleVideoClick = (video: Video, index: number) => {
-    if (currentVideo?.id === video.id) {
-      navigate(`/sermon/player/${video.id}`, { state: { categoryId: id, categoryTitle: category?.title } })
-      return
-    }
     const ids = allVideos.map((v) => v.id)
     const metas = allVideos.map((v) => ({
       id: v.id,
@@ -384,7 +378,6 @@ export default function SermonCategoryPage() {
       categoryTitle: category?.title,
     }))
     setQueue(ids, index, metas)
-    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, type: 'SERMON', hymnTitle: video.title, isSecret: video.isSecret, categoryId: id, categoryTitle: category?.title })
     navigate(`/sermon/player/${video.id}`, { state: { categoryId: id, categoryTitle: category?.title } })
   }
 
