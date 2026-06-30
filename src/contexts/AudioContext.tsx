@@ -769,6 +769,29 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setVolume(v)
   }, [])
 
+  // 잠금화면/알림센터 미디어 컨트롤(OS Media Session) 핸들러 등록.
+  // 이게 없으면 iOS/Android 잠금화면의 ▶️⏸️⏪⏩ 버튼이 no-op이라, 백그라운드에서
+  // 재생이 멈췄을 때(예: iOS가 백그라운드 pause 발화) 잠금화면에서 다시 재생할 방법이 없다.
+  // 핸들러를 등록해두면 OS가 미디어 세션을 더 오래 유지하고, 사용자가 잠금화면에서
+  // 재생/일시정지/구간이동을 직접 제어할 수 있다.
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    const ms = navigator.mediaSession
+    const set = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
+      try { ms.setActionHandler(action, handler) } catch { /* 미지원 액션 무시 */ }
+    }
+    const currentMedia = () => (mediaModeRef.current === 'video' ? reactPlayerRef.current : audioRef.current)
+    set('play', () => { currentMedia()?.play().catch(() => {}) })
+    set('pause', () => { currentMedia()?.pause() })
+    set('seekbackward', (d) => seekBy(-(d.seekOffset || 15)))
+    set('seekforward', (d) => seekBy(d.seekOffset || 15))
+    set('seekto', (d) => { if (typeof d.seekTime === 'number') seek(d.seekTime) })
+    return () => {
+      ;(['play', 'pause', 'seekbackward', 'seekforward', 'seekto'] as MediaSessionAction[])
+        .forEach((a) => set(a, null))
+    }
+  }, [seek, seekBy])
+
   const onVideoPlay = useCallback(() => {
     setIsPlaying(true)
     setIsLoading(false)
