@@ -286,7 +286,7 @@ export default function MemorizePage() {
   return (
     <div style={{ background: 'var(--surface-0)', minHeight: '100dvh' }}>
       {/* Header */}
-      <header style={{ background: 'var(--white)', borderBottom: '1px solid var(--divider)', position: 'sticky', top: 0, zIndex: 10 }}>
+      <header style={{ background: 'var(--white)', borderBottom: '1px solid var(--divider)', position: 'sticky', top: 0, zIndex: 10, paddingTop: 'env(safe-area-inset-top)' }}>
         <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center' }}>
           <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>한 주간의 양식</h1>
         </div>

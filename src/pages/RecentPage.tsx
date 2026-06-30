@@ -27,7 +27,7 @@ export default function RecentPage() {
   return (
     <div className="animate-fade-in">
       <header
-        className="sticky top-0 z-10"
+        className="sticky top-0 z-10 safe-top"
         style={{ background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         <div className="flex items-center justify-between px-4" style={{ minHeight: 56 }}>

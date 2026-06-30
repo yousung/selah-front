@@ -88,7 +88,7 @@ export default function MyPlaylistsPage() {
     <div className="min-h-screen" style={{ background: 'var(--surface-0)' }}>
       {/* Header */}
       <header
-        className="sticky top-0 z-20 px-4 flex items-center"
+        className="sticky top-0 z-20 px-4 flex items-center safe-top"
         style={{ minHeight: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         <h1 className="text-base font-semibold" style={{ color: 'var(--ink-0)' }}>내 플레이리스트</h1>

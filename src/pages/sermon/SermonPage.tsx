@@ -397,6 +397,7 @@ export default function SermonPage() {
         background: 'var(--white)',
         borderBottom: '1px solid var(--divider)',
         position: 'sticky', top: 0, zIndex: 10,
+        paddingTop: 'env(safe-area-inset-top)',
       }}>
         <div style={{ minHeight: 56, padding: '0 16px', display: 'flex', alignItems: 'center' }}>
           <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>설교</h1>

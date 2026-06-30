@@ -477,6 +477,7 @@ export default function SermonCategoryPage() {
           background: 'var(--white)',
           borderBottom: '1px solid var(--divider)',
           position: 'sticky', top: 0, zIndex: 10,
+          paddingTop: 'env(safe-area-inset-top)',
         }}>
           <div style={{ padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 80, height: 18, borderRadius: 4, background: 'var(--surface-2)' }} />

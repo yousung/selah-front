@@ -181,7 +181,7 @@ if (!playlist) {
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--surface-0)' }}>
       {/* Header */}
       <header
-        className="sticky top-0 z-20 flex items-center px-2"
+        className="sticky top-0 z-20 flex items-center px-2 safe-top"
         style={{ minHeight: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         <button onClick={() => navigate('/my-playlists')} className="p-2 flex items-center gap-1" style={{ color: 'var(--ink-2)' }}>

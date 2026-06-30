@@ -239,8 +239,8 @@ export default function SettingsPage() {
   return (
     <div className="animate-fade-in">
       <header
-        className="sticky top-0 z-10 flex items-center px-4"
-        style={{ height: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
+        className="sticky top-0 z-10 flex items-center px-4 safe-top"
+        style={{ minHeight: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         <h1 className="text-base font-medium" style={{ color: 'var(--ink-0)' }}>설정</h1>
       </header>

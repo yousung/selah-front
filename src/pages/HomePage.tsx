@@ -332,7 +332,7 @@ export default function HomePage() {
     <div className="animate-fade-in" style={{ paddingBottom: 16 }}>
       {/* AppBar */}
       <header
-        className="sticky top-0 z-10"
+        className="sticky top-0 z-10 safe-top"
         style={{ background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         <div className="flex items-center px-4" style={{ minHeight: 56 }}>

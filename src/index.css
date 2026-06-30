@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* iOS 노치/카메라홀 회피: 최상단 고정 앱바에 상단 safe-area 패딩을 준다.
+   viewport-fit=cover(index.html)와 짝. 노치 없는 기기·데스크탑은 env()=0이라 무영향.
+   헤더 배경이 노치 영역까지 채워지고 콘텐츠는 그 아래로 내려간다. */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
 @layer base {
   *, *::before, *::after {
     -webkit-tap-highlight-color: transparent;

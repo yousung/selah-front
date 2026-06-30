@@ -948,7 +948,7 @@ export default function PlayerPage() {
       )}
       {/* AppBar */}
       <header
-        className="flex items-center justify-between px-2"
+        className="flex items-center justify-between px-2 safe-top"
         style={{ minHeight: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         <button

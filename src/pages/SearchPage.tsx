@@ -156,7 +156,7 @@ export default function SearchPage() {
     <div className="animate-fade-in">
       {/* Sticky header */}
       <header
-        className="sticky top-0 z-10"
+        className="sticky top-0 z-10 safe-top"
         style={{ background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         {/* Search field chips */}

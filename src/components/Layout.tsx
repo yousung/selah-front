@@ -334,8 +334,8 @@ export default function Layout() {
           <div
             style={{
               height: showMini
-                ? "calc(68px + 24px + 64px * var(--font-scale, 1))"
-                : "calc(64px * var(--font-scale, 1))",
+                ? "calc(68px + 24px + 64px * var(--font-scale, 1) + env(safe-area-inset-bottom))"
+                : "calc(64px * var(--font-scale, 1) + env(safe-area-inset-bottom))",
             }}
             className="lg:hidden"
           />
@@ -392,7 +392,7 @@ export default function Layout() {
         {/* ── Universal Floating MiniPlayer ── */}
         {showMini && (
           <div
-            className="fixed z-30 left-4 right-4 bottom-[84px] lg:bottom-6 lg:right-6 lg:left-[264px]"
+            className="fixed z-30 left-4 right-4 bottom-[calc(84px_+_env(safe-area-inset-bottom))] lg:bottom-6 lg:right-6 lg:left-[264px]"
             style={{ filter: "drop-shadow(0 0 0 transparent)" }}
           >
             <MiniPlayer
@@ -426,7 +426,7 @@ export default function Layout() {
               className="fixed z-50 flex items-center justify-end"
               style={{
                 right: 16,
-                bottom: showMini ? 170 + 68 : 80 + 68,
+                bottom: `calc(${showMini ? 170 + 68 : 80 + 68}px + env(safe-area-inset-bottom))`,
                 opacity: fabOpen ? 1 : 0,
                 transform: fabOpen
                   ? "translateY(0) scale(1)"
@@ -486,7 +486,7 @@ export default function Layout() {
               className="fixed z-50 flex items-center justify-end"
               style={{
                 right: 16,
-                bottom: showMini ? 170 + 136 : 80 + 136,
+                bottom: `calc(${showMini ? 170 + 136 : 80 + 136}px + env(safe-area-inset-bottom))`,
                 opacity: fabOpen ? 1 : 0,
                 transform: fabOpen
                   ? "translateY(0) scale(1)"
@@ -556,7 +556,7 @@ export default function Layout() {
               className="fixed z-50 flex items-center justify-center rounded-full transition-transform active:scale-95"
               style={{
                 right: 16,
-                bottom: showMini ? 170 : 80,
+                bottom: `calc(${showMini ? 170 : 80}px + env(safe-area-inset-bottom))`,
                 width: 56,
                 height: 56,
                 background: "var(--primary-700)",
