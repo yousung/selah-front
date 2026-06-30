@@ -117,6 +117,9 @@ function clearMediaSessionMetadata() {
   if (!('mediaSession' in navigator)) return
   navigator.mediaSession.metadata = null
   navigator.mediaSession.playbackState = 'none'
+  if (typeof navigator.mediaSession.setPositionState === 'function') {
+    try { navigator.mediaSession.setPositionState() } catch { /* noop */ }
+  }
 }
 
 function normalizeDbDuration(duration?: number | null) {
@@ -254,6 +257,24 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     return null
   }, [])
 
+  // 잠금화면/Now Playing 재생바를 권위 duration(DB)에 맞춘다. setPositionState를 안 주면
+  // iOS는 element.duration(Safari가 일부 AAC를 2배로 디코드)을 써서 잠금화면 총시간이
+  // 포그라운드(DB값)보다 길어진다 → 끝으로 드래그 시 실제 끝을 넘어 다음곡으로 튄다.
+  const updatePositionState = useCallback((media: HTMLMediaElement) => {
+    if (!('mediaSession' in navigator) || typeof navigator.mediaSession.setPositionState !== 'function') return
+    const duration = durationRef.current
+    if (!Number.isFinite(duration) || duration <= 0) {
+      // 권위 duration 미상 → 잔존 상태 클리어(2배값 노출 방지)
+      try { navigator.mediaSession.setPositionState() } catch { /* noop */ }
+      return
+    }
+    const position = Math.max(0, Math.min(positionRef.current, duration))
+    const playbackRate = media.playbackRate || 1
+    try {
+      navigator.mediaSession.setPositionState({ duration, position, playbackRate })
+    } catch { /* invalid state(예: position>duration 순간) 무시 */ }
+  }, [])
+
   const syncPosition = useCallback((media: HTMLMediaElement) => {
     const knownDuration = durationRef.current
     const currentTime = media.currentTime
@@ -272,12 +293,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setPosition(knownDuration)
       setIsPlaying(false)
       setIsEnded(true)
+      updatePositionState(media)
       return
     }
 
     positionRef.current = currentTime
     setPosition(currentTime)
-  }, [])
+    updatePositionState(media)
+  }, [updatePositionState])
 
   const applySeek = useCallback((media: HTMLMediaElement, seconds: number) => {
     const knownDuration = getKnownDuration(media.duration)
@@ -291,13 +314,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       positionRef.current = target
       setPosition(target)
       setIsEnded(false)
+      updatePositionState(media)
       return true
     } catch {
       pendingSeekRef.current = target
       setIsEnded(false)
       return false
     }
-  }, [getKnownDuration])
+  }, [getKnownDuration, updatePositionState])
 
   const applyPendingSeek = useCallback((media: HTMLMediaElement) => {
     const pending = pendingSeekRef.current
@@ -424,7 +448,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       ['loadedmetadata', () => applyPendingSeek(audio)],
       ['durationchange', () => applyPendingSeek(audio)],
       ['timeupdate', () => syncPosition(audio)],
-      ['play', () => { setIsPlaying(true); setIsLoading(false) }],
+      ['play', () => { setIsPlaying(true); setIsLoading(false); updatePositionState(audio) }],
       ['pause', () => setIsPlaying(false)],
       ['waiting', () => setIsLoading(true)],
       ['canplay', () => { applyPendingSeek(audio); setIsLoading(false) }],
@@ -489,7 +513,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       audio.src = ''
       if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
     }
-  }, [applyPendingSeek, syncPosition, updateActualDuration])
+  }, [applyPendingSeek, syncPosition, updateActualDuration, updatePositionState])
 
   const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number }) => {
     // 비공개 영상: 모든 미디어 요청 차단 + 현재 재생 중인 미디어를 즉시 멈춘다.

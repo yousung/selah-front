@@ -432,6 +432,19 @@ export default function PlayerPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideo?.id])
 
+  // 포그라운드 복귀 동기화: 잠금화면/백그라운드에서 곡이 넘어가면 위 in-flow effect가
+  // 백그라운드 중엔 navigate를 못 해 화면이 이전 곡에 멈춘다. 다시 보이게 될 때
+  // 재생 중인 곡과 URL이 다르면 현재 곡으로 맞춘다.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      if (recentMode || !currentVideo?.id || currentVideo.id === id) return
+      navigate(`${playerBase}/${currentVideo.id}`, { replace: true })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [recentMode, id, currentVideo?.id, navigate, playerBase])
+
   const prevId = queueIndex > 0 ? queueIds[queueIndex - 1] : undefined
   const nextId = queueIndex >= 0 && queueIndex < queueIds.length - 1 ? queueIds[queueIndex + 1] : undefined
   const firstId = queueIds.length > 1 ? queueIds[0] : undefined
