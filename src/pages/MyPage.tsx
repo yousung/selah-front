@@ -63,6 +63,17 @@ export default function MyPage() {
             </svg>
           ),
         },
+        {
+          label: '개인정보 처리방침',
+          sub: '개인정보 처리 기준과 문의 방법',
+          to: '/privacy',
+          icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-700)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="M9 12l2 2 4-5" />
+            </svg>
+          ),
+        },
       ],
     },
   ]

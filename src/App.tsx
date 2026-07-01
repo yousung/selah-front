@@ -14,6 +14,7 @@ import MyPlaylistDetailPage from '@/pages/MyPlaylistDetailPage'
 import SearchPage from '@/pages/SearchPage'
 import RecentPage from '@/pages/RecentPage'
 import SettingsPage from '@/pages/SettingsPage'
+import PrivacyPage from '@/pages/PrivacyPage'
 import Layout from '@/components/Layout'
 import SermonPage from '@/pages/sermon/SermonPage'
 import SermonCategoryPage from '@/pages/sermon/SermonCategoryPage'
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="search" element={<SearchPage />} />
             <Route path="recent" element={<RecentPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="privacy" element={<PrivacyPage />} />
             <Route path="sermon" element={<SermonPage />} />
             <Route path="sermon/category/:id" element={<SermonCategoryPage />} />
             <Route path="memorize" element={<MemorizePage />} />
