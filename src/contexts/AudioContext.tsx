@@ -278,6 +278,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const resumeAudioBoost = useCallback(() => {
+    if (volumeBoostRef.current <= 1) return
+    const ctx = webAudioContextRef.current
+    if (ctx?.state === 'suspended') void ctx.resume().catch(() => {})
+  }, [])
+
   useEffect(() => {
     const audio = audioRef.current
     if (audio) applyAudioVolume(audio, volumeRef.current)
@@ -483,6 +489,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const audio = new Audio()
+    audio.crossOrigin = 'anonymous'
     audio.preload = 'metadata'
     audioRef.current = audio
 
@@ -492,7 +499,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       ['loadedmetadata', () => applyPendingSeek(audio)],
       ['durationchange', () => applyPendingSeek(audio)],
       ['timeupdate', () => syncPosition(audio)],
-      ['play', () => { setIsPlaying(true); setIsLoading(false); updatePositionState(audio) }],
+      ['play', () => { resumeAudioBoost(); setIsPlaying(true); setIsLoading(false); updatePositionState(audio) }],
       ['pause', () => setIsPlaying(false)],
       ['waiting', () => setIsLoading(true)],
       ['canplay', () => { applyPendingSeek(audio); setIsLoading(false) }],
@@ -555,10 +562,15 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       handlers.forEach(([event, handler]) => audio.removeEventListener(event, handler))
       audio.pause()
       audio.src = ''
+      audioSourceNodeRef.current?.disconnect()
+      audioGainNodeRef.current?.disconnect()
       if (webAudioContextRef.current) void webAudioContextRef.current.close().catch(() => {})
+      audioSourceNodeRef.current = null
+      audioGainNodeRef.current = null
+      webAudioContextRef.current = null
       if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
     }
-  }, [applyPendingSeek, syncPosition, updateActualDuration, updatePositionState, applyAudioVolume])
+  }, [applyPendingSeek, syncPosition, updateActualDuration, updatePositionState, applyAudioVolume, resumeAudioBoost])
 
   const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number }) => {
     // 비공개 영상: 모든 미디어 요청 차단 + 현재 재생 중인 미디어를 즉시 멈춘다.
