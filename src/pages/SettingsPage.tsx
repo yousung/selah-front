@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useSettingsStore } from '@/store/settingsStore'
 import type { Theme, AudioQuality, AutoNextDelay, MediaMode, OfflineStorageMode, FontScale } from '@/store/settingsStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
@@ -167,7 +166,6 @@ function ToggleField({ title, description, checked, onChange }: { title: string;
 }
 
 export default function SettingsPage() {
-  const navigate = useNavigate()
   const {
     theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, playbackRate,
     showCatechismHeadings, showCatechismToc,
@@ -430,18 +428,6 @@ export default function SettingsPage() {
             ))}
           </div>
         </SectionBox>
-
-        <button
-          type="button"
-          onClick={() => navigate('/privacy')}
-          className="w-full flex items-center justify-between rounded-[14px] px-4 py-3.5"
-          style={{ background: 'var(--white)', border: '1px solid var(--divider)' }}
-        >
-          <span className="text-sm font-medium" style={{ color: 'var(--ink-0)' }}>개인정보 처리방침</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-            <path d="M9 18l6-6-6-6" />
-          </svg>
-        </button>
 
       </div>
     </div>
