@@ -9,6 +9,7 @@ export type PlayMode = 'single' | 'playlist' | 'repeat' | 'loop'
 export type MediaMode = 'audio' | 'video'
 export type OfflineStorageMode = 'thrift' | 'normal' | 'generous' | 'custom'
 export type FontScale = 1 | 1.5 | 2
+export type VolumeBoost = 1 | 1.25 | 1.5 | 2
 
 interface SettingsState {
   theme: Theme
@@ -18,6 +19,7 @@ interface SettingsState {
   autoNextDelay: AutoNextDelay
   playMode: PlayMode
   playbackRate: number
+  volumeBoost: VolumeBoost
   showCatechismHeadings: boolean
   showCatechismToc: boolean
   offlineStorageMode: OfflineStorageMode
@@ -31,6 +33,7 @@ interface SettingsState {
   setAutoNextDelay: (v: AutoNextDelay) => void
   setPlayMode: (v: PlayMode) => void
   setPlaybackRate: (v: number) => void
+  setVolumeBoost: (v: VolumeBoost) => void
   setShowCatechismHeadings: (enabled: boolean) => void
   setShowCatechismToc: (enabled: boolean) => void
   setOfflineStorageMode: (m: OfflineStorageMode) => void
@@ -49,6 +52,7 @@ export const useSettingsStore = create<SettingsState>()(
       autoNextDelay: 'immediate',
       playMode: 'playlist',
       playbackRate: 1,
+      volumeBoost: 1,
       showCatechismHeadings: true,
       showCatechismToc: true,
       offlineStorageMode: 'normal',
@@ -66,6 +70,7 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoNextDelay: (autoNextDelay) => set({ autoNextDelay }),
       setPlayMode: (playMode) => set({ playMode }),
       setPlaybackRate: (playbackRate) => set({ playbackRate }),
+      setVolumeBoost: (volumeBoost) => set({ volumeBoost }),
       setShowCatechismHeadings: (showCatechismHeadings) => set({ showCatechismHeadings }),
       setShowCatechismToc: (showCatechismToc) => set({ showCatechismToc }),
       setOfflineStorageMode: (offlineStorageMode) => set({ offlineStorageMode }),

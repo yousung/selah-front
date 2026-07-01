@@ -135,6 +135,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const autoNextDelay = useSettingsStore((s) => s.autoNextDelay)
   const playMode = useSettingsStore((s) => s.playMode)
   const playbackRate = useSettingsStore((s) => s.playbackRate)
+  const volumeBoost = useSettingsStore((s) => s.volumeBoost)
   const queueIds = useQueueStore((s) => s.ids)
   const queueIndex = useQueueStore((s) => s.index)
   const setQueue = useQueueStore((s) => s.setQueue)
@@ -148,6 +149,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [autoNextProgress, setAutoNextProgress] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [volume, setVolume] = useState(1)
+  const volumeRef = useRef(1)
+  const volumeBoostRef = useRef(volumeBoost)
+  const webAudioContextRef = useRef<AudioContext | null>(null)
+  const audioSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
+  const audioGainNodeRef = useRef<GainNode | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const currentVideoDataRef = useRef<VideoInfo | null>(null)
   const playVideoRef = useRef<AudioContextValue['playVideo'] | null>(null)
@@ -162,6 +168,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const corruptHandlingRef = useRef(false)
   const isPlayingRef = useRef(false)
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
+  useEffect(() => { volumeBoostRef.current = volumeBoost }, [volumeBoost])
   useEffect(() => { currentVideoDataRef.current = currentVideo }, [currentVideo])
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentVideo) return
@@ -238,6 +245,43 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const isSermon = currentVideoDataRef.current?.type === 'SERMON'
     media.playbackRate = isSermon ? playbackRateRef.current : 1
   }, [])
+
+  const applyAudioVolume = useCallback((audio: HTMLAudioElement, nextVolume = volumeRef.current) => {
+    const boost = volumeBoostRef.current
+    audio.volume = Math.max(0, Math.min(1, nextVolume))
+
+    if (boost <= 1) {
+      if (audioGainNodeRef.current) audioGainNodeRef.current.gain.value = 1
+      return
+    }
+
+    try {
+      if (!webAudioContextRef.current) {
+        const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+        if (!Ctx) return
+        webAudioContextRef.current = new Ctx()
+      }
+      if (!audioGainNodeRef.current) {
+        audioGainNodeRef.current = webAudioContextRef.current.createGain()
+        audioGainNodeRef.current.connect(webAudioContextRef.current.destination)
+      }
+      if (!audioSourceNodeRef.current) {
+        audioSourceNodeRef.current = webAudioContextRef.current.createMediaElementSource(audio)
+        audioSourceNodeRef.current.connect(audioGainNodeRef.current)
+      }
+      audioGainNodeRef.current.gain.value = boost
+      if (webAudioContextRef.current.state === 'suspended') {
+        void webAudioContextRef.current.resume().catch(() => {})
+      }
+    } catch {
+      if (audioGainNodeRef.current) audioGainNodeRef.current.gain.value = 1
+    }
+  }, [])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (audio) applyAudioVolume(audio, volumeRef.current)
+  }, [volumeBoost, applyAudioVolume])
   // 재생 중 설정에서 배속 변경 시 즉시 반영(설교일 때만). currentVideo 의존으로
   // 곡 전환 시에도 재실행돼 정속/배속이 콘텐츠 타입에 맞게 갱신된다.
   useEffect(() => {
@@ -511,9 +555,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       handlers.forEach(([event, handler]) => audio.removeEventListener(event, handler))
       audio.pause()
       audio.src = ''
+      if (webAudioContextRef.current) void webAudioContextRef.current.close().catch(() => {})
       if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
     }
-  }, [applyPendingSeek, syncPosition, updateActualDuration, updatePositionState])
+  }, [applyPendingSeek, syncPosition, updateActualDuration, updatePositionState, applyAudioVolume])
 
   const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number }) => {
     // 비공개 영상: 모든 미디어 요청 차단 + 현재 재생 중인 미디어를 즉시 멈춘다.
@@ -604,7 +649,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
             const audio = audioRef.current
             if (!audio) return
             audio.src = localUrl
-            audio.volume = volume
+            applyAudioVolume(audio, volume)
             applyPlaybackRate(audio)
             if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
             if (!autoPlay) {
@@ -657,7 +702,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         const audio = audioRef.current
         if (!audio) return
         audio.src = data.url
-        audio.volume = volume
+        applyAudioVolume(audio, volume)
         applyPlaybackRate(audio)
         if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
         if (!autoPlay) {
@@ -675,7 +720,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setError('스트림을 불러올 수 없습니다.')
       setIsLoading(false)
     }
-  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog])
+  }, [cancelAutoNext, volume, applyAudioVolume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog])
 
   useEffect(() => {
     playVideoRef.current = playVideo
@@ -788,10 +833,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [seek, getKnownDuration])
 
   const handleSetVolume = useCallback((v: number) => {
-    if (audioRef.current) audioRef.current.volume = v
+    volumeRef.current = v
+    if (audioRef.current) applyAudioVolume(audioRef.current, v)
     if (reactPlayerRef.current) reactPlayerRef.current.volume = v
     setVolume(v)
-  }, [])
+  }, [applyAudioVolume])
 
   // 잠금화면/알림센터 미디어 컨트롤(OS Media Session) 핸들러 등록.
   // 이게 없으면 iOS/Android 잠금화면의 ▶️⏸️⏪⏩ 버튼이 no-op이라, 백그라운드에서

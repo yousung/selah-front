@@ -47,6 +47,7 @@ coverage/
 
 # Misc
 .cache/
+tmp/
 
 # OMC state
 .omc/

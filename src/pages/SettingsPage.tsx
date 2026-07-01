@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
-import type { Theme, AudioQuality, AutoNextDelay, MediaMode, OfflineStorageMode, FontScale } from '@/store/settingsStore'
+import type { Theme, AudioQuality, AutoNextDelay, MediaMode, OfflineStorageMode, FontScale, VolumeBoost } from '@/store/settingsStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
@@ -13,6 +13,13 @@ const PLAYBACK_RATE_OPTIONS: { value: number; label: string }[] = [
   { value: 1, label: '1x' },
   { value: 1.25, label: '1.25x' },
   { value: 1.5, label: '1.5x' },
+]
+
+const VOLUME_BOOST_OPTIONS: { value: VolumeBoost; label: string }[] = [
+  { value: 1, label: '기본' },
+  { value: 1.25, label: '1.25x' },
+  { value: 1.5, label: '1.5x' },
+  { value: 2, label: '2x' },
 ]
 
 const FONT_SCALE_OPTIONS: { value: FontScale; label: string }[] = [
@@ -167,11 +174,11 @@ function ToggleField({ title, description, checked, onChange }: { title: string;
 
 export default function SettingsPage() {
   const {
-    theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, playbackRate,
+    theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, playbackRate, volumeBoost,
     showCatechismHeadings, showCatechismToc,
     offlineStorageMode, autoDownload, fontScale,
     setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay,
-    setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
+    setPlaybackRate, setVolumeBoost, setShowCatechismHeadings, setShowCatechismToc,
     setOfflineStorageMode, setAutoDownload, setFontScale,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
@@ -271,6 +278,12 @@ export default function SettingsPage() {
 
           <Field title="재생 속도" description="설교를 빠르게 들어 시간을 아낄 수 있습니다. 배속은 설교에만 적용되며, 찬송은 항상 정속(원래 속도)으로 재생됩니다.">
             <Segmented value={playbackRate} onChange={setPlaybackRate} options={PLAYBACK_RATE_OPTIONS} />
+          </Field>
+
+          <Field title="볼륨 증폭" description="오디오 모드에서만 적용됩니다. 기기 볼륨이 작게 느껴질 때 소리를 키우며, 너무 높이면 일부 음원이 찢어져 들릴 수 있습니다.">
+            <div style={{ opacity: mediaMode === 'video' ? 0.5 : 1, pointerEvents: mediaMode === 'video' ? 'none' : 'auto' }}>
+              <Segmented value={volumeBoost} onChange={setVolumeBoost} options={VOLUME_BOOST_OPTIONS} />
+            </div>
           </Field>
 
           <ToggleField
