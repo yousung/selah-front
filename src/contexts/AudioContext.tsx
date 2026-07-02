@@ -691,13 +691,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           try {
             const highpass = ctx.createBiquadFilter()
             highpass.type = 'highpass'
-            highpass.frequency.value = 80 // 럼블/험 컷
+            highpass.frequency.value = 100 // 럼블/험 컷(80→100Hz 강화, 저음 악기 영향은 적음)
             highpass.Q.value = 0.707
             const rnnoiseBinary = await loadRnnoise({ url: rnnoiseWasmPath, simdUrl: rnnoiseWasmSimdPath })
             await ctx.audioWorklet.addModule(rnnoiseWorkletPath)
             await ctx.audioWorklet.addModule(noiseGateWorkletPath)
             const rnnoise = new RnnoiseWorkletNode(ctx, { wasmBinary: rnnoiseBinary, maxChannels: 2 })
-            const noiseGate = new NoiseGateWorkletNode(ctx, { openThreshold: -50, closeThreshold: -60, holdMs: 90, maxChannels: 2 })
+            // 임계값을 조여 배경 잡음을 더 적극적으로 제거하되, holdMs를 늘려 말/음 끊김을 방지한다.
+            const noiseGate = new NoiseGateWorkletNode(ctx, { openThreshold: -45, closeThreshold: -55, holdMs: 110, maxChannels: 2 })
             highpassRef.current = highpass
             rnnoiseRef.current = rnnoise
             noiseGateRef.current = noiseGate
