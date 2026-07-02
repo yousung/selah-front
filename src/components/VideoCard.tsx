@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { usePlaylistStore } from '@/store/playlistStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
+import { useSettingsStore } from '@/store/settingsStore'
 import { fs } from '@/lib/fontScale'
 import PlaylistBottomSheet from './PlaylistBottomSheet'
 import HighlightText from './HighlightText'
@@ -138,9 +139,9 @@ function stripBrackets(s: string) {
 export default function VideoCard({ video, onClick, layout = 'card', highlight, isDownloading, selectMode }: Props) {
   const isInAnyPlaylist = usePlaylistStore((s) => s.isInAnyPlaylist)
   const inPlaylist = isInAnyPlaylist(video.id)
-  // 비디오는 오프라인 저장 없음(항상 스트리밍) — 저장 대상은 항상 오디오.
-  // 모드와 무관하게 오디오가 저장돼 있으면 "저장됨" 표시.
-  const isCached = useCachedMediaStore((s) => s.cachedIds.has(`${video.id}-audio`))
+  // 현재 미디어 모드(오디오/비디오)로 저장된 것만 "저장됨" 표시 (키 분리)
+  const mediaMode = useSettingsStore((s) => s.mediaMode)
+  const isCached = useCachedMediaStore((s) => s.cachedIds.has(`${video.id}-${mediaMode}`))
   const isNew = isNewVideo(video.publishedAt)
   const [sheetOpen, setSheetOpen] = useState(false)
   const dur = fmtDuration(video.duration ?? undefined)

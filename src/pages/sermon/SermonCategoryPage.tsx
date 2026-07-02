@@ -117,6 +117,7 @@ export default function SermonCategoryPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const setQueue = useQueueStore((s) => s.setQueue)
+  const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
   const { cachedIds, refresh } = useCachedMediaStore()
   const offlineMediaOk = isOfflineMediaSupported()
@@ -158,8 +159,7 @@ export default function SermonCategoryPage() {
 
   const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
   const total = data?.pages[0]?.total ?? 0
-  // 비디오는 오프라인 다운로드를 지원하지 않는다(항상 스트리밍) — 저장 대상은 항상 오디오.
-  const dlType = 'audio'
+  const dlType = mediaMode === 'video' ? 'video' : 'audio'
 
   const [pendingJumpChapter, setPendingJumpChapter] = useState<number | null>(null)
   const videoRefs = useRef<Map<number, HTMLDivElement>>(new Map())
@@ -424,11 +424,12 @@ export default function SermonCategoryPage() {
         let success = false
         for (let attempt = 0; attempt < 3 && !success && !bulkCancelledRef.current; attempt++) {
           try {
+            const path = dlType === 'video' ? `/videos/${videoId}/download` : `/audios/${videoId}/download`
             const { data } = await api.get<{ url: string; mimeType?: string }>(
-              `/audios/${videoId}/download`,
-              { params: { quality: 'high' } },
+              path,
+              dlType !== 'video' ? { params: { quality: 'high' } } : undefined,
             )
-            await downloadMedia(videoId, data.url, { type: dlType, mimeType: data.mimeType })
+            await downloadMedia(videoId, data.url, { type: dlType as 'audio' | 'video', mimeType: data.mimeType })
             refresh()
             success = true
           } catch {
