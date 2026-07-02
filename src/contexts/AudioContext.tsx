@@ -590,8 +590,17 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       ['loadedmetadata', () => applyPendingSeek(audio)],
       ['durationchange', () => applyPendingSeek(audio)],
       ['timeupdate', () => syncPosition(audio)],
-      ['play', () => { setIsPlaying(true); setIsLoading(false); updatePositionState(audio) }],
-      ['pause', () => setIsPlaying(false)],
+      ['play', () => {
+        if (audio === boostAudioRef.current) audioCtxRef.current?.resume().catch(() => {})
+        setIsPlaying(true); setIsLoading(false); updatePositionState(audio)
+      }],
+      ['pause', () => {
+        setIsPlaying(false)
+        // boost 엘리먼트 일시정지 시 AudioContext를 suspend한다 — 그대로 두면 RNNoise/NoiseGate
+        // 워클릿이 무음 입력을 계속 처리하다 내부 버퍼가 꼬여, 재생을 다시 시작했을 때 직전
+        // 음절이 반복 재생되는(예: "안녕하세요" 중지 시 "녕녕녕녕..." 끊김) 버그가 있었다.
+        if (audio === boostAudioRef.current) audioCtxRef.current?.suspend().catch(() => {})
+      }],
       ['waiting', () => setIsLoading(true)],
       ['canplay', () => { applyPendingSeek(audio); setIsLoading(false) }],
       ['ended', () => {
