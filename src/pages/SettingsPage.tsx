@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
-import type { Theme, AudioQuality, AutoNextDelay, MediaMode, OfflineStorageMode, FontScale } from '@/store/settingsStore'
+import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale } from '@/store/settingsStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
@@ -94,13 +94,6 @@ const QUALITY_OPTIONS: { value: AudioQuality; label: string }[] = [
   { value: 'low', label: '저음질' },
 ]
 
-const AUTO_NEXT_OPTIONS: { value: AutoNextDelay; label: string }[] = [
-  { value: 'immediate', label: '바로' },
-  { value: '3s', label: '3초 후' },
-  { value: '5s', label: '5초 후' },
-  { value: 'off', label: '안함' },
-]
-
 const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string }[] = [
   { value: 'audio', label: '오디오' },
   { value: 'video', label: '비디오' },
@@ -168,12 +161,12 @@ function ToggleField({ title, description, checked, onChange }: { title: string;
 
 export default function SettingsPage() {
   const {
-    theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, playbackRate,
+    theme, quality, mediaMode, playbackRate,
     showCatechismHeadings, showCatechismToc,
-    offlineStorageMode, autoDownload, fontScale, noiseFilter,
-    setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay,
+    offlineStorageMode, fontScale, noiseFilter,
+    setTheme, setQuality, setMediaMode,
     setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
-    setOfflineStorageMode, setAutoDownload, setFontScale, setNoiseFilter,
+    setOfflineStorageMode, setFontScale, setNoiseFilter,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
   const [clearing, setClearing] = useState(false)
@@ -284,17 +277,6 @@ export default function SettingsPage() {
               onChange={() => setNoiseFilter(!noiseFilter)}
             />
           </div>
-
-          <ToggleField
-            title="상세페이지 자동 재생"
-            description="홈에서 영상을 열 때 바로 재생합니다."
-            checked={autoPlayOnDetail}
-            onChange={() => setAutoPlayOnDetail(!autoPlayOnDetail)}
-          />
-
-          <Field title="다음 곡 자동 재생" description="곡이 끝난 뒤 다음 곡으로 넘어가는 시점을 정합니다.">
-            <Segmented value={autoNextDelay} onChange={setAutoNextDelay} options={AUTO_NEXT_OPTIONS} />
-          </Field>
         </SectionBox>
 
         {/* ════════════ 표시 ════════════ */}
@@ -350,15 +332,8 @@ export default function SettingsPage() {
               </Field>
             </div>
 
-            <ToggleField
-              title="자동 다운로드"
-              description="재생을 시작하면 자동으로 기기에 저장합니다. 이미 저장된 콘텐츠는 다음부터 데이터 없이 재생됩니다. Wi-Fi에서 미리 들어 두면 밖에서도 데이터 걱정 없이 즐길 수 있습니다."
-              checked={autoDownload}
-              onChange={() => setAutoDownload(!autoDownload)}
-            />
-
             <Field
-              title="저장된 내용"
+              title="저장된 컨텐츠"
               description={
                 <>
                   {usedBytes != null && usedBytes > 0
@@ -375,7 +350,7 @@ export default function SettingsPage() {
                 style={{ background: 'transparent' }}
               >
                 <span className="text-sm font-medium" style={{ color: clearedMedia ? 'var(--accent-500)' : '#dc2626' }}>
-                  {clearedMedia ? '삭제 완료' : clearingMedia ? '삭제 중...' : '저장된 내용 모두 지우기'}
+                  {clearedMedia ? '삭제 완료' : clearingMedia ? '삭제 중...' : '저장된 컨텐츠 모두 지우기'}
                 </span>
                 {!clearedMedia && !clearingMedia && (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
