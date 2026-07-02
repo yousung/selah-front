@@ -147,16 +147,19 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // boost 그래프가 source→gain→destination까지 완전 연결됐을 때만 true.
   const boostReadyRef = useRef(false)
   // 노이즈 필터(Web Audio) 노드들 — boost 그래프 중간(source→highpass→[rnnoise|gate]→gain)에 삽입.
+  // 2단계(레벨) 지원: highpass 컷오프는 AudioParam이라 동적으로 값만 바꾸면 되지만, NoiseGateWorkletNode의
+  // 임계값은 생성자 전용(동적 변경 불가)이라 레벨별로 별도 인스턴스를 만들어 둔다.
   const srcNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
   const highpassRef = useRef<BiquadFilterNode | null>(null)
-  const rnnoiseRef = useRef<AudioNode | null>(null)   // 설교(speech)용 RNNoise
-  const noiseGateRef = useRef<AudioNode | null>(null) // 찬송 등 음악용 NoiseGate
-  const denoiseReadyRef = useRef(false)               // AudioWorklet+WASM 로드 완료 여부
-  const noiseFilterRef = useRef(false)
+  const rnnoiseRef = useRef<AudioNode | null>(null)     // 설교(speech)용 RNNoise
+  const noiseGateL1Ref = useRef<AudioNode | null>(null) // 찬송 등 음악용 NoiseGate — 1단계(약함)
+  const noiseGateL2Ref = useRef<AudioNode | null>(null) // 찬송 등 음악용 NoiseGate — 2단계(강함)
+  const denoiseReadyRef = useRef(false)                 // AudioWorklet+WASM 로드 완료 여부
+  const noiseFilterLevelRef = useRef<0 | 1 | 2>(0)
   const reactPlayerRef = useRef<HTMLVideoElement | null>(null)
   const videoSlotRef = useRef<HTMLDivElement | null>(null)
   const quality = useSettingsStore((s) => s.quality)
-  const noiseFilter = useSettingsStore((s) => s.noiseFilter)
+  const noiseFilterLevel = useSettingsStore((s) => s.noiseFilterLevel)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const autoNextDelay = useSettingsStore((s) => s.autoNextDelay)
   const playMode = useSettingsStore((s) => s.playMode)
@@ -390,9 +393,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const volumeBoostRef = useRef(currentBoost)
 
   // boost 그래프 배선을 현재 상태(노이즈 필터 on/off, 콘텐츠 타입)에 맞게 재구성한다.
-  //   필터 off: source → gain → 출력
-  //   필터 on : source → highpass(80Hz) → [설교=RNNoise / 그 외=NoiseGate] → gain → 출력
-  // gain→destination은 init에서 고정. src 앞단만 교체한다. denoise 미로드 시엔 필터 off와 동일.
+  //   꺼짐  : source → gain → 출력
+  //   1단계: source → highpass(80Hz) → [설교=RNNoise / 그 외=NoiseGate 약함] → gain → 출력
+  //   2단계: source → highpass(100Hz) → [설교=RNNoise / 그 외=NoiseGate 강함] → gain → 출력
+  // gain→destination은 init에서 고정. src 앞단만 교체한다. denoise 미로드 시엔 꺼짐과 동일.
   const rewireBoostGraph = useCallback(() => {
     const src = srcNodeRef.current
     const gain = gainNodeRef.current
@@ -400,12 +404,15 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     try { src.disconnect() } catch { /* noop */ }
     try { highpassRef.current?.disconnect() } catch { /* noop */ }
     try { rnnoiseRef.current?.disconnect() } catch { /* noop */ }
-    try { noiseGateRef.current?.disconnect() } catch { /* noop */ }
-    const filterOn = noiseFilterRef.current && denoiseReadyRef.current && !!highpassRef.current
+    try { noiseGateL1Ref.current?.disconnect() } catch { /* noop */ }
+    try { noiseGateL2Ref.current?.disconnect() } catch { /* noop */ }
+    const level = noiseFilterLevelRef.current
+    const filterOn = level > 0 && denoiseReadyRef.current && !!highpassRef.current
     if (filterOn) {
       const hp = highpassRef.current!
+      hp.frequency.value = level === 2 ? 100 : 80
       const isSermon = currentVideoDataRef.current?.type === 'SERMON'
-      const denoise = isSermon ? rnnoiseRef.current : noiseGateRef.current
+      const denoise = isSermon ? rnnoiseRef.current : (level === 2 ? noiseGateL2Ref.current : noiseGateL1Ref.current)
       src.connect(hp)
       if (denoise) { hp.connect(denoise); denoise.connect(gain) }
       else hp.connect(gain)
@@ -453,7 +460,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // 대신 재생 중엔 Screen Wake Lock으로 화면 자동 꺼짐만 방지한다.
   const pickAudioEl = useCallback((cached: boolean): HTMLAudioElement => {
     if (mediaModeRef.current !== 'audio') return plainAudioRef.current ?? plainAudioRef.current!
-    const useWebAudio = cached && boostReadyRef.current && (volumeBoostRef.current > 1 || noiseFilterRef.current)
+    const useWebAudio = cached && boostReadyRef.current && (volumeBoostRef.current > 1 || noiseFilterLevelRef.current > 0)
     return (useWebAudio ? boostAudioRef.current : plainAudioRef.current) ?? plainAudioRef.current!
   }, [])
 
@@ -465,10 +472,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   //  - 그 외(엘리먼트 스왑 필요): 현재 위치 유지한 채 재생을 다시 걸어 올바른 엘리먼트로 옮긴다.
   useEffect(() => {
     volumeBoostRef.current = currentBoost
-    noiseFilterRef.current = noiseFilter
+    noiseFilterLevelRef.current = noiseFilterLevel
     if (mediaModeRef.current !== 'audio') return
     const onBoostEl = audioRef.current != null && audioRef.current === boostAudioRef.current
-    const wantsWebAudio = currentBoost > 1 || noiseFilter
+    const wantsWebAudio = currentBoost > 1 || noiseFilterLevel > 0
     if (onBoostEl && wantsWebAudio) { applyBoost(); rewireBoostGraph(); return }
     if (!onBoostEl && !wantsWebAudio) return
     if (boostReadyRef.current && localPlaybackRef.current && currentVideoDataRef.current) {
@@ -478,7 +485,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         seekTo: positionRef.current,
       })
     }
-  }, [currentBoost, noiseFilter, applyBoost, rewireBoostGraph])
+  }, [currentBoost, noiseFilterLevel, applyBoost, rewireBoostGraph])
 
   const cancelAutoNext = useCallback(() => {
     if (autoNextTimerRef.current) {
@@ -700,17 +707,20 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           try {
             const highpass = ctx.createBiquadFilter()
             highpass.type = 'highpass'
-            highpass.frequency.value = 100 // 럼블/험 컷(80→100Hz 강화, 저음 악기 영향은 적음)
+            highpass.frequency.value = 80 // 기본값(1단계) — rewireBoostGraph가 레벨에 맞춰 매번 덮어씀
             highpass.Q.value = 0.707
             const rnnoiseBinary = await loadRnnoise({ url: rnnoiseWasmPath, simdUrl: rnnoiseWasmSimdPath })
             await ctx.audioWorklet.addModule(rnnoiseWorkletPath)
             await ctx.audioWorklet.addModule(noiseGateWorkletPath)
             const rnnoise = new RnnoiseWorkletNode(ctx, { wasmBinary: rnnoiseBinary, maxChannels: 2 })
-            // 임계값을 조여 배경 잡음을 더 적극적으로 제거하되, holdMs를 늘려 말/음 끊김을 방지한다.
-            const noiseGate = new NoiseGateWorkletNode(ctx, { openThreshold: -45, closeThreshold: -55, holdMs: 110, maxChannels: 2 })
+            // 1단계(약함): 원래 값. 2단계(강함): 임계값을 조이고 holdMs를 늘려 잡음을 더 적극적으로
+            // 제거하되 말/음 끊김은 방지한다 — 대신 저음 목소리가 잘릴 수 있다(설정 화면 경고).
+            const noiseGateL1 = new NoiseGateWorkletNode(ctx, { openThreshold: -50, closeThreshold: -60, holdMs: 90, maxChannels: 2 })
+            const noiseGateL2 = new NoiseGateWorkletNode(ctx, { openThreshold: -45, closeThreshold: -55, holdMs: 110, maxChannels: 2 })
             highpassRef.current = highpass
             rnnoiseRef.current = rnnoise
-            noiseGateRef.current = noiseGate
+            noiseGateL1Ref.current = noiseGateL1
+            noiseGateL2Ref.current = noiseGateL2
             denoiseReadyRef.current = true
             rewireBoostGraph() // 필터가 이미 on이고 boost 엘리먼트 재생 중이면 즉시 반영
           } catch { /* denoise 로드 실패 → 필터만 비활성 */ }
@@ -740,7 +750,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         boostReady: boostReadyRef.current,
         cached: !!localPlaybackRef.current,
         boost: volumeBoostRef.current,
-        noiseFilter: noiseFilterRef.current,
+        noiseFilterLevel: noiseFilterLevelRef.current,
         denoiseReady: denoiseReadyRef.current,
       })
     }
@@ -912,7 +922,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // Invidious 프록시, CORS 허용). 보통(1)이고 필터 off면 다운로드를 기다리지 않고 곧바로
     // 스트리밍한다(긴 설교도 대기 없음). 스트림은 cross-origin이라 증폭 불가 → plain 엘리먼트.
     // 여기 도달 = 위 캐시 히트 블록의 미스(미저장/미지원/force-stream).
-    const wantCache = volumeBoostRef.current > 1 || noiseFilterRef.current
+    const wantCache = volumeBoostRef.current > 1 || noiseFilterLevelRef.current > 0
     const audioCacheKey = `${video.id}-audio`
     let localAudioUrl: string | null = null
     let streamUrl: string | null = null

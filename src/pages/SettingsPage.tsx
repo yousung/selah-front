@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
-import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale } from '@/store/settingsStore'
+import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale, NoiseFilterLevel } from '@/store/settingsStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
@@ -98,6 +98,12 @@ const QUALITY_OPTIONS: { value: AudioQuality; label: string }[] = [
   { value: 'low', label: '저음질' },
 ]
 
+const NOISE_FILTER_LEVEL_OPTIONS: { value: NoiseFilterLevel; label: string }[] = [
+  { value: 0, label: '꺼짐' },
+  { value: 1, label: '1단계' },
+  { value: 2, label: '2단계' },
+]
+
 const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string }[] = [
   { value: 'audio', label: '오디오' },
   { value: 'video', label: '비디오' },
@@ -167,10 +173,10 @@ export default function SettingsPage() {
   const {
     theme, quality, mediaMode, playbackRate,
     showCatechismHeadings, showCatechismToc,
-    offlineStorageMode, fontScale, noiseFilter,
+    offlineStorageMode, fontScale, noiseFilterLevel,
     setTheme, setQuality, setMediaMode,
     setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
-    setOfflineStorageMode, setFontScale, setNoiseFilter,
+    setOfflineStorageMode, setFontScale, setNoiseFilterLevel,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
   const [clearing, setClearing] = useState(false)
@@ -192,10 +198,10 @@ export default function SettingsPage() {
   const [showIOSToast, setShowIOSToast] = useState(false)
   const offlineMediaOk = isOfflineMediaSupported()
 
-  // 꺼짐 → 켜짐으로 처음 넘어가는 순간에만 iOS 안내 토스트를 띄운다.
-  const handleToggleNoiseFilter = () => {
-    if (!noiseFilter && isIOS()) setShowIOSToast(true)
-    setNoiseFilter(!noiseFilter)
+  // 꺼짐(0) → 1/2단계로 처음 넘어가는 순간에만 iOS 안내 토스트를 띄운다.
+  const handleChangeNoiseFilterLevel = (level: NoiseFilterLevel) => {
+    if (noiseFilterLevel === 0 && level > 0 && isIOS()) setShowIOSToast(true)
+    setNoiseFilterLevel(level)
   }
 
   // 앱 버전 5회 연속 탭 → 디버그 오버레이 토글 (사용자 진단용 숨김 기능)
@@ -282,14 +288,21 @@ export default function SettingsPage() {
           </Field>
 
           <div style={mediaMode === 'video' ? { opacity: 0.5, pointerEvents: 'none' } : undefined}>
-            <ToggleField
+            <Field
               title="노이즈 필터"
-              description={mediaMode === 'video'
-                ? '오디오 모드에서만 적용됩니다.'
-                : '배경 잡음과 험(저음 웅웅거림)을 줄입니다. 설교는 음성에 최적화된 필터, 찬송은 음악을 해치지 않는 필터가 자동으로 적용됩니다. 다운로드(저장)된 곡에 적용됩니다.'}
-              checked={noiseFilter}
-              onChange={handleToggleNoiseFilter}
-            />
+              description={mediaMode === 'video' ? '오디오 모드에서만 적용됩니다.' : (
+                <>
+                  배경 잡음과 험(저음 웅웅거림)을 줄입니다. 설교는 음성에 최적화된 필터, 찬송은 음악을 해치지 않는 필터가 자동으로 적용됩니다. 다운로드(저장)된 곡에 적용됩니다.
+                  {noiseFilterLevel === 2 && (
+                    <span style={{ display: 'block', marginTop: 6, color: '#dc2626', fontWeight: 600 }}>
+                      ⚠ 2단계는 잡음 제거가 강해 저음 목소리도 함께 잘릴 수 있습니다.
+                    </span>
+                  )}
+                </>
+              )}
+            >
+              <Segmented value={noiseFilterLevel} onChange={handleChangeNoiseFilterLevel} options={NOISE_FILTER_LEVEL_OPTIONS} />
+            </Field>
           </div>
         </SectionBox>
 

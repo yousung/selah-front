@@ -9,6 +9,8 @@ export type PlayMode = 'single' | 'playlist' | 'repeat' | 'loop'
 export type MediaMode = 'audio' | 'video'
 export type OfflineStorageMode = 'thrift' | 'normal' | 'generous' | 'custom'
 export type FontScale = 1 | 1.5 | 2
+// 0=꺼짐, 1=1단계(약함), 2=2단계(강함, 저음 목소리가 잘릴 수 있음)
+export type NoiseFilterLevel = 0 | 1 | 2
 
 interface SettingsState {
   theme: Theme
@@ -24,9 +26,9 @@ interface SettingsState {
   offlineStorageCustomMB: number
   autoDownload: boolean
   fontScale: FontScale
-  // 노이즈 필터(Web Audio 증폭 경로에 highpass + RNNoise/NoiseGate). 전역 on/off. 기본 off.
+  // 노이즈 필터(Web Audio 증폭 경로에 highpass + RNNoise/NoiseGate). 전역 3단계(꺼짐/1/2). 기본 꺼짐.
   // 오디오 모드 + 다운로드(저장)된 곡에만 적용된다(비디오 모드에서는 동작하지 않음).
-  noiseFilter: boolean
+  noiseFilterLevel: NoiseFilterLevel
   setTheme: (t: Theme) => void
   setQuality: (q: AudioQuality) => void
   setMediaMode: (m: MediaMode) => void
@@ -40,7 +42,7 @@ interface SettingsState {
   setOfflineStorageCustomMB: (mb: number) => void
   setAutoDownload: (v: boolean) => void
   setFontScale: (v: FontScale) => void
-  setNoiseFilter: (v: boolean) => void
+  setNoiseFilterLevel: (v: NoiseFilterLevel) => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -59,7 +61,7 @@ export const useSettingsStore = create<SettingsState>()(
       offlineStorageCustomMB: 1024,
       autoDownload: true,
       fontScale: 1,
-      noiseFilter: false,
+      noiseFilterLevel: 0,
       setTheme: (theme) => set({ theme }),
       setQuality: (quality) => set({ quality }),
       setMediaMode: (mediaMode) => set((s) => {
@@ -77,7 +79,7 @@ export const useSettingsStore = create<SettingsState>()(
       setOfflineStorageCustomMB: (mb) => set({ offlineStorageCustomMB: Math.min(2048, Math.max(1, mb)) }),
       setAutoDownload: (autoDownload) => set({ autoDownload }),
       setFontScale: (fontScale) => set({ fontScale }),
-      setNoiseFilter: (noiseFilter) => set({ noiseFilter }),
+      setNoiseFilterLevel: (noiseFilterLevel) => set({ noiseFilterLevel }),
     }),
     {
       name: 'selah-settings',
