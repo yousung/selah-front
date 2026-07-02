@@ -7,6 +7,10 @@ import { useAudio } from '@/contexts/AudioContext'
 import { fs } from '@/lib/fontScale'
 import { bumpImageCacheBust } from '@/lib/thumb'
 import { VOLUME_BOOST_STORAGE_KEY } from '@/store/volumeBoostStore'
+import { isIOS } from '@/lib/platform'
+import Toast from '@/components/Toast'
+
+const IOS_BACKGROUND_LIMIT_MESSAGE = '아이폰에서는 부스터·필터 사용 중 백그라운드·잠금화면으로 넘어가면 재생이 정지됩니다.'
 
 const PLAYBACK_RATE_OPTIONS: { value: number; label: string }[] = [
   { value: 0.5, label: '0.5x' },
@@ -185,7 +189,14 @@ export default function SettingsPage() {
   const [clearedMedia, setClearedMedia] = useState(false)
   const [usedBytes, setUsedBytes] = useState<number | null>(null)
   const [versionTaps, setVersionTaps] = useState(0)
+  const [showIOSToast, setShowIOSToast] = useState(false)
   const offlineMediaOk = isOfflineMediaSupported()
+
+  // 꺼짐 → 켜짐으로 처음 넘어가는 순간에만 iOS 안내 토스트를 띄운다.
+  const handleToggleNoiseFilter = () => {
+    if (!noiseFilter && isIOS()) setShowIOSToast(true)
+    setNoiseFilter(!noiseFilter)
+  }
 
   // 앱 버전 5회 연속 탭 → 디버그 오버레이 토글 (사용자 진단용 숨김 기능)
   const handleVersionTap = () => {
@@ -232,6 +243,9 @@ export default function SettingsPage() {
 
   return (
     <div className="animate-fade-in">
+      {showIOSToast && (
+        <Toast message={IOS_BACKGROUND_LIMIT_MESSAGE} onClose={() => setShowIOSToast(false)} />
+      )}
       <header
         className="sticky top-0 z-10 flex items-center px-4 safe-top"
         style={{ minHeight: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
@@ -274,7 +288,7 @@ export default function SettingsPage() {
                 ? '오디오 모드에서만 적용됩니다.'
                 : '배경 잡음과 험(저음 웅웅거림)을 줄입니다. 설교는 음성에 최적화된 필터, 찬송은 음악을 해치지 않는 필터가 자동으로 적용됩니다. 다운로드(저장)된 곡에 적용됩니다.'}
               checked={noiseFilter}
-              onChange={() => setNoiseFilter(!noiseFilter)}
+              onChange={handleToggleNoiseFilter}
             />
           </div>
         </SectionBox>

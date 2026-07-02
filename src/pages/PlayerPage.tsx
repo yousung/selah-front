@@ -19,6 +19,10 @@ import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useVolumeBoostStore, VOLUME_BOOST_MIN, VOLUME_BOOST_MAX } from '@/store/volumeBoostStore'
 import { fs } from '@/lib/fontScale'
 import { shareSongToKakao, shareSermonToKakao } from '@/lib/kakaoShare'
+import { isIOS } from '@/lib/platform'
+import Toast from '@/components/Toast'
+
+const IOS_BACKGROUND_LIMIT_MESSAGE = '아이폰에서는 부스터·필터 사용 중 백그라운드·잠금화면으로 넘어가면 재생이 정지됩니다.'
 
 interface Video {
   id: string
@@ -328,13 +332,23 @@ function BoostIcon({ boosted }: { boosted: boolean }) {
  */
 function BoostControl({ videoId }: { videoId: string }) {
   const boost = useVolumeBoostStore((s) => s.boosts[videoId] ?? VOLUME_BOOST_MIN)
-  const setBoost = useVolumeBoostStore((s) => s.setBoost)
+  const setBoostRaw = useVolumeBoostStore((s) => s.setBoost)
   const [open, setOpen] = useState(false)
+  const [showIOSToast, setShowIOSToast] = useState(false)
   const boosted = boost > VOLUME_BOOST_MIN
   const pct = ((boost - VOLUME_BOOST_MIN) / (VOLUME_BOOST_MAX - VOLUME_BOOST_MIN)) * 100
 
+  // 보통(꺼짐) → 증폭(켜짐)으로 처음 넘어가는 순간에만 iOS 안내 토스트를 띄운다(드래그 중 반복 노출 방지).
+  const setBoost = useCallback((id: string, v: number) => {
+    if (boost <= VOLUME_BOOST_MIN && v > VOLUME_BOOST_MIN && isIOS()) setShowIOSToast(true)
+    setBoostRaw(id, v)
+  }, [boost, setBoostRaw])
+
   return (
     <div className="relative">
+      {showIOSToast && (
+        <Toast message={IOS_BACKGROUND_LIMIT_MESSAGE} onClose={() => setShowIOSToast(false)} />
+      )}
       {open && (
         <>
           {/* 외부 탭 시 닫기 */}
