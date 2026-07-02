@@ -153,6 +153,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const noiseGateRef = useRef<AudioNode | null>(null) // 찬송 등 음악용 NoiseGate
   const denoiseReadyRef = useRef(false)               // AudioWorklet+WASM 로드 완료 여부
   const noiseFilterRef = useRef(false)
+  // 백그라운드/잠금화면 중엔 true — pickAudioEl이 증폭·필터 설정과 무관하게 plain 엘리먼트를 강제
+  const backgroundOverrideRef = useRef(false)
   const reactPlayerRef = useRef<HTMLVideoElement | null>(null)
   const videoSlotRef = useRef<HTMLDivElement | null>(null)
   const quality = useSettingsStore((s) => s.quality)
@@ -200,6 +202,31 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (!('mediaSession' in navigator) || !currentVideo) return
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
   }, [currentVideo, isPlaying])
+  // 재생 중 화면 자동잠금 방지(Screen Wake Lock). 지원 브라우저(iOS 16.4+ 등)에 한해 동작하며,
+  // 사용자가 직접 전원버튼으로 잠그거나 앱을 백그라운드로 보내는 것은 막지 못한다(스펙상 탭이
+  // hidden되면 잠금 자동 해제) — "자동 화면 꺼짐"만 방지한다. 탭이 다시 visible되면 재생 중일 때
+  // 재요청한다.
+  useEffect(() => {
+    if (!('wakeLock' in navigator)) return
+    let sentinel: WakeLockSentinel | null = null
+    let cancelled = false
+    const acquire = async () => {
+      if (!isPlaying || document.visibilityState !== 'visible') return
+      try {
+        sentinel = await navigator.wakeLock.request('screen')
+        if (cancelled) { sentinel.release().catch(() => {}); sentinel = null }
+      } catch { /* 미지원/거부 — 무시 */ }
+    }
+    void acquire()
+    const onVisible = () => { if (document.visibilityState === 'visible') void acquire() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisible)
+      sentinel?.release().catch(() => {})
+      sentinel = null
+    }
+  }, [isPlaying])
   // ── 설교(SERMON) 재생위치 전역 저장: 5초마다 videoId별 맵에 기록 ──
   // PlayerPage가 아닌 전역(AudioContext)에 두어 미니재생바 상태에서도 기록되게 한다.
   // 끝나기 30초 전 이후면 다 들은 것으로 보고 해당 설교 위치를 삭제한다.
@@ -445,7 +472,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   // 이 재생에 쓸 오디오 엘리먼트. cached(same-origin) && boost 준비됨 && (배율>1 || 노이즈 필터)이면
   // boost 엘리먼트(Web Audio 경유), 그 외(스트림/보통&필터off/미지원)는 plain 엘리먼트.
+  // backgroundOverrideRef가 true면(잠금화면/백그라운드 중) 설정과 무관하게 강제로 plain을 쓴다 —
+  // iOS가 Web Audio 그래프를 백그라운드에서 끊는 문제를 피해 재생이 안 끊기게 하기 위함.
   const pickAudioEl = useCallback((cached: boolean): HTMLAudioElement => {
+    if (backgroundOverrideRef.current) return plainAudioRef.current ?? plainAudioRef.current!
     const useWebAudio = cached && boostReadyRef.current && (volumeBoostRef.current > 1 || noiseFilterRef.current)
     return (useWebAudio ? boostAudioRef.current : plainAudioRef.current) ?? plainAudioRef.current!
   }, [])
@@ -710,6 +740,42 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     window.addEventListener('touchend', unlockCtx)
     window.addEventListener('keydown', unlockCtx)
 
+    // iOS WKWebView는 boost 엘리먼트(Web Audio API 경유) 재생 중 화면 잠금/백그라운드 전환 시
+    // AudioContext를 강제 suspend하고 재생을 끊는 경우가 있다(WebKit 알려진 버그, plain <audio>는
+    // 영향받지 않음). 대신 백그라운드로 갈 때 증폭/노이즈필터를 잠깐 끄고(plain 엘리먼트로 스왑)
+    // 재생이 안 끊기게 하며, 포그라운드로 돌아오면 설정대로 다시 켠다(boost 엘리먼트로 재스왑).
+    const handleVisibility = () => {
+      const video = currentVideoDataRef.current
+      if (document.visibilityState === 'hidden') {
+        const onBoostEl = audioRef.current != null && audioRef.current === boostAudioRef.current
+        if (onBoostEl) {
+          backgroundOverrideRef.current = true
+          if (video && localPlaybackRef.current) {
+            void playVideoRef.current?.(video, { autoPlay: isPlayingRef.current, skipRecentAdd: true, seekTo: positionRef.current })
+          }
+        }
+        return
+      }
+      // visible로 복귀
+      if (backgroundOverrideRef.current) {
+        backgroundOverrideRef.current = false
+        const wantsWebAudio = volumeBoostRef.current > 1 || noiseFilterRef.current
+        if (wantsWebAudio && video && localPlaybackRef.current) {
+          void playVideoRef.current?.(video, { autoPlay: isPlayingRef.current, skipRecentAdd: true, seekTo: positionRef.current })
+          return
+        }
+      }
+      // 스왑이 필요 없던 경우(원래 plain 재생 등) — 혹시 끊겼으면 재개만 시도
+      const audio = audioRef.current
+      if (audio === boostAudioRef.current) audioCtxRef.current?.resume().catch(() => {})
+      if (audio && audio.paused && isPlayingRef.current) audio.play().catch(() => {})
+      const reactVideo = reactPlayerRef.current
+      if (reactVideo && dualTrackActiveRef.current && reactVideo.paused && isPlayingRef.current) reactVideo.play().catch(() => {})
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('pageshow', handleVisibility)
+    window.addEventListener('focus', handleVisibility)
+
     // DEV 전용 진단: 콘솔에서 window.__boost()로 증폭 경로 상태 확인(프로덕션 빌드에서 제거됨).
     if (import.meta.env.DEV) {
       (window as unknown as { __boost?: () => unknown }).__boost = () => ({
@@ -728,6 +794,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('pointerdown', unlockCtx)
       window.removeEventListener('touchend', unlockCtx)
       window.removeEventListener('keydown', unlockCtx)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('pageshow', handleVisibility)
+      window.removeEventListener('focus', handleVisibility)
       plainHandlers.forEach(([event, handler]) => plain.removeEventListener(event, handler))
       boostHandlers.forEach(([event, handler]) => boost.removeEventListener(event, handler))
       plain.pause(); plain.src = ''
