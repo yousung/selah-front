@@ -724,8 +724,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
             await ctx.audioWorklet.addModule(noiseGateWorkletPath)
             const rnnoise = new RnnoiseWorkletNode(ctx, { wasmBinary: rnnoiseBinary, maxChannels: 2 })
             // 2단계 전용 — RNNoise 뒤에 이중으로 얹어 잡음을 더 적극적으로 제거한다.
-            // 대신 저음 목소리가 잘릴 수 있다(설정 화면 경고).
-            const noiseGateStrong = new NoiseGateWorkletNode(ctx, { openThreshold: -45, closeThreshold: -55, holdMs: 110, maxChannels: 2 })
+            // openThreshold를 낮춰 조용한 음절도 게이트가 쉽게 열리게 하고, holdMs를 늘려
+            // 말끝(어미)이 게이트 닫힘에 잘리지 않도록 여유를 준다(과거 -45/-55/110ms은 너무 공격적).
+            const noiseGateStrong = new NoiseGateWorkletNode(ctx, { openThreshold: -55, closeThreshold: -65, holdMs: 250, maxChannels: 2 })
             highpassRef.current = highpass
             rnnoiseRef.current = rnnoise
             noiseGateStrongRef.current = noiseGateStrong
