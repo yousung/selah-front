@@ -16,6 +16,7 @@ import { getSermonResume, clearSermonResume, type SermonResumeData } from '@/lib
 import { downloadMedia, isMediaCached, isOfflineMediaSupported, cancelDownload, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
 import type { MediaCorruptDetail } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
+import { useVolumeBoostStore, VOLUME_BOOST_MIN, VOLUME_BOOST_MAX } from '@/store/volumeBoostStore'
 import { fs } from '@/lib/fontScale'
 import { shareSongToKakao, shareSermonToKakao } from '@/lib/kakaoShare'
 
@@ -308,6 +309,99 @@ function extractChapter(title: string): number {
   return m ? parseInt(m[1]) : 0
 }
 
+/** 볼륨 증폭 아이콘 — 스피커 + 음파 2줄(증폭 시 두 음파 모두 진하게, 보통 시 바깥 음파 흐리게) */
+function BoostIcon({ boosted }: { boosted: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9.5v5h3l4.5 3.5v-12L7 9.5H4z" fill="currentColor" stroke="none" />
+      <path d="M15.5 9a4.2 4.2 0 0 1 0 6" opacity={0.95} />
+      <path d="M18.3 6.5a8 8 0 0 1 0 11" opacity={boosted ? 0.95 : 0.4} />
+    </svg>
+  )
+}
+
+/**
+ * 곡별 볼륨 증폭 컨트롤(수동) — 플레이어 하단 좌측. 노이즈 필터 옆.
+ * 보통(1)이면 흐린 아이콘, 증폭 중이면 primary색 + "N.N배" 라벨. 탭하면 슬라이더 팝오버.
+ * 값은 video.id별로 저장(useVolumeBoostStore) — 캐시 삭제에도 보존된다.
+ */
+function BoostControl({ videoId }: { videoId: string }) {
+  const boost = useVolumeBoostStore((s) => s.boosts[videoId] ?? VOLUME_BOOST_MIN)
+  const setBoost = useVolumeBoostStore((s) => s.setBoost)
+  const [open, setOpen] = useState(false)
+  const boosted = boost > VOLUME_BOOST_MIN
+  const pct = ((boost - VOLUME_BOOST_MIN) / (VOLUME_BOOST_MAX - VOLUME_BOOST_MIN)) * 100
+
+  return (
+    <div className="relative">
+      {open && (
+        <>
+          {/* 외부 탭 시 닫기 */}
+          <div className="fixed inset-0 z-[40]" onClick={() => setOpen(false)} />
+          {/* 팝오버 카드 */}
+          <div
+            className="absolute bottom-full left-0 mb-3 z-[50] animate-fade-in"
+            style={{ width: 'min(264px, calc(100vw - 40px))' }}
+          >
+            <div
+              className="rounded-[14px] px-3.5 py-3"
+              style={{ background: 'var(--surface-0)', border: '1px solid var(--divider)', boxShadow: '0 10px 30px rgba(0,0,0,0.16)' }}
+            >
+              <div className="flex items-center justify-between mb-2.5">
+                <span style={{ color: 'var(--ink-1)', fontSize: fs(13), fontWeight: 600 }}>볼륨 증폭</span>
+                <span style={{ color: boosted ? 'var(--primary-700)' : 'var(--ink-3)', fontSize: fs(14), fontWeight: 700 }}>
+                  {boosted ? `${boost.toFixed(1)}배` : '보통'}
+                </span>
+              </div>
+              {/* 슬라이더 (seek바와 동일 오버레이 패턴) */}
+              <div className="relative flex items-center" style={{ height: 22 }}>
+                <div className="relative w-full" style={{ height: 5, borderRadius: 999, background: 'var(--surface-2)' }}>
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${pct}%`, background: 'var(--primary-700)', borderRadius: 999 }} />
+                  <div style={{ position: 'absolute', top: '50%', left: `${pct}%`, transform: 'translate(-50%, -50%)', width: 16, height: 16, borderRadius: '50%', background: 'var(--surface-0)', border: '2px solid var(--primary-700)', boxShadow: '0 1px 3px rgba(0,0,0,0.22)' }} />
+                  <input
+                    type="range" min={VOLUME_BOOST_MIN} max={VOLUME_BOOST_MAX} step={0.1} value={boost}
+                    onChange={(e) => setBoost(videoId, Number(e.target.value))}
+                    className="absolute inset-0 w-full cursor-pointer"
+                    style={{ height: '100%', opacity: 0, margin: 0, padding: 0 }}
+                    aria-label="볼륨 증폭 배율"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 mt-2.5 flex-wrap">
+                <span style={{ color: 'var(--ink-3)', fontSize: fs(11), lineHeight: fs(15) }}>이 곡에만 저장돼요</span>
+                <button
+                  type="button"
+                  onClick={() => setBoost(videoId, VOLUME_BOOST_MIN)}
+                  disabled={!boosted}
+                  style={{ color: boosted ? 'var(--primary-700)' : 'var(--ink-3)', fontSize: fs(12), fontWeight: 600, opacity: boosted ? 1 : 0.45 }}
+                >
+                  보통으로
+                </button>
+              </div>
+            </div>
+            {/* 버튼을 가리키는 아래 화살표 */}
+            <div style={{ position: 'absolute', top: '100%', left: 18, marginTop: -1, width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid var(--surface-0)' }} />
+          </div>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-70 active:scale-95"
+        style={{
+          padding: boosted ? '6px 11px 6px 9px' : 8,
+          background: boosted ? 'rgba(61,107,68,0.12)' : 'transparent',
+          color: boosted ? 'var(--primary-700)' : 'var(--ink-3)',
+        }}
+        aria-label="볼륨 증폭"
+      >
+        <BoostIcon boosted={boosted} />
+        {boosted && <span style={{ fontSize: fs(12), fontWeight: 700, lineHeight: fs(16) }}>{boost.toFixed(1)}배</span>}
+      </button>
+    </div>
+  )
+}
+
 export default function PlayerPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -330,7 +424,8 @@ export default function PlayerPage() {
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
   const autoDownload = useSettingsStore((s) => s.autoDownload)
-  const mediaType = mediaMode === 'video' ? 'video' : 'audio'
+  // 비디오는 오프라인 다운로드를 지원하지 않는다(항상 스트리밍) — 저장 대상은 항상 오디오.
+  const mediaType = 'audio'
   const mediaCacheKey = id ? `${id}-${mediaType}` : null
   const isCachedInStore = useCachedMediaStore((s) => !!mediaCacheKey && s.cachedIds.has(mediaCacheKey))
   const {
@@ -348,14 +443,15 @@ export default function PlayerPage() {
   const offlineMediaOk = isOfflineMediaSupported()
   const isDraggingRef = useRef(false)
   const dragValueRef = useRef<number | null>(null)
-  const hasPlayedRef = useRef(false)
+  // 재생을 트리거한 트랙 id를 기록한다. 같은 id면 재트리거하지 않아 StrictMode 이중 mount·
+  // react-query 캐시 선점·playVideo identity churn에도 /stream 요청이 트랙당 1회만 나간다.
+  const playTriggeredIdRef = useRef<string | null>(null)
   // 특정 설교 직접 진입 시 "이어서/처음부터" 팝업 상태. pending이 true면 자동재생을 보류한다.
   const [sermonResumeChoice, setSermonResumeChoice] = useState<SermonResumeData | null>(null)
   const sermonResumePendingRef = useRef(false)
 
   useEffect(() => {
     setDragValue(null)
-    hasPlayedRef.current = false
     // 다른 설교로 이동 시 이전 팝업/보류 상태를 초기화(스테일 방지).
     sermonResumePendingRef.current = false
     setSermonResumeChoice(null)
@@ -545,13 +641,13 @@ export default function PlayerPage() {
   useEffect(() => {
     if (!video) return
     if (video.isSecret) return
-    if (hasPlayedRef.current) return
+    if (playTriggeredIdRef.current === video.id) return
     if (sermonResumePendingRef.current) return
     if (currentVideo?.id === video.id) {
-      hasPlayedRef.current = true
+      playTriggeredIdRef.current = video.id
       return
     }
-    hasPlayedRef.current = true
+    playTriggeredIdRef.current = video.id
     playVideo(
       {
         id: video.id,
@@ -574,7 +670,7 @@ export default function PlayerPage() {
   const handleSermonResumeContinue = useCallback(() => {
     if (!video || !sermonResumeChoice) return
     sermonResumePendingRef.current = false
-    hasPlayedRef.current = true
+    playTriggeredIdRef.current = video.id
     playVideo(
       {
         id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag,
@@ -593,7 +689,7 @@ export default function PlayerPage() {
     if (!video) return
     clearSermonResume(video.id)
     sermonResumePendingRef.current = false
-    hasPlayedRef.current = true
+    playTriggeredIdRef.current = video.id
     playVideo(
       {
         id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag,
@@ -648,12 +744,9 @@ export default function PlayerPage() {
         setDlState({ key: mediaCacheKey, status: 'done' })
         return
       }
-      const downloadPath = mediaMode === 'video'
-        ? `/videos/${id}/download`
-        : `/audios/${id}/download`
       const { data } = await api.get<{ url: string; bitrate?: number; duration?: number | null; mimeType?: string }>(
-        downloadPath,
-        mediaMode !== 'video' ? { params: { quality: 'high' } } : undefined,
+        `/audios/${id}/download`,
+        { params: { quality: 'high' } },
       )
       // 총 크기를 헤더로 알 수 없어(CDN CORS) bitrate×duration으로 추정해 진행률 표시
       const durSec = data.duration ?? video.duration ?? 0
@@ -674,7 +767,7 @@ export default function PlayerPage() {
     } finally {
       downloadingRef.current = false
     }
-  }, [id, video, offlineMediaOk, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
+  }, [id, video, offlineMediaOk, offlineStorageMode, mediaType, mediaCacheKey])
 
   useEffect(() => {
     // 절약(thrift)은 autoDownload 토글과 무관하게 항상 다운로드-후-재생(2곡 보관).
@@ -913,8 +1006,9 @@ export default function PlayerPage() {
         </button>
       </div>
 
-      {/* Playback mode */}
-      <div className="relative flex justify-end mt-5">
+      {/* 볼륨 증폭(좌) / 재생 모드(우) */}
+      <div className="relative flex justify-between items-center mt-5">
+        {id ? <BoostControl videoId={id} /> : <span />}
         {showModeTooltip && (
           <div
             className="absolute bottom-full right-0 mb-2 px-2.5 py-1.5 rounded-[6px] text-xs font-medium whitespace-nowrap pointer-events-none"
@@ -1051,7 +1145,7 @@ export default function PlayerPage() {
         <div style={{ background: 'var(--primary-50)', borderBottom: '1px solid var(--divider)' }}>
           <div className="flex items-center justify-between px-4" style={{ minHeight: 30 }}>
             <span style={{ fontSize: fs(12), fontWeight: 600, color: 'var(--primary-700)' }}>
-              {mediaMode === 'video' ? '영상' : '음원'} 저장 중…
+              음원 저장 중…
             </span>
             <span style={{ fontSize: fs(12), fontWeight: 700, color: 'var(--primary-700)' }}>
               {dlProgress < 0.01 ? '' : `${Math.round(dlProgress * 100)}%`}

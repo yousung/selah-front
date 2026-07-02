@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
-import type { Theme, AudioQuality, AutoNextDelay, MediaMode, OfflineStorageMode, FontScale } from '@/store/settingsStore'
+import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale } from '@/store/settingsStore'
+import { VOLUME_BOOST_STORAGE_KEY } from '@/store/volumeBoostStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
@@ -21,7 +22,7 @@ const FONT_SCALE_OPTIONS: { value: FontScale; label: string }[] = [
   { value: 2, label: '매우크게' },
 ]
 
-const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings', 'selah-onboarding-v1'])
+const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings', 'selah-onboarding-v1', VOLUME_BOOST_STORAGE_KEY])
 const CACHE_BUST_PARAM = 'selah-cache-bust'
 
 function clearLocalStorageExcept(keysToKeep: Set<string>) {
@@ -93,11 +94,10 @@ const QUALITY_OPTIONS: { value: AudioQuality; label: string }[] = [
   { value: 'low', label: '저음질' },
 ]
 
-const AUTO_NEXT_OPTIONS: { value: AutoNextDelay; label: string }[] = [
-  { value: 'immediate', label: '바로' },
-  { value: '3s', label: '3초 후' },
-  { value: '5s', label: '5초 후' },
-  { value: 'off', label: '안함' },
+const RESOLUTION_OPTIONS: { value: AudioQuality; label: string }[] = [
+  { value: 'high', label: '고해상도' },
+  { value: 'medium', label: '보통' },
+  { value: 'low', label: '저해상도' },
 ]
 
 const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string }[] = [
@@ -167,12 +167,12 @@ function ToggleField({ title, description, checked, onChange }: { title: string;
 
 export default function SettingsPage() {
   const {
-    theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, playbackRate,
+    theme, quality, mediaMode, playbackRate, noiseFilter,
     showCatechismHeadings, showCatechismToc,
-    offlineStorageMode, autoDownload, fontScale,
-    setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay,
-    setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
-    setOfflineStorageMode, setAutoDownload, setFontScale,
+    offlineStorageMode, fontScale,
+    setTheme, setQuality, setMediaMode,
+    setPlaybackRate, setNoiseFilter, setShowCatechismHeadings, setShowCatechismToc,
+    setOfflineStorageMode, setFontScale,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
   const [clearing, setClearing] = useState(false)
@@ -257,10 +257,8 @@ export default function SettingsPage() {
 
           <div data-tour="setting-quality">
             {mediaMode === 'video' ? (
-              <Field title="음질" description="비디오 모드에서는 음질을 조절할 수 없습니다.">
-                <div style={{ opacity: 0.5, pointerEvents: 'none' }}>
-                  <Segmented value={quality} onChange={setQuality} options={QUALITY_OPTIONS} />
-                </div>
+              <Field title="해상도" description="해상도가 높을수록 데이터를 더 씁니다. 저해상도로 설정하면 가장 적은 데이터로 재생할 수 있습니다.">
+                <Segmented value={quality} onChange={setQuality} options={RESOLUTION_OPTIONS} />
               </Field>
             ) : (
               <Field title="음질" description="음질이 높을수록 데이터를 더 씁니다. 저음질로 설정하면 가장 적은 데이터로 또렷하게 들을 수 있습니다.">
@@ -274,15 +272,12 @@ export default function SettingsPage() {
           </Field>
 
           <ToggleField
-            title="상세페이지 자동 재생"
-            description="홈에서 영상을 열 때 바로 재생합니다."
-            checked={autoPlayOnDetail}
-            onChange={() => setAutoPlayOnDetail(!autoPlayOnDetail)}
+            title="노이즈 필터"
+            description="배경 잡음과 험(저음 웅웅거림)을 줄입니다. 설교는 음성에 최적화된 필터, 찬송은 음악을 해치지 않는 필터가 자동으로 적용됩니다. 다운로드(저장)된 곡에 적용됩니다."
+            checked={noiseFilter}
+            onChange={() => setNoiseFilter(!noiseFilter)}
           />
 
-          <Field title="다음 곡 자동 재생" description="곡이 끝난 뒤 다음 곡으로 넘어가는 시점을 정합니다.">
-            <Segmented value={autoNextDelay} onChange={setAutoNextDelay} options={AUTO_NEXT_OPTIONS} />
-          </Field>
         </SectionBox>
 
         {/* ════════════ 표시 ════════════ */}
@@ -337,13 +332,6 @@ export default function SettingsPage() {
                 <Segmented value={offlineStorageMode} onChange={handleStorageModeChange} options={OFFLINE_MODE_OPTIONS} />
               </Field>
             </div>
-
-            <ToggleField
-              title="자동 다운로드"
-              description="재생을 시작하면 자동으로 기기에 저장합니다. 이미 저장된 콘텐츠는 다음부터 데이터 없이 재생됩니다. Wi-Fi에서 미리 들어 두면 밖에서도 데이터 걱정 없이 즐길 수 있습니다."
-              checked={autoDownload}
-              onChange={() => setAutoDownload(!autoDownload)}
-            />
 
             <Field
               title="저장된 내용"

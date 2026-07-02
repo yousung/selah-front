@@ -24,6 +24,8 @@ interface SettingsState {
   offlineStorageCustomMB: number
   autoDownload: boolean
   fontScale: FontScale
+  // 노이즈 필터(Web Audio 증폭 경로에 highpass + RNNoise/NoiseGate). 전역 on/off. 기본 off.
+  noiseFilter: boolean
   setTheme: (t: Theme) => void
   setQuality: (q: AudioQuality) => void
   setMediaMode: (m: MediaMode) => void
@@ -37,6 +39,7 @@ interface SettingsState {
   setOfflineStorageCustomMB: (mb: number) => void
   setAutoDownload: (v: boolean) => void
   setFontScale: (v: FontScale) => void
+  setNoiseFilter: (v: boolean) => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -55,6 +58,7 @@ export const useSettingsStore = create<SettingsState>()(
       offlineStorageCustomMB: 1024,
       autoDownload: true,
       fontScale: 1,
+      noiseFilter: false,
       setTheme: (theme) => set({ theme }),
       setQuality: (quality) => set({ quality }),
       setMediaMode: (mediaMode) => set((s) => {
@@ -72,6 +76,7 @@ export const useSettingsStore = create<SettingsState>()(
       setOfflineStorageCustomMB: (mb) => set({ offlineStorageCustomMB: Math.min(2048, Math.max(1, mb)) }),
       setAutoDownload: (autoDownload) => set({ autoDownload }),
       setFontScale: (fontScale) => set({ fontScale }),
+      setNoiseFilter: (noiseFilter) => set({ noiseFilter }),
     }),
     {
       name: 'selah-settings',
