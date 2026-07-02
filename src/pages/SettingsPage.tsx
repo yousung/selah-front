@@ -292,7 +292,7 @@ export default function SettingsPage() {
               title="노이즈 필터"
               description={mediaMode === 'video' ? '오디오 모드에서만 적용됩니다.' : (
                 <>
-                  배경 잡음과 험(저음 웅웅거림)을 줄입니다. 설교는 음성에 최적화된 필터, 찬송은 음악을 해치지 않는 필터가 자동으로 적용됩니다. 다운로드(저장)된 곡에 적용됩니다.
+                  배경 잡음과 험(저음 웅웅거림)을 줄입니다. 설교에만 적용되며(찬송은 음악이라 필터를 적용하지 않습니다), 다운로드(저장)된 설교에 적용됩니다.
                   {noiseFilterLevel === 2 && (
                     <span style={{ display: 'block', marginTop: 6, color: '#dc2626', fontWeight: 600 }}>
                       ⚠ 2단계는 잡음 제거가 강해 저음 목소리도 함께 잘릴 수 있습니다.

@@ -146,15 +146,15 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const gainNodeRef = useRef<GainNode | null>(null)
   // boost 그래프가 source→gain→destination까지 완전 연결됐을 때만 true.
   const boostReadyRef = useRef(false)
-  // 노이즈 필터(Web Audio) 노드들 — boost 그래프 중간(source→highpass→[rnnoise|gate]→gain)에 삽입.
-  // 2단계(레벨) 지원: highpass 컷오프는 AudioParam이라 동적으로 값만 바꾸면 되지만, NoiseGateWorkletNode의
-  // 임계값은 생성자 전용(동적 변경 불가)이라 레벨별로 별도 인스턴스를 만들어 둔다.
+  // 노이즈 필터(Web Audio) 노드들 — 설교(SERMON)에만 적용된다(찬송은 필터 미적용).
+  // boost 그래프 중간(source→highpass→rnnoise[→noiseGate]→gain)에 삽입.
+  // highpass 컷오프는 AudioParam이라 값만 동적으로 바꾸면 되지만, NoiseGateWorkletNode의
+  // 임계값은 생성자 전용(동적 변경 불가)이라 2단계 전용 인스턴스를 따로 만들어 둔다.
   const srcNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
   const highpassRef = useRef<BiquadFilterNode | null>(null)
-  const rnnoiseRef = useRef<AudioNode | null>(null)     // 설교(speech)용 RNNoise
-  const noiseGateL1Ref = useRef<AudioNode | null>(null) // 찬송 등 음악용 NoiseGate — 1단계(약함)
-  const noiseGateL2Ref = useRef<AudioNode | null>(null) // 찬송 등 음악용 NoiseGate — 2단계(강함)
-  const denoiseReadyRef = useRef(false)                 // AudioWorklet+WASM 로드 완료 여부
+  const rnnoiseRef = useRef<AudioNode | null>(null)         // 설교용 RNNoise(1·2단계 공통)
+  const noiseGateStrongRef = useRef<AudioNode | null>(null) // 설교 2단계 전용 — RNNoise 뒤에 이중으로 얹는 NoiseGate
+  const denoiseReadyRef = useRef(false)                     // AudioWorklet+WASM 로드 완료 여부
   const noiseFilterLevelRef = useRef<0 | 1 | 2>(0)
   const reactPlayerRef = useRef<HTMLVideoElement | null>(null)
   const videoSlotRef = useRef<HTMLDivElement | null>(null)
@@ -392,10 +392,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   useEffect(() => { mediaModeRef.current = mediaMode }, [mediaMode])
   const volumeBoostRef = useRef(currentBoost)
 
-  // boost 그래프 배선을 현재 상태(노이즈 필터 on/off, 콘텐츠 타입)에 맞게 재구성한다.
-  //   꺼짐  : source → gain → 출력
-  //   1단계: source → highpass(80Hz) → [설교=RNNoise / 그 외=NoiseGate 약함] → gain → 출력
-  //   2단계: source → highpass(100Hz) → [설교=RNNoise / 그 외=NoiseGate 강함] → gain → 출력
+  // boost 그래프 배선을 현재 상태(노이즈 필터 레벨, 콘텐츠 타입)에 맞게 재구성한다.
+  // 노이즈 필터는 설교(SERMON)에만 적용한다 — 찬송은 음악이라 RNNoise/NoiseGate가 음색을
+  // 해칠 수 있어 필터 기능 자체를 넣지 않는다(레벨 설정과 무관하게 항상 통과).
+  //   설교 외: source → gain → 출력 (필터 레벨 설정과 무관)
+  //   설교, 꺼짐  : source → gain → 출력
+  //   설교, 1단계: source → highpass(80Hz) → RNNoise → gain → 출력
+  //   설교, 2단계: source → highpass(100Hz) → RNNoise → NoiseGate(강함) → gain → 출력(이중 필터)
   // gain→destination은 init에서 고정. src 앞단만 교체한다. denoise 미로드 시엔 꺼짐과 동일.
   const rewireBoostGraph = useCallback(() => {
     const src = srcNodeRef.current
@@ -404,18 +407,21 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     try { src.disconnect() } catch { /* noop */ }
     try { highpassRef.current?.disconnect() } catch { /* noop */ }
     try { rnnoiseRef.current?.disconnect() } catch { /* noop */ }
-    try { noiseGateL1Ref.current?.disconnect() } catch { /* noop */ }
-    try { noiseGateL2Ref.current?.disconnect() } catch { /* noop */ }
+    try { noiseGateStrongRef.current?.disconnect() } catch { /* noop */ }
     const level = noiseFilterLevelRef.current
-    const filterOn = level > 0 && denoiseReadyRef.current && !!highpassRef.current
+    const isSermon = currentVideoDataRef.current?.type === 'SERMON'
+    const filterOn = level > 0 && isSermon && denoiseReadyRef.current && !!highpassRef.current
     if (filterOn) {
       const hp = highpassRef.current!
+      const rn = rnnoiseRef.current
       hp.frequency.value = level === 2 ? 100 : 80
-      const isSermon = currentVideoDataRef.current?.type === 'SERMON'
-      const denoise = isSermon ? rnnoiseRef.current : (level === 2 ? noiseGateL2Ref.current : noiseGateL1Ref.current)
       src.connect(hp)
-      if (denoise) { hp.connect(denoise); denoise.connect(gain) }
-      else hp.connect(gain)
+      if (!rn) { hp.connect(gain) }
+      else if (level === 2 && noiseGateStrongRef.current) {
+        hp.connect(rn); rn.connect(noiseGateStrongRef.current); noiseGateStrongRef.current.connect(gain)
+      } else {
+        hp.connect(rn); rn.connect(gain)
+      }
     } else {
       src.connect(gain)
     }
@@ -452,30 +458,34 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [applyBoost, rewireBoostGraph])
 
   // 이 재생에 쓸 오디오 엘리먼트. 오디오 모드 + cached(same-origin) && boost 준비됨 &&
-  // (배율>1 || 노이즈 필터)이면 boost 엘리먼트(Web Audio 경유), 그 외(비디오 모드/스트림/
-  // 보통&필터off/미지원)는 plain 엘리먼트. 비디오 모드는 이 함수가 호출되지도 않지만(증폭/필터가
-  // 아예 배선되지 않음) 방어적으로도 plain을 강제한다.
+  // (배율>1 || 설교에서 노이즈 필터on)이면 boost 엘리먼트(Web Audio 경유), 그 외(비디오 모드/
+  // 스트림/보통&필터off/찬송/미지원)는 plain 엘리먼트. 노이즈 필터는 설교에만 적용되므로
+  // 찬송에서는 필터 레벨 설정과 무관하게 항상 무시한다. 비디오 모드는 이 함수가 호출되지도
+  // 않지만(증폭/필터가 아예 배선되지 않음) 방어적으로도 plain을 강제한다.
   // 백그라운드/잠금화면 진입 시 강제로 plain으로 스왑하는 로직은 없다 — iOS에서 시도했으나
   // 부스터/필터가 켜진 상태로 백그라운드에 들어가면 그냥 정지되도록 둔다(부작용이 더 컸음).
   // 대신 재생 중엔 Screen Wake Lock으로 화면 자동 꺼짐만 방지한다.
   const pickAudioEl = useCallback((cached: boolean): HTMLAudioElement => {
     if (mediaModeRef.current !== 'audio') return plainAudioRef.current ?? plainAudioRef.current!
-    const useWebAudio = cached && boostReadyRef.current && (volumeBoostRef.current > 1 || noiseFilterLevelRef.current > 0)
+    const isSermon = currentVideoDataRef.current?.type === 'SERMON'
+    const useWebAudio = cached && boostReadyRef.current && (volumeBoostRef.current > 1 || (isSermon && noiseFilterLevelRef.current > 0))
     return (useWebAudio ? boostAudioRef.current : plainAudioRef.current) ?? plainAudioRef.current!
   }, [])
 
   // 재생 중 설정에서 증폭 배율/노이즈 필터 변경 시 즉시 반영한다(오디오 모드에서만 동작 — 비디오
   // 모드에선 onBoostEl이 항상 false이고 wantsWebAudio 분기도 오디오 재생 트리거라 실질 no-op).
-  //  - boost 엘리먼트에서 재생 중 + 여전히 Web Audio 필요(배율>1 또는 필터on): gain·denoise만
+  // 노이즈 필터는 설교에만 적용되므로 찬송 재생 중에는 필터 레벨 변경이 아무 영향을 주지 않는다.
+  //  - boost 엘리먼트에서 재생 중 + 여전히 Web Audio 필요(배율>1 또는 설교+필터on): gain·denoise만
   //    라이브 교체(끊김 없음).
-  //  - plain에서 Web Audio 불필요(보통 & 필터off): 그대로.
+  //  - plain에서 Web Audio 불필요(보통 & 필터off/찬송): 그대로.
   //  - 그 외(엘리먼트 스왑 필요): 현재 위치 유지한 채 재생을 다시 걸어 올바른 엘리먼트로 옮긴다.
   useEffect(() => {
     volumeBoostRef.current = currentBoost
     noiseFilterLevelRef.current = noiseFilterLevel
     if (mediaModeRef.current !== 'audio') return
     const onBoostEl = audioRef.current != null && audioRef.current === boostAudioRef.current
-    const wantsWebAudio = currentBoost > 1 || noiseFilterLevel > 0
+    const isSermon = currentVideoDataRef.current?.type === 'SERMON'
+    const wantsWebAudio = currentBoost > 1 || (isSermon && noiseFilterLevel > 0)
     if (onBoostEl && wantsWebAudio) { applyBoost(); rewireBoostGraph(); return }
     if (!onBoostEl && !wantsWebAudio) return
     if (boostReadyRef.current && localPlaybackRef.current && currentVideoDataRef.current) {
@@ -713,14 +723,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
             await ctx.audioWorklet.addModule(rnnoiseWorkletPath)
             await ctx.audioWorklet.addModule(noiseGateWorkletPath)
             const rnnoise = new RnnoiseWorkletNode(ctx, { wasmBinary: rnnoiseBinary, maxChannels: 2 })
-            // 1단계(약함): 원래 값. 2단계(강함): 임계값을 조이고 holdMs를 늘려 잡음을 더 적극적으로
-            // 제거하되 말/음 끊김은 방지한다 — 대신 저음 목소리가 잘릴 수 있다(설정 화면 경고).
-            const noiseGateL1 = new NoiseGateWorkletNode(ctx, { openThreshold: -50, closeThreshold: -60, holdMs: 90, maxChannels: 2 })
-            const noiseGateL2 = new NoiseGateWorkletNode(ctx, { openThreshold: -45, closeThreshold: -55, holdMs: 110, maxChannels: 2 })
+            // 2단계 전용 — RNNoise 뒤에 이중으로 얹어 잡음을 더 적극적으로 제거한다.
+            // 대신 저음 목소리가 잘릴 수 있다(설정 화면 경고).
+            const noiseGateStrong = new NoiseGateWorkletNode(ctx, { openThreshold: -45, closeThreshold: -55, holdMs: 110, maxChannels: 2 })
             highpassRef.current = highpass
             rnnoiseRef.current = rnnoise
-            noiseGateL1Ref.current = noiseGateL1
-            noiseGateL2Ref.current = noiseGateL2
+            noiseGateStrongRef.current = noiseGateStrong
             denoiseReadyRef.current = true
             rewireBoostGraph() // 필터가 이미 on이고 boost 엘리먼트 재생 중이면 즉시 반영
           } catch { /* denoise 로드 실패 → 필터만 비활성 */ }
@@ -917,12 +925,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // 오디오 모드. 이 곡에 증폭(boost>1) 또는 노이즈 필터가 켜져 있으면 다운로드-후-재생으로
-    // 캐시(same-origin)를 확보해 첫 재생부터 증폭/필터를 적용한다(/audios/:id/download =
-    // Invidious 프록시, CORS 허용). 보통(1)이고 필터 off면 다운로드를 기다리지 않고 곧바로
-    // 스트리밍한다(긴 설교도 대기 없음). 스트림은 cross-origin이라 증폭 불가 → plain 엘리먼트.
-    // 여기 도달 = 위 캐시 히트 블록의 미스(미저장/미지원/force-stream).
-    const wantCache = volumeBoostRef.current > 1 || noiseFilterLevelRef.current > 0
+    // 오디오 모드. 이 곡에 증폭(boost>1)이 켜져 있거나, 설교인데 노이즈 필터가 켜져 있으면
+    // 다운로드-후-재생으로 캐시(same-origin)를 확보해 첫 재생부터 증폭/필터를 적용한다
+    // (/audios/:id/download = Invidious 프록시, CORS 허용). 노이즈 필터는 설교에만 적용되므로
+    // 찬송에서는 필터 레벨과 무관하게 캐시를 기다리지 않는다. 보통(1)&필터 대상 아님이면 다운로드를
+    // 기다리지 않고 곧바로 스트리밍한다(긴 설교도 대기 없음). 스트림은 cross-origin이라 증폭 불가
+    // → plain 엘리먼트. 여기 도달 = 위 캐시 히트 블록의 미스(미저장/미지원/force-stream).
+    const wantCache = volumeBoostRef.current > 1 || (video.type === 'SERMON' && noiseFilterLevelRef.current > 0)
     const audioCacheKey = `${video.id}-audio`
     let localAudioUrl: string | null = null
     let streamUrl: string | null = null
