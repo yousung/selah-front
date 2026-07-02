@@ -132,6 +132,15 @@ function normalizeDbDuration(duration?: number | null) {
   return typeof duration === 'number' && Number.isFinite(duration) && duration > 0 ? duration : null
 }
 
+// AudioContext(Web Audio API) 백그라운드 suspend 버그는 WebKit(iOS Safari/WKWebView) 한정으로
+// 확인됐다 — Android Chrome은 백그라운드 오디오 재생에 더 관대해 boost 그래프를 끊지 않고 그대로
+// 재생을 이어간다. 그래서 백그라운드 진입 시 plain으로 스왑하는 로직은 iOS에서만 켠다.
+function isIOS() {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
 export function AudioProvider({ children }: { children: ReactNode }) {
   // audioRef는 "현재 활성" 오디오 엘리먼트를 가리킨다. 실제 엘리먼트는 2개:
   //  - plainAudioRef: Web Audio 미배선. 스트림(cross-origin) + 증폭 OFF 전체 재생.
@@ -155,6 +164,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const noiseFilterRef = useRef(false)
   // 백그라운드/잠금화면 중엔 true — pickAudioEl이 증폭·필터 설정과 무관하게 plain 엘리먼트를 강제
   const backgroundOverrideRef = useRef(false)
+  // 백그라운드↔포그라운드 스왑(playVideo 재호출)이 진행 중일 때 true — 중복 트리거로 두 엘리먼트가
+  // 동시에 play()되는(음 중첩) 경합을 막는다.
+  const swapInFlightRef = useRef(false)
   const reactPlayerRef = useRef<HTMLVideoElement | null>(null)
   const videoSlotRef = useRef<HTMLDivElement | null>(null)
   const quality = useSettingsStore((s) => s.quality)
@@ -722,16 +734,21 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // AudioContext를 강제 suspend하고 재생을 끊는 경우가 있다(WebKit 알려진 버그, plain <audio>는
     // 영향받지 않음). 대신 백그라운드로 갈 때 증폭/노이즈필터를 잠깐 끄고(plain 엘리먼트로 스왑)
     // 재생이 안 끊기게 하며, 포그라운드로 돌아오면 설정대로 다시 켠다(boost 엘리먼트로 재스왑).
-    // 오디오 모드에서만 동작 — 비디오 모드는 boost 엘리먼트를 쓰지 않으므로 그대로 둔다.
+    // Android Chrome은 이 버그가 없어(백그라운드에서도 Web Audio 그래프가 계속 재생됨) 스왑 없이
+    // 그대로 둔다 — iOS에서만 동작. 오디오 모드에서만 동작(비디오 모드는 boost 엘리먼트 미사용).
+    // swapInFlightRef로 스왑(playVideo 재호출)이 겹치는 걸 막는다(안 그러면 두 엘리먼트가 동시에
+    // play()돼 소리가 중첩되는 버그가 난다).
     const handleVisibility = () => {
-      if (mediaModeRef.current !== 'audio') return
+      if (!isIOS() || mediaModeRef.current !== 'audio') return
       const video = currentVideoDataRef.current
       if (document.visibilityState === 'hidden') {
         const onBoostEl = audioRef.current != null && audioRef.current === boostAudioRef.current
-        if (onBoostEl) {
+        if (onBoostEl && !swapInFlightRef.current) {
           backgroundOverrideRef.current = true
           if (video && localPlaybackRef.current) {
+            swapInFlightRef.current = true
             void playVideoRef.current?.(video, { autoPlay: isPlayingRef.current, skipRecentAdd: true, seekTo: positionRef.current })
+              .finally(() => { swapInFlightRef.current = false })
           }
         }
         return
@@ -740,8 +757,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (backgroundOverrideRef.current) {
         backgroundOverrideRef.current = false
         const wantsWebAudio = volumeBoostRef.current > 1 || noiseFilterRef.current
-        if (wantsWebAudio && video && localPlaybackRef.current) {
+        if (wantsWebAudio && video && localPlaybackRef.current && !swapInFlightRef.current) {
+          swapInFlightRef.current = true
           void playVideoRef.current?.(video, { autoPlay: isPlayingRef.current, skipRecentAdd: true, seekTo: positionRef.current })
+            .finally(() => { swapInFlightRef.current = false })
           return
         }
       }
@@ -751,8 +770,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (audio && audio.paused && isPlayingRef.current) audio.play().catch(() => {})
     }
     document.addEventListener('visibilitychange', handleVisibility)
-    window.addEventListener('pageshow', handleVisibility)
-    window.addEventListener('focus', handleVisibility)
 
     // DEV 전용 진단: 콘솔에서 window.__boost()로 증폭 경로 상태 확인(프로덕션 빌드에서 제거됨).
     if (import.meta.env.DEV) {
@@ -773,8 +790,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('touchend', unlockCtx)
       window.removeEventListener('keydown', unlockCtx)
       document.removeEventListener('visibilitychange', handleVisibility)
-      window.removeEventListener('pageshow', handleVisibility)
-      window.removeEventListener('focus', handleVisibility)
       plainHandlers.forEach(([event, handler]) => plain.removeEventListener(event, handler))
       boostHandlers.forEach(([event, handler]) => boost.removeEventListener(event, handler))
       plain.pause(); plain.src = ''
