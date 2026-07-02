@@ -16,6 +16,7 @@ import { getSermonResume, clearSermonResume, type SermonResumeData } from '@/lib
 import { downloadMedia, isMediaCached, isOfflineMediaSupported, cancelDownload, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
 import type { MediaCorruptDetail } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
+import { useVolumeBoostStore, VOLUME_BOOST_MIN, VOLUME_BOOST_MAX } from '@/store/volumeBoostStore'
 import { fs } from '@/lib/fontScale'
 import { shareSongToKakao, shareSermonToKakao } from '@/lib/kakaoShare'
 
@@ -306,6 +307,100 @@ function PlayModeIcon({ mode }: { mode: PlayMode }) {
 function extractChapter(title: string): number {
   const m = /시편찬송\s*(\d+)장/.exec(title)
   return m ? parseInt(m[1]) : 0
+}
+
+/** 볼륨 증폭 아이콘 — 스피커 + 음파 2줄(증폭 시 두 음파 모두 진하게, 보통 시 바깥 음파 흐리게) */
+function BoostIcon({ boosted }: { boosted: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9.5v5h3l4.5 3.5v-12L7 9.5H4z" fill="currentColor" stroke="none" />
+      <path d="M15.5 9a4.2 4.2 0 0 1 0 6" opacity={0.95} />
+      <path d="M18.3 6.5a8 8 0 0 1 0 11" opacity={boosted ? 0.95 : 0.4} />
+    </svg>
+  )
+}
+
+/**
+ * 곡별 볼륨 증폭 컨트롤(수동) — 플레이어 하단 좌측. 오디오 모드에서만 표시된다(비디오 모드는
+ * 재생 경로가 달라 증폭이 적용되지 않으므로 아이콘 자체를 숨긴다).
+ * 보통(1)이면 흐린 아이콘, 증폭 중이면 primary색 + "N.N배" 라벨. 탭하면 슬라이더 팝오버.
+ * 값은 video.id별로 저장(useVolumeBoostStore) — 캐시 삭제에도 보존된다.
+ */
+function BoostControl({ videoId }: { videoId: string }) {
+  const boost = useVolumeBoostStore((s) => s.boosts[videoId] ?? VOLUME_BOOST_MIN)
+  const setBoost = useVolumeBoostStore((s) => s.setBoost)
+  const [open, setOpen] = useState(false)
+  const boosted = boost > VOLUME_BOOST_MIN
+  const pct = ((boost - VOLUME_BOOST_MIN) / (VOLUME_BOOST_MAX - VOLUME_BOOST_MIN)) * 100
+
+  return (
+    <div className="relative">
+      {open && (
+        <>
+          {/* 외부 탭 시 닫기 */}
+          <div className="fixed inset-0 z-[40]" onClick={() => setOpen(false)} />
+          {/* 팝오버 카드 */}
+          <div
+            className="absolute bottom-full left-0 mb-3 z-[50] animate-fade-in"
+            style={{ width: 'min(264px, calc(100vw - 40px))' }}
+          >
+            <div
+              className="rounded-[14px] px-3.5 py-3"
+              style={{ background: 'var(--surface-0)', border: '1px solid var(--divider)', boxShadow: '0 10px 30px rgba(0,0,0,0.16)' }}
+            >
+              <div className="flex items-center justify-between mb-2.5">
+                <span style={{ color: 'var(--ink-1)', fontSize: fs(13), fontWeight: 600 }}>볼륨 증폭</span>
+                <span style={{ color: boosted ? 'var(--primary-700)' : 'var(--ink-3)', fontSize: fs(14), fontWeight: 700 }}>
+                  {boosted ? `${boost.toFixed(1)}배` : '보통'}
+                </span>
+              </div>
+              {/* 슬라이더 (seek바와 동일 오버레이 패턴) */}
+              <div className="relative flex items-center" style={{ height: 22 }}>
+                <div className="relative w-full" style={{ height: 5, borderRadius: 999, background: 'var(--surface-2)' }}>
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${pct}%`, background: 'var(--primary-700)', borderRadius: 999 }} />
+                  <div style={{ position: 'absolute', top: '50%', left: `${pct}%`, transform: 'translate(-50%, -50%)', width: 16, height: 16, borderRadius: '50%', background: 'var(--surface-0)', border: '2px solid var(--primary-700)', boxShadow: '0 1px 3px rgba(0,0,0,0.22)' }} />
+                  <input
+                    type="range" min={VOLUME_BOOST_MIN} max={VOLUME_BOOST_MAX} step={0.1} value={boost}
+                    onChange={(e) => setBoost(videoId, Number(e.target.value))}
+                    className="absolute inset-0 w-full cursor-pointer"
+                    style={{ height: '100%', opacity: 0, margin: 0, padding: 0 }}
+                    aria-label="볼륨 증폭 배율"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 mt-2.5 flex-wrap">
+                <span style={{ color: 'var(--ink-3)', fontSize: fs(11), lineHeight: fs(15) }}>이 곡에만 저장돼요</span>
+                <button
+                  type="button"
+                  onClick={() => setBoost(videoId, VOLUME_BOOST_MIN)}
+                  disabled={!boosted}
+                  style={{ color: boosted ? 'var(--primary-700)' : 'var(--ink-3)', fontSize: fs(12), fontWeight: 600, opacity: boosted ? 1 : 0.45 }}
+                >
+                  보통으로
+                </button>
+              </div>
+            </div>
+            {/* 버튼을 가리키는 아래 화살표 */}
+            <div style={{ position: 'absolute', top: '100%', left: 18, marginTop: -1, width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid var(--surface-0)' }} />
+          </div>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-70 active:scale-95"
+        style={{
+          padding: boosted ? '6px 11px 6px 9px' : 8,
+          background: boosted ? 'rgba(61,107,68,0.12)' : 'transparent',
+          color: boosted ? 'var(--primary-700)' : 'var(--ink-3)',
+        }}
+        aria-label="볼륨 증폭"
+      >
+        <BoostIcon boosted={boosted} />
+        {boosted && <span style={{ fontSize: fs(12), fontWeight: 700, lineHeight: fs(16) }}>{boost.toFixed(1)}배</span>}
+      </button>
+    </div>
+  )
 }
 
 export default function PlayerPage() {
@@ -913,8 +1008,9 @@ export default function PlayerPage() {
         </button>
       </div>
 
-      {/* Playback mode */}
-      <div className="relative flex justify-end mt-5">
+      {/* 볼륨 증폭(좌, 오디오 모드에서만) / 재생 모드(우) */}
+      <div className="relative flex justify-between items-center mt-5">
+        {mediaMode === 'audio' && id ? <BoostControl videoId={id} /> : <span />}
         {showModeTooltip && (
           <div
             className="absolute bottom-full right-0 mb-2 px-2.5 py-1.5 rounded-[6px] text-xs font-medium whitespace-nowrap pointer-events-none"

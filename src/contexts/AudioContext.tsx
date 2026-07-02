@@ -1,10 +1,16 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode, RefObject, SyntheticEvent } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useVolumeBoostStore, displayBoostToGain } from '@/store/volumeBoostStore'
+import { RnnoiseWorkletNode, loadRnnoise, NoiseGateWorkletNode } from '@sapphi-red/web-noise-suppressor'
+import rnnoiseWorkletPath from '@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url'
+import rnnoiseWasmPath from '@sapphi-red/web-noise-suppressor/rnnoise.wasm?url'
+import rnnoiseWasmSimdPath from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url'
+import noiseGateWorkletPath from '@sapphi-red/web-noise-suppressor/noiseGateWorklet.js?url'
 import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { api } from '@/lib/api'
-import { deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
+import { deleteMedia, downloadMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
 import type { MediaDownloadedDetail } from '@/lib/mediaStore'
 import { setLastPlayback, setLastPlaybackError } from '@/lib/mediaDiag'
 import { thumbUrl, thumbQualityFor } from '@/lib/thumb'
@@ -127,10 +133,32 @@ function normalizeDbDuration(duration?: number | null) {
 }
 
 export function AudioProvider({ children }: { children: ReactNode }) {
+  // audioRef는 "현재 활성" 오디오 엘리먼트를 가리킨다. 실제 엘리먼트는 2개:
+  //  - plainAudioRef: Web Audio 미배선. 스트림(cross-origin) + 증폭 OFF 전체 재생.
+  //  - boostAudioRef: MediaElementSource→Gain→Limiter로 영구 배선. 캐시(same-origin,
+  //    blob/sw) 재생 + 증폭 ON일 때만 활성. cross-origin을 절대 태우지 않아 tainted(무음)가 없다.
+  // createMediaElementSource는 엘리먼트당 1회·영구라 하나로 캐시+스트림을 겸할 수 없어 분리한다.
+  // 오디오 모드에서만 쓰인다 — 비디오 모드는 이 엘리먼트들을 전혀 참조하지 않는다(증폭/필터 미적용).
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const plainAudioRef = useRef<HTMLAudioElement | null>(null)
+  const boostAudioRef = useRef<HTMLAudioElement | null>(null)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const gainNodeRef = useRef<GainNode | null>(null)
+  // boost 그래프가 source→gain→destination까지 완전 연결됐을 때만 true.
+  const boostReadyRef = useRef(false)
+  // 노이즈 필터(Web Audio) 노드들 — boost 그래프 중간(source→highpass→[rnnoise|gate]→gain)에 삽입.
+  const srcNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
+  const highpassRef = useRef<BiquadFilterNode | null>(null)
+  const rnnoiseRef = useRef<AudioNode | null>(null)   // 설교(speech)용 RNNoise
+  const noiseGateRef = useRef<AudioNode | null>(null) // 찬송 등 음악용 NoiseGate
+  const denoiseReadyRef = useRef(false)               // AudioWorklet+WASM 로드 완료 여부
+  const noiseFilterRef = useRef(false)
+  // 백그라운드/잠금화면 중엔 true — pickAudioEl이 증폭·필터 설정과 무관하게 plain 엘리먼트를 강제
+  const backgroundOverrideRef = useRef(false)
   const reactPlayerRef = useRef<HTMLVideoElement | null>(null)
   const videoSlotRef = useRef<HTMLDivElement | null>(null)
   const quality = useSettingsStore((s) => s.quality)
+  const noiseFilter = useSettingsStore((s) => s.noiseFilter)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const autoNextDelay = useSettingsStore((s) => s.autoNextDelay)
   const playMode = useSettingsStore((s) => s.playMode)
@@ -139,6 +167,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const queueIndex = useQueueStore((s) => s.index)
   const setQueue = useQueueStore((s) => s.setQueue)
   const [currentVideo, setCurrentVideo] = useState<VideoInfo | null>(null)
+  // 곡별 볼륨 증폭(수동): 현재 곡의 배율을 반응형으로 구독(플레이어에서 바꾸면 즉시 반영). 기본 1(보통).
+  // 오디오 모드에서만 의미가 있다(비디오 모드는 boost 엘리먼트를 절대 고르지 않는다).
+  const currentBoost = useVolumeBoostStore((s) => (currentVideo ? (s.boosts[currentVideo.id] ?? 1) : 1))
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isEnded, setIsEnded] = useState(false)
@@ -167,6 +198,31 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (!('mediaSession' in navigator) || !currentVideo) return
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
   }, [currentVideo, isPlaying])
+  // 재생 중 화면 자동잠금 방지(Screen Wake Lock). 지원 브라우저(iOS 16.4+ 등)에 한해 동작하며,
+  // 사용자가 직접 전원버튼으로 잠그거나 앱을 백그라운드로 보내는 것은 막지 못한다(스펙상 탭이
+  // hidden되면 잠금 자동 해제) — "자동 화면 꺼짐"만 방지한다. 탭이 다시 visible되면 재생 중일 때
+  // 재요청한다.
+  useEffect(() => {
+    if (!('wakeLock' in navigator)) return
+    let sentinel: WakeLockSentinel | null = null
+    let cancelled = false
+    const acquire = async () => {
+      if (!isPlaying || document.visibilityState !== 'visible') return
+      try {
+        sentinel = await navigator.wakeLock.request('screen')
+        if (cancelled) { sentinel.release().catch(() => {}); sentinel = null }
+      } catch { /* 미지원/거부 — 무시 */ }
+    }
+    void acquire()
+    const onVisible = () => { if (document.visibilityState === 'visible') void acquire() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisible)
+      sentinel?.release().catch(() => {})
+      sentinel = null
+    }
+  }, [isPlaying])
   // ── 설교(SERMON) 재생위치 전역 저장: 5초마다 videoId별 맵에 기록 ──
   // PlayerPage가 아닌 전역(AudioContext)에 두어 미니재생바 상태에서도 기록되게 한다.
   // 끝나기 30초 전 이후면 다 들은 것으로 보고 해당 설교 위치를 삭제한다.
@@ -333,6 +389,98 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   useEffect(() => { qualityRef.current = quality }, [quality])
   const mediaModeRef = useRef(mediaMode)
   useEffect(() => { mediaModeRef.current = mediaMode }, [mediaMode])
+  const volumeBoostRef = useRef(currentBoost)
+
+  // boost 그래프 배선을 현재 상태(노이즈 필터 on/off, 콘텐츠 타입)에 맞게 재구성한다.
+  //   필터 off: source → gain → 출력
+  //   필터 on : source → highpass(80Hz) → [설교=RNNoise / 그 외=NoiseGate] → gain → 출력
+  // gain→destination은 init에서 고정. src 앞단만 교체한다. denoise 미로드 시엔 필터 off와 동일.
+  const rewireBoostGraph = useCallback(() => {
+    const src = srcNodeRef.current
+    const gain = gainNodeRef.current
+    if (!src || !gain) return
+    try { src.disconnect() } catch { /* noop */ }
+    try { highpassRef.current?.disconnect() } catch { /* noop */ }
+    try { rnnoiseRef.current?.disconnect() } catch { /* noop */ }
+    try { noiseGateRef.current?.disconnect() } catch { /* noop */ }
+    const filterOn = noiseFilterRef.current && denoiseReadyRef.current && !!highpassRef.current
+    if (filterOn) {
+      const hp = highpassRef.current!
+      const isSermon = currentVideoDataRef.current?.type === 'SERMON'
+      const denoise = isSermon ? rnnoiseRef.current : noiseGateRef.current
+      src.connect(hp)
+      if (denoise) { hp.connect(denoise); denoise.connect(gain) }
+      else hp.connect(gain)
+    } else {
+      src.connect(gain)
+    }
+  }, [])
+
+  // GainNode 배율: boost 엘리먼트 활성 + 배율>1이면 표시값의 실제 gain(displayBoostToGain, 3배)을
+  // 싣고, 아니면 1(투명). gain=1은 완전 투명해 "필터만" 켤 때 소리가 커지지 않는다.
+  const applyBoost = useCallback(() => {
+    const g = gainNodeRef.current
+    const ctx = audioCtxRef.current
+    if (!g) return
+    const onBoostEl = audioRef.current != null && audioRef.current === boostAudioRef.current
+    const target = onBoostEl && volumeBoostRef.current > 1 ? displayBoostToGain(volumeBoostRef.current) : 1
+    try {
+      if (ctx) { g.gain.setTargetAtTime(target, ctx.currentTime, 0.08) }
+      else { g.gain.value = target }
+    } catch { /* noop */ }
+  }, [])
+
+  // 재생할 소스 종류(캐시=same-origin vs 스트림=cross-origin)와 증폭 설정에 맞춰 활성 엘리먼트를
+  // 고른다. audioRef를 먼저 교체한 뒤 이전 엘리먼트를 정지/비운다 — 그래야 이전 엘리먼트의
+  // src='' 로 발생하는 emptied/error 이벤트가 핸들러 가드(audioRef.current !== el)에 걸려 무시된다.
+  const setActiveAudio = useCallback((el: HTMLAudioElement) => {
+    const prev = audioRef.current
+    if (prev === el) return
+    audioRef.current = el
+    if (prev && prev !== el) { try { prev.pause() } catch { /* noop */ } prev.src = '' }
+    if (el === boostAudioRef.current) {
+      // iOS/자동재생 정책상 AudioContext가 suspended로 시작 → 사용자 제스처(재생 탭) 시점에 unlock.
+      audioCtxRef.current?.resume().catch(() => {})
+    }
+    applyBoost()
+    rewireBoostGraph() // 새 트랙 타입(설교/찬송)·필터 상태에 맞춰 denoise 경로 재구성
+  }, [applyBoost, rewireBoostGraph])
+
+  // 이 재생에 쓸 오디오 엘리먼트. 오디오 모드 + cached(same-origin) && boost 준비됨 &&
+  // (배율>1 || 노이즈 필터)이면 boost 엘리먼트(Web Audio 경유), 그 외(비디오 모드/스트림/
+  // 보통&필터off/미지원)는 plain 엘리먼트. 비디오 모드는 이 함수가 호출되지도 않지만(증폭/필터가
+  // 아예 배선되지 않음) 방어적으로도 plain을 강제한다.
+  // backgroundOverrideRef가 true면(잠금화면/백그라운드 중) 설정과 무관하게 강제로 plain을 쓴다 —
+  // iOS가 Web Audio 그래프를 백그라운드에서 끊는 문제를 피해 재생이 안 끊기게 하기 위함.
+  const pickAudioEl = useCallback((cached: boolean): HTMLAudioElement => {
+    if (mediaModeRef.current !== 'audio') return plainAudioRef.current ?? plainAudioRef.current!
+    if (backgroundOverrideRef.current) return plainAudioRef.current ?? plainAudioRef.current!
+    const useWebAudio = cached && boostReadyRef.current && (volumeBoostRef.current > 1 || noiseFilterRef.current)
+    return (useWebAudio ? boostAudioRef.current : plainAudioRef.current) ?? plainAudioRef.current!
+  }, [])
+
+  // 재생 중 설정에서 증폭 배율/노이즈 필터 변경 시 즉시 반영한다(오디오 모드에서만 동작 — 비디오
+  // 모드에선 onBoostEl이 항상 false이고 wantsWebAudio 분기도 오디오 재생 트리거라 실질 no-op).
+  //  - boost 엘리먼트에서 재생 중 + 여전히 Web Audio 필요(배율>1 또는 필터on): gain·denoise만
+  //    라이브 교체(끊김 없음).
+  //  - plain에서 Web Audio 불필요(보통 & 필터off): 그대로.
+  //  - 그 외(엘리먼트 스왑 필요): 현재 위치 유지한 채 재생을 다시 걸어 올바른 엘리먼트로 옮긴다.
+  useEffect(() => {
+    volumeBoostRef.current = currentBoost
+    noiseFilterRef.current = noiseFilter
+    if (mediaModeRef.current !== 'audio') return
+    const onBoostEl = audioRef.current != null && audioRef.current === boostAudioRef.current
+    const wantsWebAudio = currentBoost > 1 || noiseFilter
+    if (onBoostEl && wantsWebAudio) { applyBoost(); rewireBoostGraph(); return }
+    if (!onBoostEl && !wantsWebAudio) return
+    if (boostReadyRef.current && localPlaybackRef.current && currentVideoDataRef.current) {
+      void playVideoRef.current?.(currentVideoDataRef.current, {
+        autoPlay: isPlayingRef.current,
+        skipRecentAdd: true,
+        seekTo: positionRef.current,
+      })
+    }
+  }, [currentBoost, noiseFilter, applyBoost, rewireBoostGraph])
 
   const cancelAutoNext = useCallback(() => {
     if (autoNextTimerRef.current) {
@@ -438,11 +586,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [cancelAutoNext, clearCacheWatchdog, mediaMode])
 
   useEffect(() => {
-    const audio = new Audio()
-    audio.preload = 'metadata'
-    audioRef.current = audio
-
-    const handlers: [string, EventListener][] = [
+    const makeHandlers = (audio: HTMLAudioElement): [string, EventListener][] => [
       ['loadedmetadata', () => updateActualDuration(audio.duration)],
       ['durationchange', () => updateActualDuration(audio.duration)],
       ['loadedmetadata', () => applyPendingSeek(audio)],
@@ -506,14 +650,142 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       }],
     ]
 
-    handlers.forEach(([event, handler]) => audio.addEventListener(event, handler))
+    const plain = new Audio()
+    plain.preload = 'metadata'
+    const boost = new Audio()
+    boost.preload = 'metadata'
+    plainAudioRef.current = plain
+    boostAudioRef.current = boost
+    audioRef.current = plain
+
+    // 비활성 엘리먼트(src='' 정리 등)에서 튀는 이벤트가 활성 재생 상태를 오염시키지 않도록,
+    // 각 핸들러를 audioRef.current !== el 가드로 감싼다(활성 엘리먼트 이벤트만 반영).
+    const attach = (audio: HTMLAudioElement) =>
+      makeHandlers(audio).map(([event, handler]) => {
+        const guarded: EventListener = (e) => { if (audioRef.current !== audio) return; handler(e) }
+        audio.addEventListener(event, guarded)
+        return [event, guarded] as [string, EventListener]
+      })
+    const plainHandlers = attach(plain)
+    const boostHandlers = attach(boost)
+
+    // boost 엘리먼트만 Web Audio 그래프에 영구 배선: source → Gain(1~10배 표시/3~30배 실제) → 출력.
+    //   gain=1은 완전 투명(필터만 켤 때 안 커짐). 노이즈 필터가 켜지면 rewireBoostGraph가
+    //   source→highpass→[RNNoise|NoiseGate]→gain으로 재배선. boost 엘리먼트는 same-origin(blob/sw)만
+    //   재생하므로 tainted(무음)되지 않는다. 오디오 모드에서만 이 엘리먼트가 실제로 쓰인다.
+    try {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (Ctx) {
+        const ctx = new Ctx()
+        const srcNode = ctx.createMediaElementSource(boost)
+        const gain = ctx.createGain()
+        gain.gain.value = 1
+        srcNode.connect(gain)
+        gain.connect(ctx.destination)
+        audioCtxRef.current = ctx
+        srcNodeRef.current = srcNode
+        gainNodeRef.current = gain
+        boostReadyRef.current = true
+
+        // 노이즈 필터 노드(AudioWorklet + WASM)는 비동기 로드. 완료되면 rewireBoostGraph가 연결한다.
+        // 로드 실패해도 증폭(pure gain)은 정상 동작한다(필터만 비활성).
+        void (async () => {
+          try {
+            const highpass = ctx.createBiquadFilter()
+            highpass.type = 'highpass'
+            highpass.frequency.value = 80 // 럼블/험 컷
+            highpass.Q.value = 0.707
+            const rnnoiseBinary = await loadRnnoise({ url: rnnoiseWasmPath, simdUrl: rnnoiseWasmSimdPath })
+            await ctx.audioWorklet.addModule(rnnoiseWorkletPath)
+            await ctx.audioWorklet.addModule(noiseGateWorkletPath)
+            const rnnoise = new RnnoiseWorkletNode(ctx, { wasmBinary: rnnoiseBinary, maxChannels: 2 })
+            const noiseGate = new NoiseGateWorkletNode(ctx, { openThreshold: -50, closeThreshold: -60, holdMs: 90, maxChannels: 2 })
+            highpassRef.current = highpass
+            rnnoiseRef.current = rnnoise
+            noiseGateRef.current = noiseGate
+            denoiseReadyRef.current = true
+            rewireBoostGraph() // 필터가 이미 on이고 boost 엘리먼트 재생 중이면 즉시 반영
+          } catch { /* denoise 로드 실패 → 필터만 비활성 */ }
+        })()
+      }
+    } catch { /* Web Audio 미지원/생성 실패 → 증폭만 비활성, 일반 재생은 plain으로 정상 동작 */ }
+
+    // AudioContext는 자동재생 정책상 suspended로 생성된다. setActiveAudio의 resume()는 playVideo의
+    // await(getCachedMediaPlaybackUrl) 이후라 사용자 제스처 컨텍스트가 이미 풀려 unlock이 안 될 수 있다.
+    // → 페이지 어디든 첫 제스처(포인터/터치/키)에 동기적으로 resume해 확실히 unlock한다(iOS 포함).
+    const unlockCtx = () => { audioCtxRef.current?.resume().catch(() => {}) }
+    window.addEventListener('pointerdown', unlockCtx)
+    window.addEventListener('touchend', unlockCtx)
+    window.addEventListener('keydown', unlockCtx)
+
+    // iOS WKWebView는 boost 엘리먼트(Web Audio API 경유) 재생 중 화면 잠금/백그라운드 전환 시
+    // AudioContext를 강제 suspend하고 재생을 끊는 경우가 있다(WebKit 알려진 버그, plain <audio>는
+    // 영향받지 않음). 대신 백그라운드로 갈 때 증폭/노이즈필터를 잠깐 끄고(plain 엘리먼트로 스왑)
+    // 재생이 안 끊기게 하며, 포그라운드로 돌아오면 설정대로 다시 켠다(boost 엘리먼트로 재스왑).
+    // 오디오 모드에서만 동작 — 비디오 모드는 boost 엘리먼트를 쓰지 않으므로 그대로 둔다.
+    const handleVisibility = () => {
+      if (mediaModeRef.current !== 'audio') return
+      const video = currentVideoDataRef.current
+      if (document.visibilityState === 'hidden') {
+        const onBoostEl = audioRef.current != null && audioRef.current === boostAudioRef.current
+        if (onBoostEl) {
+          backgroundOverrideRef.current = true
+          if (video && localPlaybackRef.current) {
+            void playVideoRef.current?.(video, { autoPlay: isPlayingRef.current, skipRecentAdd: true, seekTo: positionRef.current })
+          }
+        }
+        return
+      }
+      // visible로 복귀
+      if (backgroundOverrideRef.current) {
+        backgroundOverrideRef.current = false
+        const wantsWebAudio = volumeBoostRef.current > 1 || noiseFilterRef.current
+        if (wantsWebAudio && video && localPlaybackRef.current) {
+          void playVideoRef.current?.(video, { autoPlay: isPlayingRef.current, skipRecentAdd: true, seekTo: positionRef.current })
+          return
+        }
+      }
+      // 스왑이 필요 없던 경우(원래 plain 재생 등) — 혹시 끊겼으면 재개만 시도
+      const audio = audioRef.current
+      if (audio === boostAudioRef.current) audioCtxRef.current?.resume().catch(() => {})
+      if (audio && audio.paused && isPlayingRef.current) audio.play().catch(() => {})
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('pageshow', handleVisibility)
+    window.addEventListener('focus', handleVisibility)
+
+    // DEV 전용 진단: 콘솔에서 window.__boost()로 증폭 경로 상태 확인(프로덕션 빌드에서 제거됨).
+    if (import.meta.env.DEV) {
+      (window as unknown as { __boost?: () => unknown }).__boost = () => ({
+        active: audioRef.current === boostAudioRef.current ? 'boost' : 'plain',
+        ctxState: audioCtxRef.current?.state ?? null,
+        gain: gainNodeRef.current?.gain.value ?? null,
+        boostReady: boostReadyRef.current,
+        cached: !!localPlaybackRef.current,
+        boost: volumeBoostRef.current,
+        noiseFilter: noiseFilterRef.current,
+        denoiseReady: denoiseReadyRef.current,
+      })
+    }
+
     return () => {
-      handlers.forEach(([event, handler]) => audio.removeEventListener(event, handler))
-      audio.pause()
-      audio.src = ''
+      window.removeEventListener('pointerdown', unlockCtx)
+      window.removeEventListener('touchend', unlockCtx)
+      window.removeEventListener('keydown', unlockCtx)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('pageshow', handleVisibility)
+      window.removeEventListener('focus', handleVisibility)
+      plainHandlers.forEach(([event, handler]) => plain.removeEventListener(event, handler))
+      boostHandlers.forEach(([event, handler]) => boost.removeEventListener(event, handler))
+      plain.pause(); plain.src = ''
+      boost.pause(); boost.src = ''
+      audioCtxRef.current?.close().catch(() => {})
+      audioCtxRef.current = null
+      gainNodeRef.current = null
+      boostReadyRef.current = false
       if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
     }
-  }, [applyPendingSeek, syncPosition, updateActualDuration, updatePositionState])
+  }, [applyPendingSeek, syncPosition, updateActualDuration, updatePositionState, rewireBoostGraph])
 
   const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number }) => {
     // 비공개 영상: 모든 미디어 요청 차단 + 현재 재생 중인 미디어를 즉시 멈춘다.
@@ -557,6 +829,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setCurrentVideo(video)
     updateMediaSessionMetadata(video)
     currentVideoIdRef.current = video.id
+    // 이 곡의 저장된 증폭 배율을 즉시 ref에 반영 → pickAudioEl이 정확한 값으로 엘리먼트를 고른다
+    // (반응형 currentBoost effect는 렌더 후라 이 시점엔 이전 곡 값일 수 있다).
+    volumeBoostRef.current = useVolumeBoostStore.getState().getBoost(video.id)
     if (!options?.skipRecentAdd) useRecentStore.getState().add({
       id: video.id,
       title: video.title,
@@ -601,6 +876,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
             if (!autoPlay) setIsLoading(false)
           } else {
             setVideoUrl(null)
+            // 캐시(same-origin) 재생 → 증폭/필터 설정 시 boost 엘리먼트로 스왑.
+            setActiveAudio(pickAudioEl(true))
             const audio = audioRef.current
             if (!audio) return
             audio.src = localUrl
@@ -633,49 +910,126 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       } catch {}
     }
 
-    try {
-      const streamPath = isVideoMode ? `/videos/${video.id}/stream` : `/audios/${video.id}/stream`
-      const { data } = await api.get<{ url: string; bitrate: number; encoding?: string; duration?: number | null }>(
-        streamPath,
-        isVideoMode ? undefined : { params: { quality: qualityRef.current } },
-      )
-      const streamDuration = normalizeDbDuration(data.duration)
-      if (streamDuration != null) {
-        hasAuthoritativeDurationRef.current = true
-        setDuration(streamDuration)
-      }
-      setLastPlayback({ id: video.id, type: mediaType, source: 'stream', src: data.url })
-      if (isVideoMode) {
+    if (isVideoMode) {
+      try {
+        const { data } = await api.get<{ url: string; bitrate: number; encoding?: string; duration?: number | null }>(
+          `/videos/${video.id}/stream`,
+        )
+        const streamDuration = normalizeDbDuration(data.duration)
+        if (streamDuration != null) {
+          hasAuthoritativeDurationRef.current = true
+          setDuration(streamDuration)
+        }
+        setLastPlayback({ id: video.id, type: mediaType, source: 'stream', src: data.url })
         localPlaybackRef.current = null
         pendingAutoPlayRef.current = autoPlay
         if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
         setVideoUrl(data.url)
         if (!autoPlay) setIsLoading(false)
+      } catch {
+        setError('스트림을 불러올 수 없습니다.')
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // 오디오 모드. 이 곡에 증폭(boost>1) 또는 노이즈 필터가 켜져 있으면 다운로드-후-재생으로
+    // 캐시(same-origin)를 확보해 첫 재생부터 증폭/필터를 적용한다(/audios/:id/download =
+    // Invidious 프록시, CORS 허용). 보통(1)이고 필터 off면 다운로드를 기다리지 않고 곧바로
+    // 스트리밍한다(긴 설교도 대기 없음). 스트림은 cross-origin이라 증폭 불가 → plain 엘리먼트.
+    // 여기 도달 = 위 캐시 히트 블록의 미스(미저장/미지원/force-stream).
+    const wantCache = volumeBoostRef.current > 1 || noiseFilterRef.current
+    const audioCacheKey = `${video.id}-audio`
+    let localAudioUrl: string | null = null
+    let streamUrl: string | null = null
+    let streamDurationVal: number | null = null
+    try {
+      if (wantCache && isOpfsSupported() && !_forceStreamThisSession.has(audioCacheKey)) {
+        try {
+          localAudioUrl = await getCachedMediaPlaybackUrl(video.id, 'audio')
+          if (!localAudioUrl) {
+            const { data: dlData } = await api.get<{ url: string; bitrate?: number; duration?: number | null; mimeType?: string }>(
+              `/audios/${video.id}/download`,
+              { params: { quality: qualityRef.current } },
+            )
+            streamDurationVal = normalizeDbDuration(dlData.duration)
+            const dlDurSec = dlData.duration ?? streamDurationVal ?? 0
+            await downloadMedia(video.id, dlData.url, {
+              type: 'audio',
+              mimeType: dlData.mimeType,
+              estimatedSize: dlData.bitrate && dlDurSec ? (dlData.bitrate * dlDurSec) / 8 : undefined,
+            })
+            localAudioUrl = await getCachedMediaPlaybackUrl(video.id, 'audio')
+          }
+        } catch {
+          localAudioUrl = null
+        }
+      }
+
+      // 다운로드 대기 중 트랙이 바뀌었으면(다른 곡 재생/정지) 이 결과는 폐기한다.
+      if (currentVideoIdRef.current !== video.id) return
+
+      if (!localAudioUrl) {
+        const { data } = await api.get<{ url: string; bitrate: number; encoding?: string; duration?: number | null }>(
+          `/audios/${video.id}/stream`,
+          { params: { quality: qualityRef.current } },
+        )
+        streamUrl = data.url
+        if (streamDurationVal == null) streamDurationVal = normalizeDbDuration(data.duration)
+      }
+      if (streamDurationVal != null) {
+        hasAuthoritativeDurationRef.current = true
+        setDuration(streamDurationVal)
+      }
+
+      const usingLocalAudio = !!localAudioUrl
+      if (usingLocalAudio) {
+        if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
+        if (localAudioUrl!.startsWith('blob:')) blobUrlRef.current = localAudioUrl
+        localPlaybackRef.current = { id: video.id, type: 'audio' }
       } else {
         localPlaybackRef.current = null
-        setVideoUrl(null)
-        const audio = audioRef.current
-        if (!audio) return
-        audio.src = data.url
-        audio.volume = volume
-        applyPlaybackRate(audio)
-        if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
-        if (!autoPlay) {
-          audio.load()
-          setIsLoading(false)
-          return
-        }
-        try {
-          await audio.play()
-        } catch {
-          setIsLoading(false)
+      }
+      const finalAudioUrl = (localAudioUrl ?? streamUrl)!
+      setLastPlayback({
+        id: video.id,
+        type: 'audio',
+        source: usingLocalAudio ? (finalAudioUrl.startsWith('blob:') ? 'blob' : 'sw') : 'stream',
+        src: finalAudioUrl,
+      })
+      setVideoUrl(null)
+      // 캐시(same-origin)면 증폭 대상 → boost 엘리먼트, 스트림 폴백이면 plain.
+      setActiveAudio(pickAudioEl(usingLocalAudio))
+      const audio = audioRef.current
+      if (!audio) return
+      audio.src = finalAudioUrl
+      audio.volume = volume
+      applyPlaybackRate(audio)
+      if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
+      if (!autoPlay) {
+        audio.load()
+        setIsLoading(false)
+        return
+      }
+      if (usingLocalAudio) armCacheWatchdog(video.id, 'audio')
+      try {
+        await audio.play()
+      } catch (e) {
+        setIsLoading(false)
+        if (
+          usingLocalAudio &&
+          (e as DOMException)?.name === 'NotAllowedError' &&
+          localPlaybackRef.current?.id === video.id &&
+          localPlaybackRef.current?.type === 'audio'
+        ) {
+          clearCacheWatchdog()
         }
       }
     } catch {
       setError('스트림을 불러올 수 없습니다.')
       setIsLoading(false)
     }
-  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog])
+  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog, setActiveAudio, pickAudioEl])
 
   useEffect(() => {
     playVideoRef.current = playVideo
@@ -746,7 +1100,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     } else {
       const audio = audioRef.current
       if (!audio) return
-      if (audio.paused) audio.play()
+      if (audio.paused) {
+        // boost 엘리먼트 활성 시 iOS/자동재생 정책으로 suspended된 AudioContext를 제스처 시점에 unlock.
+        if (audio === boostAudioRef.current) audioCtxRef.current?.resume().catch(() => {})
+        audio.play()
+      }
       else audio.pause()
     }
   }, [])
@@ -805,7 +1163,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       try { ms.setActionHandler(action, handler) } catch { /* 미지원 액션 무시 */ }
     }
     const currentMedia = () => (mediaModeRef.current === 'video' ? reactPlayerRef.current : audioRef.current)
-    set('play', () => { currentMedia()?.play().catch(() => {}) })
+    set('play', () => {
+      if (audioRef.current === boostAudioRef.current) audioCtxRef.current?.resume().catch(() => {})
+      currentMedia()?.play().catch(() => {})
+    })
     set('pause', () => { currentMedia()?.pause() })
     set('seekbackward', (d) => seekBy(-(d.seekOffset || 15)))
     set('seekforward', (d) => seekBy(d.seekOffset || 15))

@@ -6,6 +6,7 @@ import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
 import { fs } from '@/lib/fontScale'
 import { bumpImageCacheBust } from '@/lib/thumb'
+import { VOLUME_BOOST_STORAGE_KEY } from '@/store/volumeBoostStore'
 
 const PLAYBACK_RATE_OPTIONS: { value: number; label: string }[] = [
   { value: 0.5, label: '0.5x' },
@@ -21,7 +22,7 @@ const FONT_SCALE_OPTIONS: { value: FontScale; label: string }[] = [
   { value: 2, label: '매우크게' },
 ]
 
-const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings', 'selah-onboarding-v1'])
+const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings', 'selah-onboarding-v1', VOLUME_BOOST_STORAGE_KEY])
 const CACHE_BUST_PARAM = 'selah-cache-bust'
 
 function clearLocalStorageExcept(keysToKeep: Set<string>) {
@@ -169,10 +170,10 @@ export default function SettingsPage() {
   const {
     theme, quality, mediaMode, autoPlayOnDetail, autoNextDelay, playbackRate,
     showCatechismHeadings, showCatechismToc,
-    offlineStorageMode, autoDownload, fontScale,
+    offlineStorageMode, autoDownload, fontScale, noiseFilter,
     setTheme, setQuality, setMediaMode, setAutoPlayOnDetail, setAutoNextDelay,
     setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
-    setOfflineStorageMode, setAutoDownload, setFontScale,
+    setOfflineStorageMode, setAutoDownload, setFontScale, setNoiseFilter,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
   const [clearing, setClearing] = useState(false)
@@ -272,6 +273,17 @@ export default function SettingsPage() {
           <Field title="재생 속도" description="설교를 빠르게 들어 시간을 아낄 수 있습니다. 배속은 설교에만 적용되며, 찬송은 항상 정속(원래 속도)으로 재생됩니다.">
             <Segmented value={playbackRate} onChange={setPlaybackRate} options={PLAYBACK_RATE_OPTIONS} />
           </Field>
+
+          <div style={mediaMode === 'video' ? { opacity: 0.5, pointerEvents: 'none' } : undefined}>
+            <ToggleField
+              title="노이즈 필터"
+              description={mediaMode === 'video'
+                ? '오디오 모드에서만 적용됩니다.'
+                : '배경 잡음과 험(저음 웅웅거림)을 줄입니다. 설교는 음성에 최적화된 필터, 찬송은 음악을 해치지 않는 필터가 자동으로 적용됩니다. 다운로드(저장)된 곡에 적용됩니다.'}
+              checked={noiseFilter}
+              onChange={() => setNoiseFilter(!noiseFilter)}
+            />
+          </div>
 
           <ToggleField
             title="상세페이지 자동 재생"
