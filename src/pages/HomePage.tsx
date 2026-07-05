@@ -70,8 +70,8 @@ interface VideoPage {
 }
 
 const PAGE_LIMIT = 20
-const HOME_PLAYLISTS_CACHE_KEY = 'home-playlists-cache'
-const HOME_RECENT_CACHE_KEY = 'home-recent-playlist-cache'
+const HOME_PLAYLISTS_CACHE_KEY = 'home-playlists-cache-v2'
+const HOME_RECENT_CACHE_KEY = 'home-recent-playlist-cache-v2'
 
 function getCachedHomeData<T>(key: string): T | null {
   try {

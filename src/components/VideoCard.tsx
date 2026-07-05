@@ -65,6 +65,10 @@ function isNewVideo(publishedAt?: string | null) {
   return diff <= 7 * 24 * 60 * 60 * 1000
 }
 
+function isTempVideo(isTemp?: boolean | string | null) {
+  return isTemp === true || isTemp === 'true'
+}
+
 function NewBadge() {
   return (
     <span
@@ -154,7 +158,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
   // 현재 미디어 모드(오디오/비디오)로 저장된 것만 "저장됨" 표시 (키 분리)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const isCached = useCachedMediaStore((s) => s.cachedIds.has(`${video.id}-${mediaMode}`))
-  const isTemp = video.isTemp === true
+  const isTemp = isTempVideo(video.isTemp)
   const isNew = !isTemp && isNewVideo(video.publishedAt)
   const [sheetOpen, setSheetOpen] = useState(false)
   const dur = fmtDuration(video.duration ?? undefined)
