@@ -80,14 +80,18 @@ function NewBadge() {
   )
 }
 
-function TempBadge() {
+function TempThumbPlaceholder() {
   return (
-    <span
-      className="absolute top-1.5 right-1.5 text-white text-[9px] font-bold px-1.5 rounded select-none"
-      style={{ background: 'rgba(40,40,40,0.82)', lineHeight: fs(16), letterSpacing: '0.04em' }}
+    <div
+      className="w-full h-full flex items-center justify-center"
+      style={{
+        background: 'linear-gradient(135deg, var(--surface-2) 0%, rgba(61,107,68,0.22) 52%, rgba(201,168,76,0.24) 100%)',
+      }}
     >
-      임시
-    </span>
+      <span className="text-sm font-bold select-none" style={{ color: 'var(--primary-800)', letterSpacing: '0.08em' }}>
+        임시
+      </span>
+    </div>
   )
 }
 
@@ -189,6 +193,8 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
           >
             {video.isSecret ? (
               <SecretThumbPlaceholder />
+            ) : isTemp ? (
+              <TempThumbPlaceholder />
             ) : (
               <>
                 <Thumb
@@ -197,7 +203,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
                   fallback={<div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--ink-3)' }}>♪</div>}
                 />
                 {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
-                {isTemp ? <TempBadge /> : isNew ? <NewBadge /> : null}
+                {isNew ? <NewBadge /> : null}
                 {isCached ? <CachedBadge /> : isDownloading ? <DownloadingBadge /> : null}
                 {dur && (
                   <span className="absolute bottom-1 right-1 text-white text-[10px] font-semibold px-1 rounded"
@@ -249,6 +255,8 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
         <div className="relative rounded-[10px] overflow-hidden" style={{ aspectRatio: '16/9', background: 'var(--surface-2)' }}>
           {video.isSecret ? (
             <SecretThumbPlaceholder />
+          ) : isTemp ? (
+            <TempThumbPlaceholder />
           ) : (
             <>
               <Thumb
@@ -257,7 +265,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
                 fallback={<div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--ink-3)' }}>♪</div>}
               />
               {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
-              {isTemp ? <TempBadge /> : isNew ? <NewBadge /> : null}
+              {isNew ? <NewBadge /> : null}
               {isCached && <CachedBadge />}
               {dur && (
                 <span className="absolute bottom-1.5 right-1.5 text-white font-semibold rounded"

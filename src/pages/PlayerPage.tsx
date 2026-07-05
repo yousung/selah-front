@@ -37,6 +37,7 @@ interface Video {
   lyric?: Lyric | null
   description?: string | null
   isSecret?: boolean | null
+  isTemp?: boolean | string | null
 }
 
 interface Lyric {
@@ -59,6 +60,25 @@ interface Lyric {
 }
 
 type DownloadStatus = 'idle' | 'downloading' | 'done'
+
+function isTempVideo(isTemp?: boolean | string | null) {
+  return isTemp === true || isTemp === 'true'
+}
+
+function TempArtworkPlaceholder() {
+  return (
+    <div
+      className="w-full h-full flex items-center justify-center"
+      style={{
+        background: 'linear-gradient(135deg, var(--surface-2) 0%, rgba(61,107,68,0.22) 52%, rgba(201,168,76,0.24) 100%)',
+      }}
+    >
+      <span className="text-xl font-bold select-none" style={{ color: 'var(--primary-800)', letterSpacing: '0.08em' }}>
+        임시
+      </span>
+    </div>
+  )
+}
 
 function fmtTime(s: number) {
   if (!isFinite(s) || s < 0) return '0:00'
@@ -867,6 +887,8 @@ export default function PlayerPage() {
         <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
           <span className="text-sm font-medium select-none" style={{ color: 'var(--ink-3)' }}>비공개 영상</span>
         </div>
+      ) : isTempVideo(video?.isTemp) ? (
+        <TempArtworkPlaceholder />
       ) : mediaMode === 'video' ? (
         <div ref={videoSlotRef as React.RefObject<HTMLDivElement>} style={{ display: 'block', width: '100%', height: '100%' }} />
       ) : (
