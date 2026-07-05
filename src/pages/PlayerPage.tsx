@@ -61,6 +61,25 @@ interface Lyric {
 
 type DownloadStatus = 'idle' | 'downloading' | 'done'
 
+function isTempVideo(isTemp?: boolean | string | null) {
+  return isTemp === true || isTemp === 'true'
+}
+
+function TempArtworkPlaceholder() {
+  return (
+    <div
+      className="w-full h-full flex items-center justify-center"
+      style={{
+        background: 'linear-gradient(135deg, var(--surface-2) 0%, rgba(61,107,68,0.22) 52%, rgba(201,168,76,0.24) 100%)',
+      }}
+    >
+      <span className="text-xl font-bold select-none" style={{ color: 'var(--primary-800)', letterSpacing: '0.08em' }}>
+        임시
+      </span>
+    </div>
+  )
+}
+
 function fmtTime(s: number) {
   if (!isFinite(s) || s < 0) return '0:00'
   const total = Math.floor(s)
@@ -849,6 +868,7 @@ export default function PlayerPage() {
 
   const progress = dragValue !== null ? dragValue : (duration > 0 ? position / duration : 0)
   const isFav = id ? isInAnyPlaylist(id) : false
+  const artworkDuration = video?.duration ? fmtTime(video.duration) : null
 
   /* ── Shared sub-components ── */
   const Artwork = (
@@ -868,6 +888,26 @@ export default function PlayerPage() {
         <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
           <span className="text-sm font-medium select-none" style={{ color: 'var(--ink-3)' }}>비공개 영상</span>
         </div>
+      ) : isTempVideo(video?.isTemp) ? (
+        <>
+          <TempArtworkPlaceholder />
+          {video.chapter != null && (
+            <span
+              className="absolute top-2 left-2 text-white text-xs font-bold px-2 rounded"
+              style={{ background: 'rgba(40,40,40,0.82)', lineHeight: fs(22), letterSpacing: '0.02em' }}
+            >
+              {video.type === 'SERMON' ? (video.chapter === 0 ? '서론' : video.chapter) : `${video.chapter}장`}
+            </span>
+          )}
+          {artworkDuration && (
+            <span
+              className="absolute bottom-2 right-2 text-white font-semibold rounded"
+              style={{ fontSize: fs(12), background: 'rgba(0,0,0,0.78)', padding: '2px 7px', lineHeight: fs(20) }}
+            >
+              {artworkDuration}
+            </span>
+          )}
+        </>
       ) : mediaMode === 'video' ? (
         <div ref={videoSlotRef as React.RefObject<HTMLDivElement>} style={{ display: 'block', width: '100%', height: '100%' }} />
       ) : (

@@ -80,6 +80,21 @@ function NewBadge() {
   )
 }
 
+function TempThumbPlaceholder() {
+  return (
+    <div
+      className="w-full h-full flex items-center justify-center"
+      style={{
+        background: 'linear-gradient(135deg, var(--surface-2) 0%, rgba(61,107,68,0.22) 52%, rgba(201,168,76,0.24) 100%)',
+      }}
+    >
+      <span className="text-sm font-bold select-none" style={{ color: 'var(--primary-800)', letterSpacing: '0.08em' }}>
+        임시
+      </span>
+    </div>
+  )
+}
+
 function CachedBadge() {
   return (
     <span
@@ -178,6 +193,15 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
           >
             {video.isSecret ? (
               <SecretThumbPlaceholder />
+            ) : isTemp ? (
+              <>
+                <TempThumbPlaceholder />
+                {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
+                {dur && (
+                  <span className="absolute bottom-1 right-1 text-white text-[10px] font-semibold px-1 rounded"
+                    style={{ background: 'rgba(0,0,0,0.75)', lineHeight: fs(16) }}>{dur}</span>
+                )}
+              </>
             ) : (
               <>
                 <Thumb
@@ -238,6 +262,15 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
         <div className="relative rounded-[10px] overflow-hidden" style={{ aspectRatio: '16/9', background: 'var(--surface-2)' }}>
           {video.isSecret ? (
             <SecretThumbPlaceholder />
+          ) : isTemp ? (
+            <>
+              <TempThumbPlaceholder />
+              {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
+              {dur && (
+                <span className="absolute bottom-1.5 right-1.5 text-white font-semibold rounded"
+                  style={{ fontSize: fs(11), background: 'rgba(0,0,0,0.78)', padding: '1px 5px', lineHeight: fs(18) }}>{dur}</span>
+              )}
+            </>
           ) : (
             <>
               <Thumb
