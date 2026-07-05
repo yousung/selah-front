@@ -22,6 +22,7 @@ interface Video {
   likeCount?: number | null
   lyricLine?: string | null
   isSecret?: boolean | null
+  isTemp?: boolean | null
 }
 
 interface Props {
@@ -71,6 +72,17 @@ function NewBadge() {
       style={{ background: 'var(--accent-500)', lineHeight: fs(16), letterSpacing: '0.04em' }}
     >
       NEW
+    </span>
+  )
+}
+
+function TempBadge() {
+  return (
+    <span
+      className="absolute top-1.5 right-1.5 text-white text-[9px] font-bold px-1.5 rounded select-none"
+      style={{ background: 'rgba(40,40,40,0.82)', lineHeight: fs(16), letterSpacing: '0.04em' }}
+    >
+      임시
     </span>
   )
 }
@@ -142,7 +154,8 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
   // 현재 미디어 모드(오디오/비디오)로 저장된 것만 "저장됨" 표시 (키 분리)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const isCached = useCachedMediaStore((s) => s.cachedIds.has(`${video.id}-${mediaMode}`))
-  const isNew = isNewVideo(video.publishedAt)
+  const isTemp = video.isTemp === true
+  const isNew = !isTemp && isNewVideo(video.publishedAt)
   const [sheetOpen, setSheetOpen] = useState(false)
   const dur = fmtDuration(video.duration ?? undefined)
   const views = fmtCompactCount(video.viewCount)
@@ -180,7 +193,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
                   fallback={<div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--ink-3)' }}>♪</div>}
                 />
                 {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
-                {isNew && <NewBadge />}
+                {isTemp ? <TempBadge /> : isNew ? <NewBadge /> : null}
                 {isCached ? <CachedBadge /> : isDownloading ? <DownloadingBadge /> : null}
                 {dur && (
                   <span className="absolute bottom-1 right-1 text-white text-[10px] font-semibold px-1 rounded"
@@ -240,7 +253,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
                 fallback={<div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--ink-3)' }}>♪</div>}
               />
               {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
-              {isNew && <NewBadge />}
+              {isTemp ? <TempBadge /> : isNew ? <NewBadge /> : null}
               {isCached && <CachedBadge />}
               {dur && (
                 <span className="absolute bottom-1.5 right-1.5 text-white font-semibold rounded"
