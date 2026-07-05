@@ -41,6 +41,7 @@ interface Video {
   createdAt?: string | null
   duration?: number | null
   isSecret?: boolean | null
+  isTemp?: boolean | null
 }
 
 interface PlaylistMeta {
@@ -49,6 +50,7 @@ interface PlaylistMeta {
   thumbnail: string | null
   tag: string | null
   duration?: number | null
+  isTemp?: boolean | null
 }
 
 interface Playlist {
@@ -197,13 +199,18 @@ function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: P
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const setQueue = useQueueStore((s) => s.setQueue)
 
+  const visibleVideos = playlist.id === 'recent'
+    ? playlist.videos.filter((v) => v.isTemp !== true)
+    : playlist.videos
+
   const handlePlay = (v: Video) => {
     setSelahMenu('/')
     if (currentVideo?.id === v.id) {
       navigate(`/player/${v.id}`)
       return
     }
-    const allItems = playlist.playlists ?? []
+    const visibleIds = new Set(visibleVideos.map((item) => item.id))
+    const allItems = (playlist.playlists ?? []).filter((item) => playlist.id !== 'recent' || visibleIds.has(item.id))
     const allIds = allItems.map(p => p.id)
     const idx = allIds.indexOf(v.id)
     const allVideos = allItems.map(p => ({
@@ -222,7 +229,7 @@ function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: P
     navigate(`/player/${v.id}`)
   }
 
-  if (!playlist.videos.length) return null
+  if (!visibleVideos.length) return null
 
   const today = new Date()
   const subtitle = subtitleOverride ?? `${today.getMonth() + 1}월 ${today.getDate()}일 최근 찬양`
@@ -243,7 +250,7 @@ function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: P
         </button>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-4">
-        {playlist.videos.map((v) => (
+        {visibleVideos.map((v) => (
           <VideoCard key={v.id} video={v} onClick={() => handlePlay(v)} layout="card" />
         ))}
       </div>
