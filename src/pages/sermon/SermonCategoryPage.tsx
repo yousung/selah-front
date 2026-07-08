@@ -374,6 +374,7 @@ export default function SermonCategoryPage() {
       hymnTitle: v.title,
       duration: v.duration ?? null,
       playerPath: `/sermon/player/${v.id}`,
+      isSecret: v.isSecret ?? null,
       categoryId: id,
       categoryTitle: category?.title,
     }))

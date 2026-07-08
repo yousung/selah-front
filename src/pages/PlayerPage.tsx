@@ -12,6 +12,7 @@ import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import TagBadge from '@/components/TagBadge'
 import Thumb from '@/components/Thumb'
+import SecretThumbPlaceholder from '@/components/SecretThumbPlaceholder'
 import { getSermonResume, clearSermonResume, type SermonResumeData } from '@/lib/sermonResume'
 import { downloadMedia, isMediaCached, isOfflineMediaSupported, cancelDownload, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
 import type { MediaCorruptDetail } from '@/lib/mediaStore'
@@ -885,9 +886,7 @@ export default function PlayerPage() {
       }}
     >
       {video?.isSecret ? (
-        <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
-          <span className="text-sm font-medium select-none" style={{ color: 'var(--ink-3)' }}>비공개 영상</span>
-        </div>
+        <SecretThumbPlaceholder />
       ) : isTempVideo(video?.isTemp) ? (
         <>
           <TempArtworkPlaceholder />

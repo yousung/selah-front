@@ -8,6 +8,7 @@ import { setSelahMenu } from '@/lib/selahMenu'
 import { getLastSermonResume, dismissSermonLast, type SermonResumeData } from '@/lib/sermonResume'
 import { fs } from '@/lib/fontScale'
 import Thumb from '@/components/Thumb'
+import SecretThumbPlaceholder from '@/components/SecretThumbPlaceholder'
 
 interface CategoryNode {
   id: string
@@ -62,7 +63,9 @@ function VideoThumbCard({ video, onPlay, titleOnly }: { video: Video; onPlay: ()
         background: 'var(--surface-2)',
         position: 'relative',
       }}>
-        {video.thumbnail ? (
+        {video.isSecret ? (
+          <SecretThumbPlaceholder />
+        ) : video.thumbnail ? (
           <Thumb src={video.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, var(--surface-2), var(--surface-3, #e0e0e0))' }} />
@@ -83,7 +86,7 @@ function VideoThumbCard({ video, onPlay, titleOnly }: { video: Video; onPlay: ()
         color: 'var(--ink-1)', lineHeight: 1.4,
         overflow: 'hidden', maxHeight: '2.8em',
       }}>
-        {titleOnly ? video.title : (video.description || video.title)}
+        {video.isSecret ? (video.description || video.title) : titleOnly ? video.title : (video.description || video.title)}
       </div>
     </div>
   )
@@ -173,6 +176,7 @@ function VideoRowContent({ categoryId, categoryTitle, accent }: { categoryId: st
       id: v.id, title: v.title, thumbnail: v.thumbnail,
       tag: null, type: 'SERMON', hymnTitle: v.title, duration: v.duration ?? null,
       playerPath: `/sermon/player/${v.id}`,
+      isSecret: v.isSecret ?? null,
       categoryId, categoryTitle,
     }))
     setQueue(ids, index, metas)

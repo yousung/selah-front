@@ -6,6 +6,7 @@ import { fs } from '@/lib/fontScale'
 import PlaylistBottomSheet from './PlaylistBottomSheet'
 import HighlightText from './HighlightText'
 import Thumb from '@/components/Thumb'
+import SecretThumbPlaceholder from '@/components/SecretThumbPlaceholder'
 
 
 interface Video {
@@ -122,14 +123,6 @@ function DownloadingBadge() {
         </path>
       </svg>
     </span>
-  )
-}
-
-function SecretThumbPlaceholder() {
-  return (
-    <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
-      <span className="text-xs font-medium select-none" style={{ color: 'var(--ink-3)' }}>비공개 영상</span>
-    </div>
   )
 }
 
