@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode, RefObject, SyntheticEvent } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback, ReactNode, RefObject, SyntheticEvent } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useVolumeBoostStore, displayBoostToGain } from '@/store/volumeBoostStore'
 import { RnnoiseWorkletNode, loadRnnoise, NoiseGateWorkletNode } from '@sapphi-red/web-noise-suppressor'
@@ -50,7 +50,6 @@ interface AudioContextValue {
   isPlaying: boolean
   isLoading: boolean
   isEnded: boolean
-  position: number
   duration: number
   autoNextProgress: number | null
   error: string | null
@@ -78,6 +77,7 @@ interface AudioContextValue {
 }
 
 const AudioCtx = createContext<AudioContextValue | null>(null)
+const PositionCtx = createContext<number>(0)
 
 // 이번 세션 동안 로컬 재생을 건너뛰고 스트림으로만 가는 cacheKey(id-type) 집합.
 // iOS에서 SW-라우팅 실패성 에러(NETWORK/SRC_NOT_SUPPORTED)에 파일을 보존한 채
@@ -176,6 +176,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [isEnded, setIsEnded] = useState(false)
   const [position, setPosition] = useState(0)
   const positionRef = useRef(0)
+  // syncPosition에서 setPosition/updatePositionState(React 리렌더 유발)를 ~200ms로 스로틀하기 위한
+  // 마지막 UI 동기화 시각. positionRef 자체 갱신/종료감지는 이 스로틀과 무관하게 매 timeupdate마다 수행.
+  const lastUiSyncRef = useRef(0)
   const [duration, setDuration] = useState(0)
   const [autoNextProgress, setAutoNextProgress] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -355,8 +358,18 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
 
     positionRef.current = currentTime
-    setPosition(currentTime)
-    updatePositionState(media)
+
+    // React state(setPosition)/mediaSession 갱신은 ~200ms로 스로틀 — position은 timeupdate마다
+    // (초당 수회) 바뀌어 이를 그대로 setState하면 useAudio() 소비자 13곳이 초당 수회 리렌더된다.
+    // 증폭/노이즈필터(Web Audio worklet) 경로는 메인스레드 잼에 취약해 리렌더 폭주가 worklet
+    // 언더런(미세 끊김)의 원인 중 하나였다. positionRef는 위에서 매번 갱신되므로 seek 등 즉시
+    // 필요한 값 조회는 스로틀의 영향을 받지 않는다.
+    const now = performance.now()
+    if (now - lastUiSyncRef.current >= 200) {
+      lastUiSyncRef.current = now
+      setPosition(currentTime)
+      updatePositionState(media)
+    }
   }, [updatePositionState])
 
   const applySeek = useCallback((media: HTMLMediaElement, seconds: number) => {
@@ -1394,15 +1407,27 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     restartCurrentMedia,
   ])
 
+  // position은 의도적으로 deps/객체에서 제외한다 — position만 바뀌는 렌더에서 value가 재사용돼야
+  // AudioCtx 소비자(13개 컴포넌트)가 초당 수회 리렌더되지 않는다. position은 별도 PositionCtx로 공급.
+  const value = useMemo<AudioContextValue>(() => ({
+    currentVideo, isPlaying, isLoading, isEnded, duration: effectiveDuration, autoNextProgress, error, volume,
+    videoUrl, reactPlayerRef, videoSlotRef,
+    playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, setVolume: handleSetVolume,
+    onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
+    onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
+  }), [
+    currentVideo, isPlaying, isLoading, isEnded, effectiveDuration, autoNextProgress, error, volume, videoUrl,
+    reactPlayerRef, videoSlotRef,
+    playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, handleSetVolume,
+    onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
+    onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
+  ])
+
   return (
-    <AudioCtx.Provider value={{
-      currentVideo, isPlaying, isLoading, isEnded, position, duration: effectiveDuration, autoNextProgress, error, volume,
-      videoUrl, reactPlayerRef, videoSlotRef,
-      playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, setVolume: handleSetVolume,
-      onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
-      onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
-    }}>
-      {children}
+    <AudioCtx.Provider value={value}>
+      <PositionCtx.Provider value={position}>
+        {children}
+      </PositionCtx.Provider>
     </AudioCtx.Provider>
   )
 }
@@ -1411,4 +1436,8 @@ export function useAudio() {
   const ctx = useContext(AudioCtx)
   if (!ctx) throw new Error('useAudio must be used within AudioProvider')
   return ctx
+}
+
+export function usePosition() {
+  return useContext(PositionCtx)
 }

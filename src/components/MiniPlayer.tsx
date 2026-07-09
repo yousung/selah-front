@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAudio } from '@/contexts/AudioContext'
+import { useAudio, usePosition } from '@/contexts/AudioContext'
 import Thumb from '@/components/Thumb'
 
 function fmtTime(s: number) {
@@ -28,13 +28,13 @@ export default function MiniPlayer({ onDismiss }: Props) {
     currentVideo,
     isPlaying,
     isLoading,
-    position,
     duration,
     autoNextProgress,
     cancelAutoNext,
     togglePlay,
     seek,
   } = useAudio()
+  const position = usePosition()
   const navigate = useNavigate()
   const [dragValue, setDragValue] = useState<number | null>(null)
 

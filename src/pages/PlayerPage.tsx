@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams, useLocation } from 'react-rout
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { clearSelahMenu } from '@/lib/selahMenu'
-import { useAudio } from '@/contexts/AudioContext'
+import { useAudio, usePosition } from '@/contexts/AudioContext'
 import { usePlaylistStore } from '@/store/playlistStore'
 import PlaylistBottomSheet from '@/components/PlaylistBottomSheet'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -464,9 +464,10 @@ export default function PlayerPage() {
   const mediaCacheKey = id ? `${id}-${mediaType}` : null
   const isCachedInStore = useCachedMediaStore((s) => !!mediaCacheKey && s.cachedIds.has(mediaCacheKey))
   const {
-    currentVideo, isPlaying, isLoading, position, duration, autoNextProgress, error,
+    currentVideo, isPlaying, isLoading, duration, autoNextProgress, error,
     playVideo, togglePlay, seekBy, seekFraction, cancelAutoNext, videoSlotRef,
   } = useAudio()
+  const position = usePosition()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [dlState, setDlState] = useState<{ key: string | null; status: DownloadStatus }>({ key: null, status: 'idle' })
   const [dlProgress, setDlProgress] = useState(0)
