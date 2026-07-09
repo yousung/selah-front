@@ -1,16 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
-import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale, NoiseFilterLevel } from '@/store/settingsStore'
+import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale } from '@/store/settingsStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
 import { fs } from '@/lib/fontScale'
 import { bumpImageCacheBust } from '@/lib/thumb'
-import { VOLUME_BOOST_STORAGE_KEY } from '@/store/volumeBoostStore'
-import { isIOS } from '@/lib/platform'
-import Toast from '@/components/Toast'
-
-const IOS_BACKGROUND_LIMIT_MESSAGE = '아이폰에서는 부스터·필터 사용 중 백그라운드·잠금화면으로 넘어가면 재생이 정지됩니다.'
 
 const PLAYBACK_RATE_OPTIONS: { value: number; label: string }[] = [
   { value: 0.5, label: '0.5x' },
@@ -26,7 +21,7 @@ const FONT_SCALE_OPTIONS: { value: FontScale; label: string }[] = [
   { value: 2, label: '매우크게' },
 ]
 
-const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings', 'selah-onboarding-v1', VOLUME_BOOST_STORAGE_KEY])
+const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings', 'selah-onboarding-v1'])
 const CACHE_BUST_PARAM = 'selah-cache-bust'
 
 function clearLocalStorageExcept(keysToKeep: Set<string>) {
@@ -98,12 +93,6 @@ const QUALITY_OPTIONS: { value: AudioQuality; label: string }[] = [
   { value: 'low', label: '저음질' },
 ]
 
-const NOISE_FILTER_LEVEL_OPTIONS: { value: NoiseFilterLevel; label: string }[] = [
-  { value: 0, label: '꺼짐' },
-  { value: 1, label: '1단계' },
-  { value: 2, label: '2단계' },
-]
-
 const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string }[] = [
   { value: 'audio', label: '오디오' },
   { value: 'video', label: '비디오' },
@@ -173,10 +162,10 @@ export default function SettingsPage() {
   const {
     theme, quality, mediaMode, playbackRate,
     showCatechismHeadings, showCatechismToc,
-    offlineStorageMode, fontScale, noiseFilterLevel,
+    offlineStorageMode, fontScale,
     setTheme, setQuality, setMediaMode,
     setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
-    setOfflineStorageMode, setFontScale, setNoiseFilterLevel,
+    setOfflineStorageMode, setFontScale,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
   const [clearing, setClearing] = useState(false)
@@ -195,14 +184,7 @@ export default function SettingsPage() {
   const [clearedMedia, setClearedMedia] = useState(false)
   const [usedBytes, setUsedBytes] = useState<number | null>(null)
   const [versionTaps, setVersionTaps] = useState(0)
-  const [showIOSToast, setShowIOSToast] = useState(false)
   const offlineMediaOk = isOfflineMediaSupported()
-
-  // 꺼짐(0) → 1/2단계로 처음 넘어가는 순간에만 iOS 안내 토스트를 띄운다.
-  const handleChangeNoiseFilterLevel = (level: NoiseFilterLevel) => {
-    if (noiseFilterLevel === 0 && level > 0 && isIOS()) setShowIOSToast(true)
-    setNoiseFilterLevel(level)
-  }
 
   // 앱 버전 5회 연속 탭 → 디버그 오버레이 토글 (사용자 진단용 숨김 기능)
   const handleVersionTap = () => {
@@ -249,9 +231,6 @@ export default function SettingsPage() {
 
   return (
     <div className="animate-fade-in">
-      {showIOSToast && (
-        <Toast message={IOS_BACKGROUND_LIMIT_MESSAGE} onClose={() => setShowIOSToast(false)} />
-      )}
       <header
         className="sticky top-0 z-10 flex items-center px-4 safe-top"
         style={{ minHeight: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
@@ -286,24 +265,6 @@ export default function SettingsPage() {
           <Field title="재생 속도" description="설교를 빠르게 들어 시간을 아낄 수 있습니다. 배속은 설교에만 적용되며, 찬송은 항상 정속(원래 속도)으로 재생됩니다.">
             <Segmented value={playbackRate} onChange={setPlaybackRate} options={PLAYBACK_RATE_OPTIONS} />
           </Field>
-
-          <div style={mediaMode === 'video' ? { opacity: 0.5, pointerEvents: 'none' } : undefined}>
-            <Field
-              title="노이즈 필터"
-              description={mediaMode === 'video' ? '오디오 모드에서만 적용됩니다.' : (
-                <>
-                  배경 잡음과 험(저음 웅웅거림)을 줄입니다. 설교에만 적용되며(찬송은 음악이라 필터를 적용하지 않습니다), 다운로드(저장)된 설교에 적용됩니다.
-                  {noiseFilterLevel === 2 && (
-                    <span style={{ display: 'block', marginTop: 6, color: '#dc2626', fontWeight: 600 }}>
-                      ⚠ 2단계는 잡음 제거가 강해 저음 목소리도 함께 잘릴 수 있습니다.
-                    </span>
-                  )}
-                </>
-              )}
-            >
-              <Segmented value={noiseFilterLevel} onChange={handleChangeNoiseFilterLevel} options={NOISE_FILTER_LEVEL_OPTIONS} />
-            </Field>
-          </div>
         </SectionBox>
 
         {/* ════════════ 표시 ════════════ */}
