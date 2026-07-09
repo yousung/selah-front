@@ -713,7 +713,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     try {
       const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
       if (Ctx) {
-        const ctx = new Ctx()
+        // latencyHint:'playback' — 더 큰 오디오 버퍼를 허용해 언더런 여유를 늘린다. iPad(WebKit)에서
+        // 기본 'interactive'(작은 버퍼)로는 boost 엘리먼트(createMediaElementSource→gain[→RNNoise]) 경유
+        // 재생이 처리 마감을 못 맞춰 주기적으로 뚝뚝 끊기는(dropout) 문제가 있다. 증폭만 켜도(gain만,
+        // CPU≈0) 끊기므로 원인은 필터 CPU가 아니라 Web Audio 그래프의 실시간 버퍼링 마진 부족.
+        // 구형 webkitAudioContext가 옵션을 무시해도 무해(기본 동작).
+        const ctx = new Ctx({ latencyHint: 'playback' })
         const srcNode = ctx.createMediaElementSource(boost)
         const gain = ctx.createGain()
         gain.gain.value = 1
