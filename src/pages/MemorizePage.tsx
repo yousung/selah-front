@@ -246,7 +246,7 @@ function ItemBody({ item, hero }: { item: MemoryVerse; hero: boolean }) {
 }
 
 /** 항목 리스트 (구분선 + 여백) */
-function ItemList({ items, hero }: { items: MemoryVerse[]; hero: boolean }) {
+export function ItemList({ items, hero }: { items: MemoryVerse[]; hero: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {items.map((it, i) => (
@@ -269,6 +269,7 @@ function ItemList({ items, hero }: { items: MemoryVerse[]; hero: boolean }) {
 }
 
 export default function MemorizePage() {
+  const navigate = useNavigate()
   const { data: items, isLoading, error } = useQuery({
     queryKey: ['memory-verses', 'current'],
     queryFn: getCurrentMemoryVerses,
@@ -287,8 +288,33 @@ export default function MemorizePage() {
     <div style={{ background: 'var(--surface-0)', minHeight: '100dvh' }}>
       {/* Header */}
       <header style={{ background: 'var(--white)', borderBottom: '1px solid var(--divider)', position: 'sticky', top: 0, zIndex: 10, paddingTop: 'env(safe-area-inset-top)' }}>
-        <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center' }}>
+        <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>한 주간의 양식</h1>
+          <button
+            type="button"
+            onClick={() => navigate('/memorize/archive')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              border: '1px solid var(--divider)',
+              borderRadius: 999,
+              background: 'var(--white)',
+              color: 'var(--primary-700)',
+              padding: '7px 12px',
+              fontSize: fs(13),
+              fontWeight: 700,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+            이전 양식
+          </button>
         </div>
       </header>
 

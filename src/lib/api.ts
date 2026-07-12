@@ -112,6 +112,13 @@ export interface MemoryVerse {
   content: string | null    // 본문/통독 범위/소요리 답(여러 줄 가능)
 }
 
+export interface WeeklyFormSummary {
+  period: string
+  startDate: string
+  endDate: string
+  itemCount: number
+}
+
 export async function getMemoryVerses(): Promise<MemoryVerse[]> {
   const { data } = await api.get<MemoryVerse[]>('/memory-verses')
   return data
@@ -119,5 +126,15 @@ export async function getMemoryVerses(): Promise<MemoryVerse[]> {
 
 export async function getCurrentMemoryVerses(): Promise<MemoryVerse[]> {
   const { data } = await api.get<MemoryVerse[]>('/memory-verses/current')
+  return data
+}
+
+export async function getPreviousWeeklyForms(): Promise<WeeklyFormSummary[]> {
+  const { data } = await api.get<WeeklyFormSummary[]>('/memory-verses/previous')
+  return data
+}
+
+export async function getWeeklyForm(startDate: string): Promise<MemoryVerse[]> {
+  const { data } = await api.get<MemoryVerse[]>(`/memory-verses/week/${encodeURIComponent(startDate)}`)
   return data
 }

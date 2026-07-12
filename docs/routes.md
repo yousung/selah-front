@@ -17,6 +17,9 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 | `/sermon` | `SermonPage` | 설교 시리즈 목록 (2열 그리드) |
 | `/sermon/series/:id` | `SermonSeriesPage` | 시리즈별 설교 목록 + 설교자 필터 칩 |
 | `/sermon/player/:id` | `SermonPlayerPage` | 설교 플레이어 (YouTube iframe, 영상/음성 전환) |
+| `/memorize` | `MemorizePage` | 최신 등록 주간 양식 |
+| `/memorize/archive` | `WeeklyFormArchivePage` | 이전 양식 주간 목록 |
+| `/memorize/archive/:startDate` | `WeeklyFormDetailPage` | 이전 양식 상세 |
 | `/catechism` | `CatechismPage` | 교리서 (준비 중 placeholder) |
 | `/my` | `MyPage` | MY 허브 — 내 재생목록/최근/검색/설정 링크 모음 |
 

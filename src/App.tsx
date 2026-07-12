@@ -19,6 +19,8 @@ import Layout from '@/components/Layout'
 import SermonPage from '@/pages/sermon/SermonPage'
 import SermonCategoryPage from '@/pages/sermon/SermonCategoryPage'
 import MemorizePage from '@/pages/MemorizePage'
+import WeeklyFormArchivePage from '@/pages/WeeklyFormArchivePage'
+import WeeklyFormDetailPage from '@/pages/WeeklyFormDetailPage'
 import CatechismPage from '@/pages/CatechismPage'
 import CatechismDetailPage from '@/pages/CatechismDetailPage'
 import MyPage from '@/pages/MyPage'
@@ -95,6 +97,8 @@ export default function App() {
             <Route path="sermon" element={<SermonPage />} />
             <Route path="sermon/category/:id" element={<SermonCategoryPage />} />
             <Route path="memorize" element={<MemorizePage />} />
+            <Route path="memorize/archive" element={<WeeklyFormArchivePage />} />
+            <Route path="memorize/archive/:startDate" element={<WeeklyFormDetailPage />} />
             <Route path="catechism" element={<CatechismPage />} />
             <Route path="catechism/:code" element={<CatechismDetailPage />} />
             <Route path="my" element={<MyPage />} />
