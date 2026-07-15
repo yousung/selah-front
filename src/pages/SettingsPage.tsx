@@ -162,10 +162,10 @@ export default function SettingsPage() {
   const {
     theme, quality, mediaMode, playbackRate,
     showCatechismHeadings, showCatechismToc,
-    offlineStorageMode, fontScale,
+    offlineStorageMode, fontScale, onlyOurChurch,
     setTheme, setQuality, setMediaMode,
     setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
-    setOfflineStorageMode, setFontScale,
+    setOfflineStorageMode, setFontScale, setOnlyOurChurch,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
   const [clearing, setClearing] = useState(false)
@@ -305,6 +305,13 @@ export default function SettingsPage() {
             description="교리서 목차(제목 가이드)를 표시합니다."
             checked={showCatechismToc}
             onChange={() => setShowCatechismToc(!showCatechismToc)}
+          />
+
+          <ToggleField
+            title="우리교회만 듣기"
+            description="우리교회 찬송만 표시합니다. 임시 찬송은 제외됩니다."
+            checked={onlyOurChurch}
+            onChange={() => setOnlyOurChurch(!onlyOurChurch)}
           />
         </SectionBox>
 

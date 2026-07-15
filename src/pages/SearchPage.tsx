@@ -22,6 +22,7 @@ interface Video {
   publishedAt?: string | null
   duration?: number | null
   isSecret?: boolean | null
+  isTemp?: boolean | null
 }
 
 interface VideoPage {
@@ -52,6 +53,7 @@ export default function SearchPage() {
   const [searchParams] = useSearchParams()
   const { playVideo, currentVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
+  const onlyOurChurch = useSettingsStore((s) => s.onlyOurChurch)
 
   const initialQuery = searchParams.get('q') ?? ''
   const [sortMode, setSortMode] = useState<SortMode>('chapterAsc')
@@ -90,8 +92,9 @@ export default function SearchPage() {
     enabled: isSearchable(debouncedQuery) || !!tagFilter,
   })
 
-  const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
-  const total = data?.pages[0]?.total ?? 0
+  const allVideos = (data?.pages.flatMap((p) => p.videos) ?? [])
+    .filter((v) => !onlyOurChurch || v.isTemp !== true)
+  const total = onlyOurChurch ? allVideos.length : (data?.pages[0]?.total ?? 0)
 
   const handleSearchChange = useCallback((v: string) => {
     setSearchQuery(v)

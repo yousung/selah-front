@@ -22,6 +22,7 @@ interface Video {
   duration?: number | null
   lyricLine?: string | null
   isSecret?: boolean | null
+  isTemp?: boolean | null
 }
 
 interface VideoPage {
@@ -30,7 +31,7 @@ interface VideoPage {
   page: number
   limit: number
   hasMore: boolean
-  playlists: { id: string; title: string; thumbnail: string | null; tag: string | null; duration?: number | null }[]
+  playlists: { id: string; title: string; thumbnail: string | null; tag: string | null; duration?: number | null; isTemp?: boolean | null }[]
 }
 
 interface Playlist {
@@ -47,6 +48,7 @@ export default function PlaylistPage() {
   const { playVideo, currentVideo } = useAudio()
 
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
+  const onlyOurChurch = useSettingsStore((s) => s.onlyOurChurch)
   const setQueue = useQueueStore((s) => s.setQueue)
 
   const [sortMode, setSortMode] = useState<SortMode>(() => (searchParams.get('sort') as SortMode) || getSortPref('playlist', id))
@@ -87,8 +89,9 @@ export default function PlaylistPage() {
     enabled: !!id,
   })
 
-  const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
-  const total = data?.pages[0]?.total ?? 0
+  const allVideos = (data?.pages.flatMap((p) => p.videos) ?? [])
+    .filter((v) => !onlyOurChurch || v.isTemp !== true)
+  const total = onlyOurChurch ? allVideos.length : (data?.pages[0]?.total ?? 0)
 
   const prevIdRef = useRef<string | undefined>(undefined)
   useEffect(() => {
@@ -146,7 +149,8 @@ export default function PlaylistPage() {
       navigate(`/player/${v.id}`)
       return
     }
-    const allItems = data?.pages[0]?.playlists ?? []
+    const allItems = (data?.pages[0]?.playlists ?? [])
+      .filter((item) => !onlyOurChurch || item.isTemp !== true)
     const allIds = allItems.map(p => p.id)
     const idx = allIds.indexOf(v.id)
     const allMetas = allItems.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null, duration: p.duration }))

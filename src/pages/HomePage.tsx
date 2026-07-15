@@ -197,11 +197,12 @@ function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: P
   const navigate = useNavigate()
   const { playVideo, currentVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
+  const onlyOurChurch = useSettingsStore((s) => s.onlyOurChurch)
   const setQueue = useQueueStore((s) => s.setQueue)
 
-  const visibleVideos = playlist.id === 'recent'
-    ? playlist.videos.filter((v) => v.isTemp !== true)
-    : playlist.videos
+  const visibleVideos = playlist.videos.filter((v) =>
+    (playlist.id !== 'recent' && !onlyOurChurch) || v.isTemp !== true,
+  )
 
   const handlePlay = (v: Video) => {
     setSelahMenu('/')
@@ -262,6 +263,7 @@ export default function HomePage() {
   const navigate = useNavigate()
   const { playVideo, currentVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
+  const onlyOurChurch = useSettingsStore((s) => s.onlyOurChurch)
   const limit = useGridLimit()
   const { data: playlists, isLoading } = usePlaylists(limit)
   const { data: recentPlaylist } = useRecentPlaylist(limit)
@@ -304,7 +306,8 @@ export default function HomePage() {
     enabled: isSearchable(debouncedQuery),
   })
 
-  const searchVideos = searchData?.pages.flatMap((p) => p.videos) ?? []
+  const searchVideos = (searchData?.pages.flatMap((p) => p.videos) ?? [])
+    .filter((v) => !onlyOurChurch || v.isTemp !== true)
 
   useEffect(() => {
     const sentinel = sentinelRef.current
