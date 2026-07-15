@@ -57,7 +57,7 @@ export const useSettingsStore = create<SettingsState>()(
       offlineStorageCustomMB: 1024,
       autoDownload: true,
       fontScale: 1,
-      onlyOurChurch: false,
+      onlyOurChurch: true,
       setTheme: (theme) => set({ theme }),
       setQuality: (quality) => set({ quality }),
       setMediaMode: (mediaMode) => set((s) => {
