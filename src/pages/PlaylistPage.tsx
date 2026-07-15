@@ -73,7 +73,7 @@ export default function PlaylistPage() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery<VideoPage>({
-    queryKey: ['playlist-videos', id, sortMode, debouncedQuery],
+    queryKey: ['playlist-videos', id, sortMode, debouncedQuery, onlyOurChurch],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({
@@ -82,6 +82,7 @@ export default function PlaylistPage() {
         sort: sortMode,
       })
       if (debouncedQuery) params.set('search', debouncedQuery)
+      if (onlyOurChurch) params.set('excludeTemp', 'true')
       const { data } = await api.get<VideoPage>(`/playlists/${id}/videos?${params}`)
       return data
     },
@@ -89,9 +90,8 @@ export default function PlaylistPage() {
     enabled: !!id,
   })
 
-  const allVideos = (data?.pages.flatMap((p) => p.videos) ?? [])
-    .filter((v) => !onlyOurChurch || v.isTemp !== true)
-  const total = onlyOurChurch ? allVideos.length : (data?.pages[0]?.total ?? 0)
+  const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
+  const total = data?.pages[0]?.total ?? 0
 
   const prevIdRef = useRef<string | undefined>(undefined)
   useEffect(() => {
@@ -149,8 +149,7 @@ export default function PlaylistPage() {
       navigate(`/player/${v.id}`)
       return
     }
-    const allItems = (data?.pages[0]?.playlists ?? [])
-      .filter((item) => !onlyOurChurch || item.isTemp !== true)
+    const allItems = data?.pages[0]?.playlists ?? []
     const allIds = allItems.map(p => p.id)
     const idx = allIds.indexOf(v.id)
     const allMetas = allItems.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null, duration: p.duration }))

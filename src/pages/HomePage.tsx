@@ -169,26 +169,28 @@ function useDailyVerse() {
   })
 }
 
-function usePlaylists(limit: number) {
+function usePlaylists(limit: number, excludeTemp: boolean) {
+  const cacheKey = `${HOME_PLAYLISTS_CACHE_KEY}-${excludeTemp ? 'our-church' : 'all'}`
   return useQuery({
-    queryKey: ['playlists', limit],
-    queryFn: () => withHomeCache(HOME_PLAYLISTS_CACHE_KEY, async () => {
-      const { data } = await api.get<Playlist[]>('/playlists', { params: { limit } })
+    queryKey: ['playlists', limit, excludeTemp],
+    queryFn: () => withHomeCache(cacheKey, async () => {
+      const { data } = await api.get<Playlist[]>('/playlists', { params: { limit, excludeTemp } })
       return data
     }, []),
-    initialData: () => getCachedHomeData<Playlist[]>(HOME_PLAYLISTS_CACHE_KEY) ?? undefined,
+    initialData: () => getCachedHomeData<Playlist[]>(cacheKey) ?? undefined,
     networkMode: 'always',
   })
 }
 
-function useRecentPlaylist(limit: number) {
+function useRecentPlaylist(limit: number, excludeTemp: boolean) {
+  const cacheKey = `${HOME_RECENT_CACHE_KEY}-${excludeTemp ? 'our-church' : 'all'}`
   return useQuery<Playlist | null>({
-    queryKey: ['playlists-recent', limit],
-    queryFn: () => withHomeCache(HOME_RECENT_CACHE_KEY, async () => {
-      const { data } = await api.get<Playlist>('/playlists/recent', { params: { limit } })
+    queryKey: ['playlists-recent', limit, excludeTemp],
+    queryFn: () => withHomeCache(cacheKey, async () => {
+      const { data } = await api.get<Playlist>('/playlists/recent', { params: { limit, excludeTemp } })
       return data
     }, null),
-    initialData: () => getCachedHomeData<Playlist>(HOME_RECENT_CACHE_KEY) ?? undefined,
+    initialData: () => getCachedHomeData<Playlist>(cacheKey) ?? undefined,
     networkMode: 'always',
   })
 }
@@ -197,12 +199,9 @@ function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: P
   const navigate = useNavigate()
   const { playVideo, currentVideo } = useAudio()
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
-  const onlyOurChurch = useSettingsStore((s) => s.onlyOurChurch)
   const setQueue = useQueueStore((s) => s.setQueue)
 
-  const visibleVideos = playlist.videos.filter((v) =>
-    (playlist.id !== 'recent' && !onlyOurChurch) || v.isTemp !== true,
-  )
+  const visibleVideos = playlist.videos
 
   const handlePlay = (v: Video) => {
     setSelahMenu('/')
@@ -265,8 +264,8 @@ export default function HomePage() {
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const onlyOurChurch = useSettingsStore((s) => s.onlyOurChurch)
   const limit = useGridLimit()
-  const { data: playlists, isLoading } = usePlaylists(limit)
-  const { data: recentPlaylist } = useRecentPlaylist(limit)
+  const { data: playlists, isLoading } = usePlaylists(limit, onlyOurChurch)
+  const { data: recentPlaylist } = useRecentPlaylist(limit, onlyOurChurch)
   const { data: dailyVerse } = useDailyVerse()
 
 
@@ -288,7 +287,7 @@ export default function HomePage() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery<VideoPage>({
-    queryKey: ['home-search', debouncedQuery],
+    queryKey: ['home-search', debouncedQuery, onlyOurChurch],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({
@@ -298,6 +297,7 @@ export default function HomePage() {
         search: debouncedQuery,
         searchField: 'titleChapter',
         excludeTag: 'SERMON',
+        excludeTemp: String(onlyOurChurch),
       })
       const { data } = await api.get<VideoPage>(`/videos?${params}`)
       return data
@@ -306,8 +306,7 @@ export default function HomePage() {
     enabled: isSearchable(debouncedQuery),
   })
 
-  const searchVideos = (searchData?.pages.flatMap((p) => p.videos) ?? [])
-    .filter((v) => !onlyOurChurch || v.isTemp !== true)
+  const searchVideos = searchData?.pages.flatMap((p) => p.videos) ?? []
 
   useEffect(() => {
     const sentinel = sentinelRef.current

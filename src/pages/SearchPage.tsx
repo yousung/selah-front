@@ -72,7 +72,7 @@ export default function SearchPage() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery<VideoPage>({
-    queryKey: ['search-videos', sortMode, searchField, tagFilter, debouncedQuery],
+    queryKey: ['search-videos', sortMode, searchField, tagFilter, debouncedQuery, onlyOurChurch],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({
@@ -85,6 +85,7 @@ export default function SearchPage() {
         params.set('searchField', searchField)
       }
       if (tagFilter) params.set('tag', tagFilter)
+      if (onlyOurChurch) params.set('excludeTemp', 'true')
       const { data } = await api.get<VideoPage>(`/videos?${params}`)
       return data
     },
@@ -92,9 +93,8 @@ export default function SearchPage() {
     enabled: isSearchable(debouncedQuery) || !!tagFilter,
   })
 
-  const allVideos = (data?.pages.flatMap((p) => p.videos) ?? [])
-    .filter((v) => !onlyOurChurch || v.isTemp !== true)
-  const total = onlyOurChurch ? allVideos.length : (data?.pages[0]?.total ?? 0)
+  const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
+  const total = data?.pages[0]?.total ?? 0
 
   const handleSearchChange = useCallback((v: string) => {
     setSearchQuery(v)
