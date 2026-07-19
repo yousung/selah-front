@@ -8,11 +8,13 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { getSortPref, setSortPref } from '@/lib/sortPref'
+import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
 
 type SortMode = 'chapterAsc' | 'chapterDesc'
 
 interface Video {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
@@ -23,6 +25,7 @@ interface Video {
   lyricLine?: string | null
   isSecret?: boolean | null
   isTemp?: boolean | null
+  isLive?: boolean | null
 }
 
 interface VideoPage {
@@ -31,7 +34,7 @@ interface VideoPage {
   page: number
   limit: number
   hasMore: boolean
-  playlists: { id: string; title: string; thumbnail: string | null; tag: string | null; duration?: number | null; isTemp?: boolean | null }[]
+  playlists: { id: string; youtubeId?: string | null; title: string; thumbnail: string | null; tag: string | null; duration?: number | null; isTemp?: boolean | null; isSecret?: boolean | null; isLive?: boolean | null }[]
 }
 
 interface Playlist {
@@ -145,17 +148,18 @@ export default function PlaylistPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length])
 
   const handlePlay = (v: Video) => {
+    if (openLiveVideoInNewTab(v)) return
     if (currentVideo?.id === v.id) {
       navigate(`/player/${v.id}`)
       return
     }
-    const allItems = data?.pages[0]?.playlists ?? []
+    const allItems = (data?.pages[0]?.playlists ?? []).filter(isPlayableInQueue)
     const allIds = allItems.map(p => p.id)
     const idx = allIds.indexOf(v.id)
-    const allMetas = allItems.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null, duration: p.duration }))
+    const allMetas = allItems.map(p => ({ id: p.id, youtubeId: p.youtubeId, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null, duration: p.duration, isSecret: p.isSecret, isLive: p.isLive }))
     setQueue(allIds, idx, allMetas)
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle, duration: v.duration, chapter: v.chapter, isSecret: v.isSecret },
+      { id: v.id, youtubeId: v.youtubeId, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle, duration: v.duration, chapter: v.chapter, isSecret: v.isSecret, isLive: v.isLive },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}`)

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 
 export interface RecentItem {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
@@ -10,7 +11,8 @@ export interface RecentItem {
   hymnTitle?: string | null
   duration?: number | null
   chapter?: number | null
-  isSecret?: boolean | null
+  isSecret?: boolean | string | null
+  isLive?: boolean | string | null
   playedAt: number
 }
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAudio, usePosition } from '@/contexts/AudioContext'
 import Thumb from '@/components/Thumb'
+import { openLiveVideoInNewTab } from '@/lib/liveVideo'
 
 function fmtTime(s: number) {
   if (!isFinite(s)) return '0:00'
@@ -41,6 +42,10 @@ export default function MiniPlayer({ onDismiss }: Props) {
   if (!currentVideo) return null
 
   const progress = dragValue !== null ? dragValue : (duration > 0 ? position / duration : 0)
+  const handleOpen = () => {
+    if (openLiveVideoInNewTab(currentVideo)) return
+    navigate(currentVideo.playerPath ?? `/${currentVideo.type === 'SERMON' ? 'sermon/player' : 'player'}/${currentVideo.id}`)
+  }
 
   return (
     <div
@@ -77,7 +82,7 @@ export default function MiniPlayer({ onDismiss }: Props) {
       <div
         className="flex items-center gap-3 px-4 cursor-pointer"
         style={{ height: 68 }}
-        onClick={() => navigate(currentVideo.playerPath ?? `/${currentVideo.type === 'SERMON' ? 'sermon/player' : 'player'}/${currentVideo.id}`)}
+        onClick={handleOpen}
       >
         {/* Thumbnail */}
         <div

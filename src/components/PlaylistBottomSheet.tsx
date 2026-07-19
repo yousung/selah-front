@@ -3,15 +3,17 @@ import { usePlaylistStore } from '@/store/playlistStore'
 
 interface Props {
   videoId: string
+  videoYoutubeId?: string | null
   videoTitle: string
   videoThumbnail: string | null
   videoTag: string | null
   videoHymnTitle?: string | null
   videoDuration?: number | null
+  videoIsLive?: boolean | string | null
   onClose: () => void
 }
 
-export default function PlaylistBottomSheet({ videoId, videoTitle, videoThumbnail, videoTag, videoHymnTitle, videoDuration, onClose }: Props) {
+export default function PlaylistBottomSheet({ videoId, videoYoutubeId, videoTitle, videoThumbnail, videoTag, videoHymnTitle, videoDuration, videoIsLive, onClose }: Props) {
   const { playlists, addPlaylist, addVideoToPlaylists, removeVideoFromPlaylist, getPlaylistsForVideo } = usePlaylistStore()
   const initial = getPlaylistsForVideo(videoId)
   const [checked, setChecked] = useState<Set<string>>(new Set(initial))
@@ -53,7 +55,7 @@ export default function PlaylistBottomSheet({ videoId, videoTitle, videoThumbnai
 
     // add to newly-checked playlists
     const toAdd = [...after].filter((id) => !before.has(id))
-    if (toAdd.length) addVideoToPlaylists({ id: videoId, title: videoTitle, thumbnail: videoThumbnail, tag: videoTag, hymnTitle: videoHymnTitle, duration: videoDuration }, toAdd)
+    if (toAdd.length) addVideoToPlaylists({ id: videoId, youtubeId: videoYoutubeId, title: videoTitle, thumbnail: videoThumbnail, tag: videoTag, hymnTitle: videoHymnTitle, duration: videoDuration, isLive: videoIsLive }, toAdd)
 
     // remove from unchecked playlists
     const toRemove = [...before].filter((id) => !after.has(id))

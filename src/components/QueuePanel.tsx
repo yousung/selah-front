@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAudio } from '@/contexts/AudioContext'
 import { useQueueStore } from '@/store/queueStore'
 import Thumb from '@/components/Thumb'
+import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
 
 function stripBrackets(s: string) {
   return s.replace(/\[.*?\]/g, '').trim()
@@ -64,13 +65,14 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
       const j = Math.floor(Math.random() * (i + 1))
       ;[indices[i], indices[j]] = [indices[j], indices[i]]
     }
-    const newIds = indices.map(i => ids[i])
-    const newVideos = indices.map(i => videos[i])
+    const newVideos = indices.map(i => videos[i]).filter((v) => v && isPlayableInQueue(v))
+    const newIds = newVideos.map((v) => v.id)
     setQueue(newIds, 0, newVideos)
     const first = newVideos[0]
     if (first) {
+      if (openLiveVideoInNewTab(first)) return
       void playVideo(
-        { id: first.id, title: first.title, thumbnail: first.thumbnail, tag: first.tag ?? null, hymnTitle: first.hymnTitle ?? null, duration: first.duration, chapter: first.chapter ?? null, isSecret: first.isSecret ?? null },
+        { id: first.id, youtubeId: first.youtubeId ?? null, title: first.title, thumbnail: first.thumbnail, tag: first.tag ?? null, hymnTitle: first.hymnTitle ?? null, duration: first.duration, chapter: first.chapter ?? null, isSecret: first.isSecret ?? null, isLive: first.isLive ?? null },
         { autoPlay: true },
       )
       navigate(`/player/${first.id}`)
@@ -98,8 +100,8 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
       }
     }
 
-    const newIds = ids.filter(id => !selected.has(id))
-    const newVideos = videos.filter((_, i) => !selected.has(ids[i]))
+    const newVideos = videos.filter((v, i) => !selected.has(ids[i]) && isPlayableInQueue(v))
+    const newIds = newVideos.map((v) => v.id)
 
     if (isCurrentDeleted) {
       if (nextOriginalIdx >= 0) {
@@ -108,8 +110,9 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
         const nextMeta = videos[nextOriginalIdx]
         setQueue(newIds, newNextIdx, newVideos)
         if (nextMeta) {
+          if (openLiveVideoInNewTab(nextMeta)) return
           void playVideo(
-            { id: nextMeta.id, title: nextMeta.title, thumbnail: nextMeta.thumbnail, tag: nextMeta.tag ?? null, hymnTitle: nextMeta.hymnTitle ?? null, duration: nextMeta.duration, chapter: nextMeta.chapter ?? null, isSecret: nextMeta.isSecret ?? null },
+            { id: nextMeta.id, youtubeId: nextMeta.youtubeId ?? null, title: nextMeta.title, thumbnail: nextMeta.thumbnail, tag: nextMeta.tag ?? null, hymnTitle: nextMeta.hymnTitle ?? null, duration: nextMeta.duration, chapter: nextMeta.chapter ?? null, isSecret: nextMeta.isSecret ?? null, isLive: nextMeta.isLive ?? null },
             { autoPlay: true },
           )
           navigate(`/player/${nextId}`)
@@ -138,8 +141,9 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
     }
     setQueue(ids, idx)
     if (meta) {
+      if (openLiveVideoInNewTab(meta)) return
       void playVideo(
-        { id: meta.id, title: meta.title, thumbnail: meta.thumbnail, tag: meta.tag ?? null, hymnTitle: meta.hymnTitle ?? null, duration: meta.duration, chapter: meta.chapter ?? null, isSecret: meta.isSecret ?? null },
+        { id: meta.id, youtubeId: meta.youtubeId ?? null, title: meta.title, thumbnail: meta.thumbnail, tag: meta.tag ?? null, hymnTitle: meta.hymnTitle ?? null, duration: meta.duration, chapter: meta.chapter ?? null, isSecret: meta.isSecret ?? null, isLive: meta.isLive ?? null },
         { autoPlay: true },
       )
     }

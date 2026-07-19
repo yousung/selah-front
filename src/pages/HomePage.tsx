@@ -28,10 +28,12 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
 import VideoCard from '@/components/VideoCard'
 import { useAudio } from '@/contexts/AudioContext'
+import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
 
 
 interface Video {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
@@ -42,15 +44,19 @@ interface Video {
   duration?: number | null
   isSecret?: boolean | null
   isTemp?: boolean | null
+  isLive?: boolean | null
 }
 
 interface PlaylistMeta {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
   duration?: number | null
   isTemp?: boolean | null
+  isSecret?: boolean | null
+  isLive?: boolean | null
 }
 
 interface Playlist {
@@ -204,26 +210,32 @@ function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: P
   const visibleVideos = playlist.videos
 
   const handlePlay = (v: Video) => {
+    if (openLiveVideoInNewTab(v)) return
     setSelahMenu('/')
     if (currentVideo?.id === v.id) {
       navigate(`/player/${v.id}`)
       return
     }
     const visibleIds = new Set(visibleVideos.map((item) => item.id))
-    const allItems = (playlist.playlists ?? []).filter((item) => playlist.id !== 'recent' || visibleIds.has(item.id))
+    const allItems = (playlist.playlists ?? [])
+      .filter(isPlayableInQueue)
+      .filter((item) => playlist.id !== 'recent' || visibleIds.has(item.id))
     const allIds = allItems.map(p => p.id)
     const idx = allIds.indexOf(v.id)
     const allVideos = allItems.map(p => ({
       id: p.id,
+      youtubeId: p.youtubeId,
       title: p.title,
       thumbnail: p.thumbnail,
       tag: p.tag,
       hymnTitle: null as string | null,
       duration: p.duration,
+      isSecret: p.isSecret,
+      isLive: p.isLive,
     }))
     setQueue(allIds, idx, allVideos)
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration, isSecret: v.isSecret },
+      { id: v.id, youtubeId: v.youtubeId, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration, isSecret: v.isSecret, isLive: v.isLive },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}`)
@@ -325,13 +337,14 @@ export default function HomePage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, searchVideos.length])
 
   const handleSearchPlay = (v: Video) => {
+    if (openLiveVideoInNewTab(v)) return
     setSelahMenu('/')
     if (currentVideo?.id === v.id) {
       navigate(`/player/${v.id}`)
       return
     }
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration, isSecret: v.isSecret },
+      { id: v.id, youtubeId: v.youtubeId, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration, isSecret: v.isSecret, isLive: v.isLive },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}`)

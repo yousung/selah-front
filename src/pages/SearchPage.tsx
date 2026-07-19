@@ -7,6 +7,7 @@ import { setSelahMenu } from '@/lib/selahMenu'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import VideoCard from '@/components/VideoCard'
+import { openLiveVideoInNewTab } from '@/lib/liveVideo'
 
 type SortMode = 'chapterAsc' | 'chapterDesc'
 type SearchField = 'all' | 'title' | 'chapter' | 'psalm'
@@ -14,6 +15,7 @@ type TagFilter = '' | 'AR' | 'MR'
 
 interface Video {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
@@ -23,6 +25,7 @@ interface Video {
   duration?: number | null
   isSecret?: boolean | null
   isTemp?: boolean | null
+  isLive?: boolean | null
 }
 
 interface VideoPage {
@@ -125,6 +128,7 @@ export default function SearchPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length])
 
   const handlePlay = (v: Video) => {
+    if (openLiveVideoInNewTab(v)) return
     setSelahMenu('/search')
     const ctx = new URLSearchParams({ sort: sortMode })
     if (debouncedQuery) {
@@ -137,7 +141,7 @@ export default function SearchPage() {
       return
     }
     playVideo(
-      { id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration, isSecret: v.isSecret },
+      { id: v.id, youtubeId: v.youtubeId, title: v.title, thumbnail: v.thumbnail, tag: v.tag, chapter: v.chapter, hymnTitle: v.hymnTitle, duration: v.duration, isSecret: v.isSecret, isLive: v.isLive },
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}?${ctx}`)

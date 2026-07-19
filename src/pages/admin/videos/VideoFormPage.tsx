@@ -11,7 +11,7 @@ export default function VideoFormPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
 
-  const [form, setForm] = useState({ youtubeId: '', tag: '', playlistId: '', chapter: '', isSecret: false })
+  const [form, setForm] = useState({ youtubeId: '', tag: '', playlistId: '', chapter: '', isSecret: false, isLive: false })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fetching, setFetching] = useState(isEdit)
@@ -25,7 +25,7 @@ export default function VideoFormPage() {
     if (!isEdit) return
     adminApi.get(`/admin/thelc/videos/${id}`).then((r) => {
       const d = r.data
-      setForm({ youtubeId: d.youtubeId ?? '', tag: d.tag ?? 'AR', playlistId: d.playlistId ?? '', chapter: String(d.chapter ?? ''), isSecret: d.isSecret ?? false })
+      setForm({ youtubeId: d.youtubeId ?? '', tag: d.tag ?? 'AR', playlistId: d.playlistId ?? '', chapter: String(d.chapter ?? ''), isSecret: d.isSecret ?? false, isLive: d.isLive ?? false })
       setFetching(false)
     })
   }, [id, isEdit])
@@ -43,6 +43,7 @@ export default function VideoFormPage() {
       playlistId: form.playlistId || undefined,
       chapter: form.chapter ? Number(form.chapter) : undefined,
       isSecret: form.isSecret,
+      isLive: form.isLive,
     }
     try {
       if (isEdit) {
@@ -95,6 +96,17 @@ export default function VideoFormPage() {
               style={{ width: 16, height: 16, accentColor: 'var(--primary-700)', cursor: 'pointer' }}
             />
             <span className="text-sm" style={{ color: 'var(--ink-1)' }}>비공개 (스트리밍 차단)</span>
+          </label>
+        </Field>
+        <Field label="방송중">
+          <label className="flex items-center gap-2 cursor-pointer" style={{ paddingTop: 4 }}>
+            <input
+              type="checkbox"
+              checked={form.isLive}
+              onChange={(e) => setForm((f) => ({ ...f, isLive: e.target.checked }))}
+              style={{ width: 16, height: 16, accentColor: 'var(--primary-700)', cursor: 'pointer' }}
+            />
+            <span className="text-sm" style={{ color: 'var(--ink-1)' }}>방송중 표시 (재생 차단 없음)</span>
           </label>
         </Field>
         {error && <p className="text-xs" style={{ color: '#B85450' }}>{error}</p>}

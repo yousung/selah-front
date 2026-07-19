@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 
 export interface VideoMeta {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
@@ -11,7 +12,8 @@ export interface VideoMeta {
   duration?: number | null
   chapter?: number | null
   playerPath?: string | null
-  isSecret?: boolean | null
+  isSecret?: boolean | string | null
+  isLive?: boolean | string | null
   categoryId?: string | null
   categoryTitle?: string | null
 }

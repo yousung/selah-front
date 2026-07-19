@@ -9,6 +9,7 @@ import { getLastSermonResume, dismissSermonLast, type SermonResumeData } from '@
 import { fs } from '@/lib/fontScale'
 import Thumb from '@/components/Thumb'
 import SecretThumbPlaceholder from '@/components/SecretThumbPlaceholder'
+import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
 
 interface CategoryNode {
   id: string
@@ -22,6 +23,7 @@ interface CategoryNode {
 
 interface Video {
   id: string
+  youtubeId?: string | null
   title: string
   description?: string | null
   thumbnail: string | null
@@ -31,6 +33,7 @@ interface Video {
   viewCount?: number | null
   likeCount?: number | null
   isSecret?: boolean | null
+  isLive?: boolean | null
 }
 
 const ACCENT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#0ea5e9']
@@ -65,6 +68,8 @@ function VideoThumbCard({ video, onPlay, titleOnly }: { video: Video; onPlay: ()
       }}>
         {video.isSecret ? (
           <SecretThumbPlaceholder />
+        ) : video.isLive ? (
+          <SecretThumbPlaceholder label="방송중" />
         ) : video.thumbnail ? (
           <Thumb src={video.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
@@ -170,16 +175,19 @@ function VideoRowContent({ categoryId, categoryTitle, accent }: { categoryId: st
 
   const videos = data?.videos ?? []
 
-  const handlePlay = useCallback((video: Video, index: number) => {
-    const ids = videos.map((v) => v.id)
-    const metas = videos.map((v) => ({
-      id: v.id, title: v.title, thumbnail: v.thumbnail,
+  const handlePlay = useCallback((video: Video) => {
+    if (openLiveVideoInNewTab(video)) return
+    const queueVideos = videos.filter(isPlayableInQueue)
+    const ids = queueVideos.map((v) => v.id)
+    const metas = queueVideos.map((v) => ({
+      id: v.id, youtubeId: v.youtubeId, title: v.title, thumbnail: v.thumbnail,
       tag: null, type: 'SERMON', hymnTitle: v.title, duration: v.duration ?? null,
       playerPath: `/sermon/player/${v.id}`,
       isSecret: v.isSecret ?? null,
       categoryId, categoryTitle,
+      isLive: v.isLive ?? null,
     }))
-    setQueue(ids, index, metas)
+    setQueue(ids, ids.indexOf(video.id), metas)
     navigate(`/sermon/player/${video.id}`, { state: { categoryId, categoryTitle } })
   }, [videos, setQueue, navigate, categoryId, categoryTitle])
 
@@ -221,8 +229,8 @@ function VideoRowContent({ categoryId, categoryTitle, accent }: { categoryId: st
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 16px 4px' }}>
-      {videos.map((video, i) => (
-        <VideoThumbCard key={video.id} video={video} onPlay={() => handlePlay(video, i)} titleOnly={categoryId === 'recent-sermon'} />
+      {videos.map((video) => (
+        <VideoThumbCard key={video.id} video={video} onPlay={() => handlePlay(video)} titleOnly={categoryId === 'recent-sermon'} />
       ))}
     </div>
   )

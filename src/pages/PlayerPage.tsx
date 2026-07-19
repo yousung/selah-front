@@ -19,9 +19,11 @@ import type { MediaCorruptDetail } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { fs } from '@/lib/fontScale'
 import { shareSongToKakao, shareSermonToKakao } from '@/lib/kakaoShare'
+import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
 
 interface Video {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
@@ -34,6 +36,7 @@ interface Video {
   description?: string | null
   isSecret?: boolean | null
   isTemp?: boolean | string | null
+  isLive?: boolean | string | null
 }
 
 interface Lyric {
@@ -59,6 +62,10 @@ type DownloadStatus = 'idle' | 'downloading' | 'done'
 
 function isTempVideo(isTemp?: boolean | string | null) {
   return isTemp === true || isTemp === 'true'
+}
+
+function isLiveVideo(isLive?: boolean | string | null) {
+  return isLive === true || isLive === 'true'
 }
 
 function TempArtworkPlaceholder() {
@@ -270,6 +277,7 @@ function LyricsDescriptionTabs({ lyric, description }: { lyric?: Lyric | null; d
 
 interface AdjacentVideo {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
@@ -277,6 +285,7 @@ interface AdjacentVideo {
   hymnTitle?: string | null
   duration?: number | null
   isSecret?: boolean | null
+  isLive?: boolean | string | null
 }
 
 interface Adjacent {
@@ -492,19 +501,20 @@ export default function PlayerPage() {
   const toRecentAdj = useCallback((itemId: string | undefined): AdjacentVideo | null => {
     if (!itemId) return null
     const item = recentMap.get(itemId)
-    return item ? { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, chapter: extractChapter(item.title), hymnTitle: item.hymnTitle ?? null, duration: item.duration } : null
+    return item ? { id: item.id, youtubeId: item.youtubeId ?? null, title: item.title, thumbnail: item.thumbnail, tag: item.tag, chapter: extractChapter(item.title), hymnTitle: item.hymnTitle ?? null, duration: item.duration, isLive: item.isLive ?? null } : null
   }, [recentMap])
 
   const playlistId = video?.playlist?.id
 
   useEffect(() => {
     if (recentMode || !id || !playlistId || (queueIds.length > 0 && queueIds.includes(id))) return
-    api.get<{ playlists: { id: string; title: string; thumbnail: string | null; tag: string | null; duration?: number | null }[] }>(`/playlists/${playlistId}/videos?page=1&limit=500&sort=chapterAsc`)
+    api.get<{ playlists: { id: string; youtubeId?: string | null; title: string; thumbnail: string | null; tag: string | null; duration?: number | null; isSecret?: boolean | string | null; isLive?: boolean | string | null }[] }>(`/playlists/${playlistId}/videos?page=1&limit=500&sort=chapterAsc`)
       .then(({ data }) => {
         if (data.playlists.length > 0) {
-          const ids = data.playlists.map(p => p.id)
+          const playable = data.playlists.filter(isPlayableInQueue)
+          const ids = playable.map(p => p.id)
           const idx = ids.indexOf(id)
-          const metas = data.playlists.map(p => ({ id: p.id, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null, duration: p.duration }))
+          const metas = playable.map(p => ({ id: p.id, youtubeId: p.youtubeId ?? null, title: p.title, thumbnail: p.thumbnail, tag: p.tag, hymnTitle: null, duration: p.duration, isSecret: p.isSecret ?? null, isLive: p.isLive ?? null }))
           setQueue(ids, idx !== -1 ? idx : 0, metas)
         }
       })
@@ -526,11 +536,13 @@ export default function PlayerPage() {
   const sermonStateCategoryTitle = (location.state as { categoryTitle?: string } | null)?.categoryTitle
 
   const handleAdjacentNav = useCallback((target: AdjacentVideo) => {
+    if (openLiveVideoInNewTab(target)) return
     const idx = queueIds.indexOf(target.id)
     if (idx !== -1) setQueue(queueIds, idx)
     playVideo(
       {
         id: target.id,
+        youtubeId: target.youtubeId ?? null,
         title: target.title,
         thumbnail: target.thumbnail,
         tag: target.tag,
@@ -540,6 +552,7 @@ export default function PlayerPage() {
         chapter: target.chapter,
         playerPath: isSermonPlayer ? `/sermon/player/${target.id}` : undefined,
         isSecret: target.isSecret,
+        isLive: target.isLive,
         categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
         categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
       },
@@ -577,6 +590,7 @@ export default function PlayerPage() {
     playVideo(
       {
         id: video.id,
+        youtubeId: video.youtubeId ?? null,
         title: video.title,
         thumbnail: video.thumbnail,
         tag: video.tag,
@@ -586,6 +600,7 @@ export default function PlayerPage() {
         chapter: video.chapter,
         playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
         isSecret: video.isSecret,
+        isLive: video.isLive,
         categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
         categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
       },
@@ -595,14 +610,15 @@ export default function PlayerPage() {
 
   const handleSermonResumeContinue = useCallback(() => {
     if (!video || !sermonResumeChoice) return
+    if (openLiveVideoInNewTab(video)) return
     sermonResumePendingRef.current = false
     hasPlayedRef.current = true
     playVideo(
       {
-        id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag,
+        id: video.id, youtubeId: video.youtubeId ?? null, title: video.title, thumbnail: video.thumbnail, tag: video.tag,
         type: 'SERMON', hymnTitle: video.title,
         duration: video.duration, chapter: video.chapter,
-        playerPath: `/sermon/player/${video.id}`, isSecret: video.isSecret,
+        playerPath: `/sermon/player/${video.id}`, isSecret: video.isSecret, isLive: video.isLive,
         categoryId: sermonResumeChoice.categoryId ?? sermonStateCategoryId,
         categoryTitle: sermonResumeChoice.categoryTitle ?? sermonStateCategoryTitle,
       },
@@ -613,15 +629,16 @@ export default function PlayerPage() {
 
   const handleSermonResumeRestart = useCallback(() => {
     if (!video) return
+    if (openLiveVideoInNewTab(video)) return
     clearSermonResume(video.id)
     sermonResumePendingRef.current = false
     hasPlayedRef.current = true
     playVideo(
       {
-        id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag,
+        id: video.id, youtubeId: video.youtubeId ?? null, title: video.title, thumbnail: video.thumbnail, tag: video.tag,
         type: 'SERMON', hymnTitle: video.title,
         duration: video.duration, chapter: video.chapter,
-        playerPath: `/sermon/player/${video.id}`, isSecret: video.isSecret,
+        playerPath: `/sermon/player/${video.id}`, isSecret: video.isSecret, isLive: video.isLive,
         categoryId: sermonResumeChoice?.categoryId ?? sermonStateCategoryId,
         categoryTitle: sermonResumeChoice?.categoryTitle ?? sermonStateCategoryTitle,
       },
@@ -634,16 +651,19 @@ export default function PlayerPage() {
   useEffect(() => {
     if (recentMode || !id || !sermonStateCategoryId) return
     if (queueIds.includes(id)) return
-    api.get<{ videos: { id: string; title: string; thumbnail: string | null; tag: string | null; duration?: number | null }[] }>(
+    api.get<{ videos: { id: string; youtubeId?: string | null; title: string; thumbnail: string | null; tag: string | null; duration?: number | null; isSecret?: boolean | string | null; isLive?: boolean | string | null }[] }>(
       `/sermon-categories/${sermonStateCategoryId}/videos?page=1&limit=500`,
     ).then(({ data }) => {
       if (data.videos.length > 0) {
-        const ids = data.videos.map((v) => v.id)
+        const playable = data.videos.filter(isPlayableInQueue)
+        const ids = playable.map((v) => v.id)
         const idx = ids.indexOf(id)
-        const metas = data.videos.map((v) => ({
-          id: v.id, title: v.title, thumbnail: v.thumbnail,
+        const metas = playable.map((v) => ({
+          id: v.id, youtubeId: v.youtubeId ?? null, title: v.title, thumbnail: v.thumbnail,
           tag: v.tag, type: 'SERMON', hymnTitle: v.title,
           duration: v.duration ?? null,
+          isSecret: v.isSecret ?? null,
+          isLive: v.isLive ?? null,
           playerPath: `/sermon/player/${v.id}`,
           categoryId: sermonStateCategoryId,
           categoryTitle: sermonStateCategoryTitle,
@@ -720,8 +740,10 @@ export default function PlayerPage() {
 
   const handleRetry = useCallback(() => {
     if (video) {
+      if (openLiveVideoInNewTab(video)) return
       playVideo({
         id: video.id,
+        youtubeId: video.youtubeId ?? null,
         title: video.title,
         thumbnail: video.thumbnail,
         tag: video.tag,
@@ -731,6 +753,7 @@ export default function PlayerPage() {
         chapter: video.chapter,
         playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
         isSecret: video.isSecret,
+        isLive: video.isLive,
         categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
         categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
       })
@@ -779,6 +802,8 @@ export default function PlayerPage() {
     >
       {video?.isSecret ? (
         <SecretThumbPlaceholder />
+      ) : isLiveVideo(video?.isLive) ? (
+        <SecretThumbPlaceholder label="방송중" />
       ) : isTempVideo(video?.isTemp) ? (
         <>
           <TempArtworkPlaceholder />
@@ -1121,11 +1146,13 @@ export default function PlayerPage() {
       {playlistSheetOpen && id && (
         <PlaylistBottomSheet
           videoId={id}
+          videoYoutubeId={video?.youtubeId ?? null}
           videoTitle={video?.title ?? ''}
           videoThumbnail={video?.thumbnail ?? null}
           videoTag={video?.tag ?? null}
           videoHymnTitle={video?.lyric?.hymnTitle ?? null}
           videoDuration={video?.duration ?? null}
+          videoIsLive={video?.isLive ?? null}
           onClose={() => setPlaylistSheetOpen(false)}
         />
       )}

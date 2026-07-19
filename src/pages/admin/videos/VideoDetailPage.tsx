@@ -5,7 +5,7 @@ import { adminApi } from '@/lib/adminApi'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
 import type { AxiosError } from 'axios'
 
-interface Video { id: string; title: string; youtubeId: string; tag: string; chapter?: number; description?: string; playlistId?: string; createdAt: string }
+interface Video { id: string; title: string; youtubeId: string; tag: string; chapter?: number; description?: string; playlistId?: string; isLive?: boolean; createdAt: string }
 
 export default function VideoDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -43,6 +43,7 @@ export default function VideoDetailPage() {
         <Row label="태그" value={data.tag} />
         <Row label="챕터" value={String(data.chapter ?? '-')} />
         <Row label="플레이리스트" value={data.playlistId ?? '-'} />
+        <Row label="방송중" value={data.isLive ? '예' : '아니오'} />
         <Row label="생성일" value={new Date(data.createdAt).toLocaleString('ko-KR')} />
         {data.description && <Row label="설명" value={data.description} />}
       </div>

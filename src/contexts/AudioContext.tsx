@@ -9,9 +9,11 @@ import type { MediaDownloadedDetail } from '@/lib/mediaStore'
 import { setLastPlayback, setLastPlaybackError } from '@/lib/mediaDiag'
 import { thumbUrl, thumbQualityFor } from '@/lib/thumb'
 import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
+import { isLiveVideo } from '@/lib/liveVideo'
 
 interface VideoInfo {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
@@ -20,13 +22,15 @@ interface VideoInfo {
   duration?: number | null
   chapter?: number | null
   playerPath?: string
-  isSecret?: boolean | null
+  isSecret?: boolean | string | null
+  isLive?: boolean | string | null
   categoryId?: string
   categoryTitle?: string
 }
 
 interface VideoDetail {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
@@ -36,7 +40,8 @@ interface VideoDetail {
   duration?: number | null
   playerPath?: string | null
   lyric?: { hymnTitle?: string | null } | null
-  isSecret?: boolean | null
+  isSecret?: boolean | string | null
+  isLive?: boolean | string | null
 }
 
 interface AudioContextValue {
@@ -606,6 +611,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     currentVideoIdRef.current = video.id
     if (!options?.skipRecentAdd) useRecentStore.getState().add({
       id: video.id,
+      youtubeId: video.youtubeId ?? null,
       title: video.title,
       thumbnail: video.thumbnail,
       tag: video.tag,
@@ -613,6 +619,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       hymnTitle: video.hymnTitle ?? null,
       duration: video.duration ?? null,
       chapter: video.chapter ?? null,
+      isLive: video.isLive ?? null,
     })
     setIsLoading(true)
     setError(null)
@@ -1014,7 +1021,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       const { data } = await api.get<VideoDetail>(`/videos/${targetId}`)
 
       // 비공개 영상은 자동재생 스킵 (무한루프 방지: 그냥 멈춤)
-      if (data.isSecret) {
+      if (data.isSecret || isLiveVideo(targetMeta?.isLive ?? data.isLive)) {
         setIsLoading(false)
         setIsEnded(false)
         return
@@ -1028,6 +1035,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setQueue(queueIds, targetIndex)
       await playVideo({
         id: data.id,
+        youtubeId: targetMeta?.youtubeId ?? data.youtubeId ?? null,
         title: data.title,
         thumbnail: data.thumbnail,
         tag: data.tag,
@@ -1036,6 +1044,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         duration: data.duration ?? targetMeta?.duration ?? null,
         chapter: data.chapter ?? targetMeta?.chapter ?? null,
         playerPath: targetMeta?.playerPath ?? data.playerPath ?? undefined,
+        isLive: targetMeta?.isLive ?? data.isLive ?? null,
         categoryId: targetMeta?.categoryId ?? undefined,
         categoryTitle: targetMeta?.categoryTitle ?? undefined,
       }, { autoPlay: true })

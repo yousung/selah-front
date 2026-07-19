@@ -5,6 +5,7 @@ import { usePlaylistStore, PlaylistVideo } from '@/store/playlistStore'
 import { useQueueStore } from '@/store/queueStore'
 import { setSelahMenu } from '@/lib/selahMenu'
 import Thumb from '@/components/Thumb'
+import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
 function stripBrackets(s: string) {
   return s.replace(/\[.*?\]/g, '').trim()
 }
@@ -136,33 +137,37 @@ export default function MyPlaylistDetailPage() {
   }
 
   const buildQueueMetas = (videos: PlaylistVideo[]) =>
-    videos.map((v) => ({ id: v.id, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle ?? null, duration: v.duration ?? null }))
+    videos.map((v) => ({ id: v.id, youtubeId: v.youtubeId ?? null, title: v.title, thumbnail: v.thumbnail, tag: v.tag, hymnTitle: v.hymnTitle ?? null, duration: v.duration ?? null, isLive: v.isLive ?? null }))
 
   const handlePlayAll = () => {
     if (!playlist || playlist.videos.length === 0) return
-    const first = playlist.videos[0]
+    const playableVideos = playlist.videos.filter(isPlayableInQueue)
+    if (playableVideos.length === 0) return
+    const first = playableVideos[0]
     setSelahMenu(`/my-playlists/${playlist.id}`)
     if (currentVideo?.id === first.id) {
       navigate(`/player/${first.id}`)
       return
     }
-    const ids = playlist.videos.map((v) => v.id)
-    setQueue(ids, 0, buildQueueMetas(playlist.videos))
-    playVideo({ id: first.id, title: first.title, thumbnail: first.thumbnail, tag: first.tag, hymnTitle: first.hymnTitle, duration: first.duration, isSecret: first.isSecret })
+    const ids = playableVideos.map((v) => v.id)
+    setQueue(ids, 0, buildQueueMetas(playableVideos))
+    playVideo({ id: first.id, youtubeId: first.youtubeId, title: first.title, thumbnail: first.thumbnail, tag: first.tag, hymnTitle: first.hymnTitle, duration: first.duration, isSecret: first.isSecret, isLive: first.isLive })
     navigate(`/player/${first.id}`)
   }
 
   const handlePlay = (video: PlaylistVideo) => {
     if (!playlist) return
+    if (openLiveVideoInNewTab(video)) return
     setSelahMenu(`/my-playlists/${playlist.id}`)
     if (currentVideo?.id === video.id) {
       navigate(`/player/${video.id}`)
       return
     }
-    const ids = playlist.videos.map((v) => v.id)
+    const playableVideos = playlist.videos.filter(isPlayableInQueue)
+    const ids = playableVideos.map((v) => v.id)
     const idx = ids.indexOf(video.id)
-    setQueue(ids, idx, buildQueueMetas(playlist.videos))
-    playVideo({ id: video.id, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.hymnTitle, duration: video.duration, isSecret: video.isSecret })
+    setQueue(ids, idx, buildQueueMetas(playableVideos))
+    playVideo({ id: video.id, youtubeId: video.youtubeId, title: video.title, thumbnail: video.thumbnail, tag: video.tag, hymnTitle: video.hymnTitle, duration: video.duration, isSecret: video.isSecret, isLive: video.isLive })
     navigate(`/player/${video.id}`)
   }
 

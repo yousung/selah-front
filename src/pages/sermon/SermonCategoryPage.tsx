@@ -11,6 +11,7 @@ import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { downloadMedia, isOfflineMediaSupported, cancelDownload, deleteMedia } from '@/lib/mediaStore'
 import { fs } from '@/lib/fontScale'
 import { getSortPref, setSortPref, type SortMode } from '@/lib/sortPref'
+import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
 
 interface CategoryNode {
   id: string
@@ -24,6 +25,7 @@ interface CategoryNode {
 
 interface Video {
   id: string
+  youtubeId?: string | null
   title: string
   description?: string | null
   thumbnail: string | null
@@ -34,6 +36,7 @@ interface Video {
   viewCount?: number | null
   likeCount?: number | null
   isSecret?: boolean | null
+  isLive?: boolean | null
 }
 
 interface VideoPage {
@@ -363,10 +366,13 @@ export default function SermonCategoryPage() {
     [observerCb],
   )
 
-  const handleVideoClick = (video: Video, index: number) => {
-    const ids = allVideos.map((v) => v.id)
-    const metas = allVideos.map((v) => ({
+  const handleVideoClick = (video: Video) => {
+    if (openLiveVideoInNewTab(video)) return
+    const queueVideos = allVideos.filter(isPlayableInQueue)
+    const ids = queueVideos.map((v) => v.id)
+    const metas = queueVideos.map((v) => ({
       id: v.id,
+      youtubeId: v.youtubeId,
       title: v.title,
       thumbnail: v.thumbnail,
       tag: v.tag,
@@ -375,10 +381,11 @@ export default function SermonCategoryPage() {
       duration: v.duration ?? null,
       playerPath: `/sermon/player/${v.id}`,
       isSecret: v.isSecret ?? null,
+      isLive: v.isLive ?? null,
       categoryId: id,
       categoryTitle: category?.title,
     }))
-    setQueue(ids, index, metas)
+    setQueue(ids, ids.indexOf(video.id), metas)
     navigate(`/sermon/player/${video.id}`, { state: { categoryId: id, categoryTitle: category?.title } })
   }
 
@@ -682,7 +689,7 @@ export default function SermonCategoryPage() {
                             layout="list"
                             isDownloading={isDownloading}
                             selectMode={selectMode}
-                            onClick={selectMode ? () => toggleSelect(video.id) : () => handleVideoClick(video, i)}
+                            onClick={selectMode ? () => toggleSelect(video.id) : () => handleVideoClick(video)}
                           />
                         </LazyRow>
                         {selectMode && !cachedIds.has(`${video.id}-${dlType}`) && (

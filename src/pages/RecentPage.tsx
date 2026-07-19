@@ -4,6 +4,7 @@ import { useRecentStore, type RecentItem } from '@/store/recentStore'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import VideoCard from '@/components/VideoCard'
+import { openLiveVideoInNewTab } from '@/lib/liveVideo'
 
 export default function RecentPage() {
   const navigate = useNavigate()
@@ -12,13 +13,14 @@ export default function RecentPage() {
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
 
   const handlePlay = (item: RecentItem) => {
+    if (openLiveVideoInNewTab(item)) return
     setSelahMenu('/recent')
     if (currentVideo?.id === item.id) {
       navigate(`/player/${item.id}?recentMode=1`)
       return
     }
     playVideo(
-      { id: item.id, title: item.title, thumbnail: item.thumbnail, tag: item.tag, type: item.type, hymnTitle: item.hymnTitle, duration: item.duration, chapter: item.chapter, isSecret: item.isSecret },
+      { id: item.id, youtubeId: item.youtubeId, title: item.title, thumbnail: item.thumbnail, tag: item.tag, type: item.type, hymnTitle: item.hymnTitle, duration: item.duration, chapter: item.chapter, isSecret: item.isSecret, isLive: item.isLive },
       { autoPlay: autoPlayOnDetail, skipRecentAdd: true },
     )
     navigate(`/${item.type === 'SERMON' ? 'sermon/player' : 'player'}/${item.id}?recentMode=1`)

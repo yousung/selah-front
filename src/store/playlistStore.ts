@@ -3,12 +3,14 @@ import { persist } from 'zustand/middleware'
 
 export interface PlaylistVideo {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
   hymnTitle?: string | null
   duration?: number | null
-  isSecret?: boolean | null
+  isSecret?: boolean | string | null
+  isLive?: boolean | string | null
 }
 
 export interface UserPlaylist {

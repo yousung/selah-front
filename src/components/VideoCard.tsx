@@ -7,10 +7,12 @@ import PlaylistBottomSheet from './PlaylistBottomSheet'
 import HighlightText from './HighlightText'
 import Thumb from '@/components/Thumb'
 import SecretThumbPlaceholder from '@/components/SecretThumbPlaceholder'
+import { isLiveVideo } from '@/lib/liveVideo'
 
 
 interface Video {
   id: string
+  youtubeId?: string | null
   title: string
   thumbnail: string | null
   tag: string | null
@@ -22,8 +24,9 @@ interface Video {
   viewCount?: number | null
   likeCount?: number | null
   lyricLine?: string | null
-  isSecret?: boolean | null
+  isSecret?: boolean | string | null
   isTemp?: boolean | null
+  isLive?: boolean | string | null
 }
 
 interface Props {
@@ -156,7 +159,8 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const isCached = useCachedMediaStore((s) => s.cachedIds.has(`${video.id}-${mediaMode}`))
   const isTemp = isTempVideo(video.isTemp)
-  const isNew = !isTemp && isNewVideo(video.publishedAt)
+  const isLive = isLiveVideo(video.isLive)
+  const isNew = !isTemp && !isLive && isNewVideo(video.publishedAt)
   const [sheetOpen, setSheetOpen] = useState(false)
   const dur = fmtDuration(video.duration ?? undefined)
   const views = fmtCompactCount(video.viewCount)
@@ -186,6 +190,8 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
           >
             {video.isSecret ? (
               <SecretThumbPlaceholder />
+            ) : isLive ? (
+              <SecretThumbPlaceholder label="방송중" />
             ) : isTemp ? (
               <>
                 <TempThumbPlaceholder />
@@ -241,7 +247,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
             )
           }
         </div>
-        {sheetOpen && <PlaylistBottomSheet videoId={video.id} videoTitle={video.title} videoThumbnail={video.thumbnail} videoTag={video.tag} videoHymnTitle={video.hymnTitle} videoDuration={video.duration} onClose={() => setSheetOpen(false)} />}
+        {sheetOpen && <PlaylistBottomSheet videoId={video.id} videoYoutubeId={video.youtubeId} videoTitle={video.title} videoThumbnail={video.thumbnail} videoTag={video.tag} videoHymnTitle={video.hymnTitle} videoDuration={video.duration} videoIsLive={video.isLive} onClose={() => setSheetOpen(false)} />}
       </>
     )
   }
@@ -255,6 +261,8 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
         <div className="relative rounded-[10px] overflow-hidden" style={{ aspectRatio: '16/9', background: 'var(--surface-2)' }}>
           {video.isSecret ? (
             <SecretThumbPlaceholder />
+          ) : isLive ? (
+            <SecretThumbPlaceholder label="방송중" />
           ) : isTemp ? (
             <>
               <TempThumbPlaceholder />
@@ -306,7 +314,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
           </div>
         </div>
       </div>
-      {sheetOpen && <PlaylistBottomSheet videoId={video.id} videoTitle={video.title} videoThumbnail={video.thumbnail} videoTag={video.tag} videoHymnTitle={video.hymnTitle} videoDuration={video.duration} onClose={() => setSheetOpen(false)} />}
+      {sheetOpen && <PlaylistBottomSheet videoId={video.id} videoYoutubeId={video.youtubeId} videoTitle={video.title} videoThumbnail={video.thumbnail} videoTag={video.tag} videoHymnTitle={video.hymnTitle} videoDuration={video.duration} videoIsLive={video.isLive} onClose={() => setSheetOpen(false)} />}
     </>
   )
 }
