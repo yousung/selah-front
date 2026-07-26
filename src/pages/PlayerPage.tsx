@@ -59,6 +59,7 @@ interface Lyric {
 }
 
 type DownloadStatus = 'idle' | 'downloading' | 'done'
+const MAX_DOWNLOAD_RETRIES = 5
 
 function isTempVideo(isTemp?: boolean | string | null) {
   return isTemp === true || isTemp === 'true'
@@ -376,6 +377,7 @@ export default function PlayerPage() {
   const downloadingRef = useRef(false)
   const dlStatus = dlState.key === mediaCacheKey ? dlState.status : 'idle'
   const isDownloaded = isCachedInStore || dlStatus === 'done'
+  const canSeek = !isSermonPlayer || isDownloaded
   const offlineMediaOk = isOfflineMediaSupported()
   const isDraggingRef = useRef(false)
   const dragValueRef = useRef<number | null>(null)
@@ -678,8 +680,8 @@ export default function PlayerPage() {
     if (!id || !video) return
     if (video.isSecret) return
     if (!offlineMediaOk) return
-    // 절약(thrift)도 다운로드-후-재생을 위해 다운로드한다(스트림 직접 재생 안 함).
-    // 다운로드 후 enforceStoragePolicy가 현재+최근 곡 2개만 남기고 정리한다.
+    // 재생은 스트림으로 즉시 시작하고 다운로드는 병렬로 진행한다.
+    // 다운로드가 끝나면 AudioContext가 현재 위치를 유지한 채 로컬 파일로 전환한다.
     // 동기 in-flight 가드: autoDownload가 video ref 변경(React Query 백그라운드 refetch)으로
     // 중복 발화해도 두 번째 호출을 즉시 차단. dlStatus(상태)는 비동기 지연이 있어 가드로 부적합.
     if (downloadingRef.current) return
@@ -690,24 +692,34 @@ export default function PlayerPage() {
         setDlState({ key: mediaCacheKey, status: 'done' })
         return
       }
-      const downloadPath = mediaMode === 'video'
-        ? `/videos/${id}/download`
-        : `/audios/${id}/download`
-      const { data } = await api.get<{ url: string; bitrate?: number; duration?: number | null; mimeType?: string }>(
-        downloadPath,
-        mediaMode !== 'video' ? { params: { quality: 'high' } } : undefined,
-      )
-      // 총 크기를 헤더로 알 수 없어(CDN CORS) bitrate×duration으로 추정해 진행률 표시
-      const durSec = data.duration ?? video.duration ?? 0
-      const estimatedSize = data.bitrate && durSec ? (data.bitrate * durSec) / 8 : undefined
       setDlProgress(0)
       setDlState({ key: mediaCacheKey, status: 'downloading' })
-      await downloadMedia(id, data.url, {
-        type: mediaType,
-        estimatedSize,
-        mimeType: data.mimeType,
-        onProgress: (p) => setDlProgress(p),
-      })
+      let retries = 0
+      while (true) {
+        try {
+          const downloadPath = mediaMode === 'video'
+            ? `/videos/${id}/download`
+            : `/audios/${id}/download`
+          const { data } = await api.get<{ url: string; bitrate?: number; duration?: number | null; mimeType?: string }>(
+            downloadPath,
+            mediaMode !== 'video' ? { params: { quality: 'high' } } : undefined,
+          )
+          // 총 크기를 헤더로 알 수 없어(CDN CORS) bitrate×duration으로 추정해 진행률 표시
+          const durSec = data.duration ?? video.duration ?? 0
+          const estimatedSize = data.bitrate && durSec ? (data.bitrate * durSec) / 8 : undefined
+          await downloadMedia(id, data.url, {
+            type: mediaType,
+            estimatedSize,
+            mimeType: data.mimeType,
+            onProgress: (p) => setDlProgress(p),
+          })
+          break
+        } catch (error) {
+          if ((error as DOMException)?.name === 'AbortError' || retries >= MAX_DOWNLOAD_RETRIES) throw error
+          retries += 1
+          setDlProgress(0)
+        }
+      }
       const success = await isMediaCached(id, mediaType)
       setDlState({ key: mediaCacheKey, status: success ? 'done' : 'idle' })
       if (success) useCachedMediaStore.getState().refresh()
@@ -719,7 +731,7 @@ export default function PlayerPage() {
   }, [id, video, offlineMediaOk, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
 
   useEffect(() => {
-    // 절약(thrift)은 autoDownload 토글과 무관하게 항상 다운로드-후-재생(2곡 보관).
+    // 절약(thrift)은 autoDownload 토글과 무관하게 스트리밍과 다운로드를 병렬 실행(2곡 보관).
     // 그 외 모드는 autoDownload 켜진 경우에만 자동 다운로드.
     if (offlineStorageMode !== 'thrift' && !autoDownload) return
     if (!video || !offlineMediaOk) return
@@ -882,13 +894,14 @@ export default function PlayerPage() {
       <div className="mb-2">
         <input
           type="range" min={0} max={1} step={0.001} value={progress}
+          disabled={!canSeek}
           onMouseDown={() => { isDraggingRef.current = true }}
           onTouchStart={() => { isDraggingRef.current = true }}
           onChange={(e) => { const v = Number(e.target.value); setDragValue(v); dragValueRef.current = v }}
           onMouseUp={(e) => { isDraggingRef.current = false; seekFraction(dragValueRef.current ?? (e.target as HTMLInputElement).valueAsNumber); dragValueRef.current = null; setTimeout(() => setDragValue(null), 300) }}
           onTouchEnd={(e) => { isDraggingRef.current = false; seekFraction(dragValueRef.current ?? (e.target as HTMLInputElement).valueAsNumber); dragValueRef.current = null; setTimeout(() => setDragValue(null), 300) }}
           className="w-full"
-          style={{ height: 3, accentColor: 'var(--primary-700)', cursor: 'pointer',
+          style={{ height: 3, accentColor: 'var(--primary-700)', cursor: canSeek ? 'pointer' : 'not-allowed', opacity: canSeek ? 1 : 0.45,
             background: `linear-gradient(to right, var(--primary-700) ${progress * 100}%, var(--divider) ${progress * 100}%)` }}
         />
         <div className="flex justify-between mt-1">
@@ -914,7 +927,9 @@ export default function PlayerPage() {
         {/* -15s */}
         <button
           onClick={() => seekBy(-15)}
+          disabled={!canSeek}
           className="transition-opacity hover:opacity-60 active:scale-95"
+          style={{ opacity: canSeek ? 1 : 0.35 }}
         >
           <div className="relative flex items-center justify-center" style={{ width: 40, height: 40 }}>
             <svg width="40" height="40" viewBox="0 0 44 44" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" style={{ color: 'var(--ink-1)' }}>
@@ -947,7 +962,9 @@ export default function PlayerPage() {
         {/* +15s */}
         <button
           onClick={() => seekBy(15)}
+          disabled={!canSeek}
           className="transition-opacity hover:opacity-60 active:scale-95"
+          style={{ opacity: canSeek ? 1 : 0.35 }}
         >
           <div className="relative flex items-center justify-center" style={{ width: 40, height: 40 }}>
             <svg width="40" height="40" viewBox="0 0 44 44" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" style={{ color: 'var(--ink-1)' }}>

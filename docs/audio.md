@@ -82,3 +82,5 @@ Provider: `<AudioProvider>` — `App.tsx` 최상단에서 전체를 감싼다.
 - audio 모드: `audioRef.current.src` 직접 설정
 - video 모드: `videoUrl` state 업데이트 → PlayerPage의 `<video src={videoUrl}>` 렌더
 - `autoNextProgress`: 자동 다음 곡 카운트다운 (0→1). null이면 비활성
+- 설교 캐시 미스: 스트림 즉시 재생, 다운로드 병렬 진행
+- 설교 `seek`/`seekBy`/`seekFraction`: 다운로드 완료 후 로컬 파일로 전환된 경우만 동작

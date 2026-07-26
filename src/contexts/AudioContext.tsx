@@ -700,7 +700,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         setLastPlayback({ id: video.id, type: mediaType, source: 'stream', src: data.url })
         localPlaybackRef.current = null
         pendingAutoPlayRef.current = autoPlay
-        if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
+        if (video.type !== 'SERMON' && options?.seekTo != null) pendingSeekRef.current = options.seekTo
         setVideoUrl(data.url)
         if (!autoPlay) setIsLoading(false)
       } catch {
@@ -733,7 +733,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       audio.src = data.url
       audio.volume = volume
       applyPlaybackRate(audio)
-      if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
+      if (video.type !== 'SERMON' && options?.seekTo != null) pendingSeekRef.current = options.seekTo
       if (!autoPlay) {
         audio.load()
         setIsLoading(false)
@@ -825,6 +825,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const seek = useCallback((seconds: number) => {
+    // 설교 스트림은 즉시 재생만 허용한다. 다운로드 완료 후 로컬 파일로 전환되면 구간 이동 허용.
+    if (currentVideoDataRef.current?.type === 'SERMON' && !localPlaybackRef.current) return
     const video = reactPlayerRef.current
     if (mediaModeRef.current === 'video' && video) {
       applySeek(video, seconds)
@@ -839,6 +841,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [applySeek])
 
   const seekBy = useCallback((delta: number) => {
+    if (currentVideoDataRef.current?.type === 'SERMON' && !localPlaybackRef.current) return
     const video = reactPlayerRef.current
     if (mediaModeRef.current === 'video' && video) {
       applySeek(video, positionRef.current + delta)
