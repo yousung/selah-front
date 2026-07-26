@@ -680,7 +680,7 @@ export default function PlayerPage() {
     if (!id || !video) return
     if (video.isSecret) return
     if (!offlineMediaOk) return
-    // 재생은 스트림으로 즉시 시작하고 다운로드는 병렬로 진행한다.
+    // 재생은 스트림으로 즉시 시작하고, playing 이벤트 확인 후 다운로드를 진행한다.
     // 다운로드가 끝나면 AudioContext가 현재 위치를 유지한 채 로컬 파일로 전환한다.
     // 동기 in-flight 가드: autoDownload가 video ref 변경(React Query 백그라운드 refetch)으로
     // 중복 발화해도 두 번째 호출을 즉시 차단. dlStatus(상태)는 비동기 지연이 있어 가드로 부적합.
@@ -731,7 +731,11 @@ export default function PlayerPage() {
   }, [id, video, offlineMediaOk, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
 
   useEffect(() => {
-    // 절약(thrift)은 autoDownload 토글과 무관하게 스트리밍과 다운로드를 병렬 실행(2곡 보관).
+    // 스트림이 실제 재생된 뒤 다운로드를 시작한다. 같은 Invidious 호스트에 스트림과
+    // 전체 다운로드를 동시에 열면 모바일 브라우저에서 다운로드가 연결/대역폭을 선점해
+    // 재생이 무한 로딩되는 문제가 있다.
+    if (!isPlaying || currentVideo?.id !== video?.id) return
+    // 절약(thrift)은 autoDownload 토글과 무관하게 재생 직후 다운로드(2곡 보관).
     // 그 외 모드는 autoDownload 켜진 경우에만 자동 다운로드.
     if (offlineStorageMode !== 'thrift' && !autoDownload) return
     if (!video || !offlineMediaOk) return
@@ -739,7 +743,7 @@ export default function PlayerPage() {
     handleDownload()
   // video?.id로 의존: 백그라운드 refetch(같은 id, 새 ref)로 재발화하지 않도록
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [video?.id, autoDownload, offlineStorageMode])
+  }, [video?.id, autoDownload, offlineStorageMode, isPlaying, currentVideo?.id])
 
   // 영상에서 벗어날 때(id 변경/언마운트) 진행 중이던 다운로드 취소.
   // 특히 비공개 영상으로 넘어갈 때, 이전 곡 다운로드가 완료되면 그 완료 이벤트로
