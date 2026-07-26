@@ -492,13 +492,22 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       ['durationchange', () => applyPendingSeek(audio)],
       ['timeupdate', () => syncPosition(audio)],
       ['play', () => {
+        pendingAutoPlayRef.current = false
         setIsPlaying(true); setIsLoading(false); updatePositionState(audio)
       }],
       ['pause', () => {
         setIsPlaying(false)
       }],
       ['waiting', () => setIsLoading(true)],
-      ['canplay', () => { applyPendingSeek(audio); setIsLoading(false) }],
+      ['canplay', () => {
+        applyPendingSeek(audio)
+        setIsLoading(false)
+        // 모바일 브라우저는 동적 src 직후 play()를 보류하는 경우가 있다.
+        // 실제 play 이벤트 전까지 자동재생 의도를 유지하고 재생 가능 시 다시 요청한다.
+        if (pendingAutoPlayRef.current && audio.paused) {
+          void audio.play().catch(() => { setIsLoading(false) })
+        }
+      }],
       ['ended', () => {
         setIsPlaying(false); setIsEnded(true)
         const v = currentVideoDataRef.current
@@ -660,6 +669,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
             audio.src = localUrl
             audio.volume = volume
             applyPlaybackRate(audio)
+            pendingAutoPlayRef.current = autoPlay
             if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
             if (!autoPlay) {
               audio.load()
@@ -733,6 +743,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       audio.src = data.url
       audio.volume = volume
       applyPlaybackRate(audio)
+      pendingAutoPlayRef.current = autoPlay
       if (video.type !== 'SERMON' && options?.seekTo != null) pendingSeekRef.current = options.seekTo
       if (!autoPlay) {
         audio.load()
@@ -740,6 +751,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         return
       }
       try {
+        // Android Chrome/iOS WebKit 모두 동적 src 교체 후 명시적 load가 없으면
+        // play promise가 pending인 채 백그라운드 복귀 때까지 멈추는 사례가 있다.
+        audio.load()
         await audio.play()
       } catch {
         setIsLoading(false)

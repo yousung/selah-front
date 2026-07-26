@@ -745,6 +745,16 @@ export default function PlayerPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video?.id, autoDownload, offlineStorageMode, isPlaying, currentVideo?.id])
 
+  useEffect(() => {
+    // 스트림이 브라우저 미디어 초기화 단계에서 멈춰도 다운로드 복구 경로는 유지한다.
+    // 정상 스트림은 위 effect가 즉시 처리하고, 8초 안에 재생되지 않은 경우에만 다운로드 시작.
+    if (!video || video.isSecret || !offlineMediaOk) return
+    if (offlineStorageMode !== 'thrift' && !autoDownload) return
+    if (isPlaying || currentVideo?.id !== video.id) return
+    const timer = window.setTimeout(() => { void handleDownload() }, 8000)
+    return () => window.clearTimeout(timer)
+  }, [video, offlineMediaOk, offlineStorageMode, autoDownload, isPlaying, currentVideo?.id, handleDownload])
+
   // 영상에서 벗어날 때(id 변경/언마운트) 진행 중이던 다운로드 취소.
   // 특히 비공개 영상으로 넘어갈 때, 이전 곡 다운로드가 완료되면 그 완료 이벤트로
   // 이전 곡이 다시 재생되던 버그(currentVideo가 비공개로 안 바뀌어 발생)를 막는다.
