@@ -11,7 +11,7 @@ Provider: `<AudioProvider>` — `App.tsx` 최상단에서 전체를 감싼다.
 
 | 모드 | 내부 구현 | 전환 |
 |------|----------|------|
-| `audio` | `HTMLAudioElement` (audioRef) | `settingsStore.mediaMode` |
+| `audio` | Provider DOM에 상시 마운트된 `HTMLAudioElement` (audioRef) | `settingsStore.mediaMode` |
 | `video` | `<video>` element (reactPlayerRef) | 동일 |
 
 `mediaMode` 변경 시 현재 재생 중단 + 상태 초기화.
@@ -85,6 +85,7 @@ Provider: `<AudioProvider>` — `App.tsx` 최상단에서 전체를 감싼다.
 - 설교 캐시 미스: 스트림 즉시 재생, 실제 `playing` 상태 확인 후 다운로드 시작
 - 설교 `seek`/`seekBy`/`seekFraction`: 다운로드 완료 후 로컬 파일로 전환된 경우만 동작
 - 모바일 동적 오디오: `src` 설정 후 `load()`, `canplay`에서 보류된 자동재생 재시도
+- 모바일 오디오 엘리먼트: `new Audio()` 분리 객체 대신 Provider DOM에 숨김 마운트
 - 스트림이 8초 안에 시작되지 않으면 다운로드를 시작해 로컬 재생 복구 경로 유지
 
 ## 앱 강제 업데이트

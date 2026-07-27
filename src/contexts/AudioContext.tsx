@@ -485,6 +485,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [cancelAutoNext, clearCacheWatchdog, mediaMode])
 
   useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
     const makeHandlers = (audio: HTMLAudioElement): [string, EventListener][] => [
       ['loadedmetadata', () => updateActualDuration(audio.duration)],
       ['durationchange', () => updateActualDuration(audio.duration)],
@@ -561,10 +564,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         setIsLoading(false)
       }],
     ]
-
-    const audio = new Audio()
-    audio.preload = 'metadata'
-    audioRef.current = audio
 
     const handlers = makeHandlers(audio)
     handlers.forEach(([event, handler]) => audio.addEventListener(event, handler))
@@ -1152,6 +1151,22 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   return (
     <AudioCtx.Provider value={value}>
       <PositionCtx.Provider value={position}>
+        {/* 모바일 브라우저는 DOM에 붙지 않은 new Audio()의 초기 네트워크 로드/자동재생을
+            보류할 수 있다. 비디오와 동일하게 실제 DOM 미디어 엘리먼트를 계속 유지한다. */}
+        <audio
+          ref={audioRef}
+          preload="metadata"
+          aria-hidden="true"
+          tabIndex={-1}
+          style={{
+            position: 'fixed',
+            left: -9999,
+            top: 0,
+            width: 1,
+            height: 1,
+            pointerEvents: 'none',
+          }}
+        />
         {children}
       </PositionCtx.Provider>
     </AudioCtx.Provider>
