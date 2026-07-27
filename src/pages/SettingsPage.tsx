@@ -81,6 +81,32 @@ async function clearAppCache() {
   }
 }
 
+async function forceAppUpdate() {
+  // OPFS/IndexedDB의 저장 미디어와 localStorage 사용자 데이터는 건드리지 않는다.
+  // 앱 셸/JS/CSS를 가진 Cache Storage와 현재 SW 등록만 초기화한다.
+  if ('caches' in window) {
+    const cacheNames = await caches.keys()
+    await Promise.all(cacheNames.map((name) => caches.delete(name)))
+  }
+
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    await Promise.all(registrations.map((registration) => registration.unregister()))
+  }
+
+  // HTTP 캐시도 우회하도록 최신 index를 고유 URL로 먼저 요청한다.
+  const updateToken = Date.now().toString()
+  const appUrl = new URL(import.meta.env.BASE_URL, window.location.origin)
+  appUrl.searchParams.set('selah-app-update', updateToken)
+  const response = await fetch(appUrl, { cache: 'reload' })
+  if (!response.ok) throw new Error(`App update fetch failed: ${response.status}`)
+
+  // 기존 HashRouter 경로는 유지하면서 새 문서를 네트워크에서 다시 로드한다.
+  const reloadUrl = new URL(window.location.href)
+  reloadUrl.searchParams.set('selah-app-update', updateToken)
+  window.location.replace(reloadUrl.toString())
+}
+
 function forceReloadApp() {
   const url = new URL(window.location.href)
   url.searchParams.set(CACHE_BUST_PARAM, Date.now().toString())
@@ -182,6 +208,7 @@ export default function SettingsPage() {
   const [cleared, setCleared] = useState(false)
   const [clearingMedia, setClearingMedia] = useState(false)
   const [clearedMedia, setClearedMedia] = useState(false)
+  const [updatingApp, setUpdatingApp] = useState(false)
   const [usedBytes, setUsedBytes] = useState<number | null>(null)
   const [versionTaps, setVersionTaps] = useState(0)
   const offlineMediaOk = isOfflineMediaSupported()
@@ -226,6 +253,17 @@ export default function SettingsPage() {
       setTimeout(() => setClearedMedia(false), 3000)
     } finally {
       setClearingMedia(false)
+    }
+  }
+
+  const handleAppUpdate = async () => {
+    if (updatingApp) return
+    setUpdatingApp(true)
+    try {
+      await forceAppUpdate()
+    } catch {
+      setUpdatingApp(false)
+      window.alert('앱 업데이트에 실패했습니다. 네트워크 연결을 확인하고 다시 시도해 주세요.')
     }
   }
 
@@ -386,6 +424,37 @@ export default function SettingsPage() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" style={{ color: 'var(--accent-500)', flexShrink: 0 }}>
                     <path d="M20 6L9 17l-5-5" />
                   </svg>
+                )}
+              </button>
+            </Field>
+
+            <Field
+              title="앱 업데이트"
+              description="최신 앱 파일을 다시 받아 PWA·JS·CSS 캐시 문제를 초기화합니다. 설정, 재생목록, 저장된 컨텐츠는 유지됩니다."
+            >
+              <button
+                type="button"
+                onClick={handleAppUpdate}
+                disabled={updatingApp}
+                className="w-full flex items-center justify-between"
+                style={{ background: 'transparent' }}
+              >
+                <span className="text-sm font-medium" style={{ color: 'var(--primary-700)' }}>
+                  {updatingApp ? '최신 앱을 받는 중...' : '앱 업데이트'}
+                </span>
+                {!updatingApp && (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--primary-700)', flexShrink: 0 }}>
+                    <path d="M20 6v6h-6" />
+                    <path d="M4 18v-6h6" />
+                    <path d="M18.5 9A7 7 0 0 0 6.8 6.8L4 9" />
+                    <path d="M5.5 15A7 7 0 0 0 17.2 17.2L20 15" />
+                  </svg>
+                )}
+                {updatingApp && (
+                  <span
+                    className="inline-block rounded-full animate-spin"
+                    style={{ width: 16, height: 16, border: '2px solid var(--divider)', borderTopColor: 'var(--primary-700)', flexShrink: 0 }}
+                  />
                 )}
               </button>
             </Field>

@@ -86,3 +86,9 @@ Provider: `<AudioProvider>` — `App.tsx` 최상단에서 전체를 감싼다.
 - 설교 `seek`/`seekBy`/`seekFraction`: 다운로드 완료 후 로컬 파일로 전환된 경우만 동작
 - 모바일 동적 오디오: `src` 설정 후 `load()`, `canplay`에서 보류된 자동재생 재시도
 - 스트림이 8초 안에 시작되지 않으면 다운로드를 시작해 로컬 재생 복구 경로 유지
+
+## 앱 강제 업데이트
+
+`SettingsPage`의 `앱 업데이트`는 Cache Storage와 Service Worker 등록을 제거한 뒤,
+캐시버스트 URL로 최신 index를 네트워크에서 받아 다시 실행한다. OPFS/IndexedDB 저장
+미디어, 설정, 재생목록은 유지한다.
