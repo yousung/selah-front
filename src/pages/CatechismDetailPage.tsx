@@ -9,7 +9,7 @@ import { fs } from '@/lib/fontScale'
 
 interface TocGroup {
   majorSection: string | null
-  items: { number: string | null; heading: string | null; sectionId: string; numberEnd?: string | null; label?: string | null }[]
+  items: { number: string | null; heading: string | null; sectionId: string; numberEnd?: string | null }[]
 }
 
 interface TocListProps {
@@ -87,9 +87,9 @@ function TocList({ tocGroups, sectionAnchors, onItemClick, isMobile }: TocListPr
                     e.currentTarget.style.color = 'var(--ink-0)'
                   }}
                 >
-                  {(item.label || item.number) && (
+                  {item.number && (
                     <span style={{ fontWeight: 600, color: 'var(--primary-700)', marginRight: 8 }}>
-                      {item.label || `제${item.numberEnd ? `${item.number}-${item.numberEnd}` : item.number}${item.heading ? '문' : '조'}`}
+                      제{item.numberEnd ? `${item.number}-${item.numberEnd}` : item.number}{item.heading ? '문' : '조'}
                     </span>
                   )}
                   {item.heading}
@@ -131,27 +131,10 @@ function TocList({ tocGroups, sectionAnchors, onItemClick, isMobile }: TocListPr
   )
 }
 
-function SectionRenderer({
-  section,
-  onTagClick,
-  sectionAnchor,
-  activeTags = [],
-  documentCode,
-  paragraphNumber,
-}: {
-  section: Section
-  onTagClick: (tag: string) => void
-  sectionAnchor: string
-  activeTags?: string[]
-  documentCode?: string
-  paragraphNumber?: number
-}) {
+function SectionRenderer({ section, onTagClick, sectionAnchor, activeTags = [] }: { section: Section; onTagClick: (tag: string) => void; sectionAnchor: string; activeTags?: string[] }) {
   const showCatechismHeadings = useSettingsStore((s) => s.showCatechismHeadings)
   const hasQuestion = section.question && section.question.trim().length > 0
   const headingEqualQuestion = section.heading && section.question && section.heading.trim() === section.question.trim()
-  const proseReference = documentCode === 'WCF' && paragraphNumber != null
-    ? `${paragraphNumber}절`
-    : section.number ? `제${section.number}조` : null
 
   return (
     <div style={{ marginBottom: 28, scrollMarginTop: 0 }} id={sectionAnchor}>
@@ -182,9 +165,9 @@ function SectionRenderer({
       ) : (
         // Prose format
         <>
-          {proseReference && (
+          {section.number && (
             <div style={{ fontSize: fs(14), fontWeight: 600, color: 'var(--primary-700)', marginBottom: 8 }}>
-              {proseReference}
+              제{section.number}조
             </div>
           )}
           {section.heading && showCatechismHeadings && (
@@ -297,30 +280,14 @@ export default function CatechismDetailPage() {
     return filtered
   }, [confession?.sections, activeTagFilters])
 
-  const wcfParagraphNumbers = useMemo(() => {
-    const paragraphNumbers = new Map<string, number>()
-    if (confession?.code !== 'WCF') return paragraphNumbers
-
-    let currentChapter: string | null = null
-    let paragraphNumber = 0
-    for (const section of confession.sections) {
-      if (section.majorSection !== currentChapter) {
-        currentChapter = section.majorSection
-        paragraphNumber = 0
-      }
-      paragraphNumber += 1
-      paragraphNumbers.set(section.id, paragraphNumber)
-    }
-    return paragraphNumbers
-  }, [confession])
-
   // Generate unique stable anchors for all sections
   const sectionAnchors = useMemo(() => {
     const anchors = new Map<string, string>()
     if (!confession?.sections) return anchors
 
     confession.sections.forEach((section) => {
-      anchors.set(section.id, `section-${section.id}`)
+      const anchor = section.number ? `section-${section.number}` : `sec-${section.id}`
+      anchors.set(section.id, anchor)
     })
     return anchors
   }, [confession?.sections])
@@ -370,7 +337,6 @@ export default function CatechismDetailPage() {
           heading: section.heading,
           sectionId: section.id,
           numberEnd: null as string | null,
-          label: confession.code === 'WCF' ? `${wcfParagraphNumbers.get(section.id)}절` : null,
         }
 
         // Check if we can merge with the last item (same heading, consecutive numbers)
@@ -401,7 +367,9 @@ export default function CatechismDetailPage() {
     })
 
     return groups
-  }, [confession?.sections, wcfParagraphNumbers, confession?.code])
+  }, [confession?.sections])
+
+  // Check if TOC should be displayed: must have meaningful headings OR majorSection groupings
   const hasHeadings = tocGroups.some((g) => g.items.length > 0 || (g.majorSection && g.majorSection.trim().length > 0))
 
   const handleTagClick = (tagName: string) => {
@@ -697,7 +665,8 @@ export default function CatechismDetailPage() {
                     const prevSection = idx > 0 ? filteredSections[idx - 1] : null
                     const showMajorSectionDivider =
                       section.majorSection &&
-                      (prevSection === null || prevSection.majorSection !== section.majorSection)
+                      prevSection !== null &&
+                      prevSection.majorSection !== section.majorSection
 
                     return (
                       <div key={section.id}>
@@ -722,8 +691,6 @@ export default function CatechismDetailPage() {
                           onTagClick={handleTagClick}
                           sectionAnchor={sectionAnchors.get(section.id) || `sec-${section.id}`}
                           activeTags={activeTagFilters}
-                          documentCode={confession.code}
-                          paragraphNumber={wcfParagraphNumbers.get(section.id)}
                         />
                       </div>
                     )
