@@ -77,6 +77,24 @@ interface RecentItem { id, title, thumbnail, tag, hymnTitle?, duration?, chapter
 
 액션: `setDuration(id, duration)` — 0 이하·비유한 값 무시
 
+## cachedMediaStore (localStorage 아님 — OPFS/IndexedDB)
+
+파일: `src/store/cachedMediaStore.ts`, 실제 저장은 `src/lib/mediaStore.ts`
+
+오프라인 저장된 미디어의 캐시키 집합(`cachedIds: Set<string>`)을 들고 있다.
+캐시키는 `` `${videoId}-${type}` `` 형태다.
+
+| 캐시키 | 상태 |
+|--------|------|
+| `<id>-audio` | 사용 중 — 오디오 모드 오프라인 저장 |
+| `<id>-video` | **더 이상 생성되지 않음.** 비디오 모드가 DASH 스트림 전용이 되며 폐기 |
+
+비디오 모드는 DASH(여러 트랙을 MSE로 합성)라 저장할 단일 파일이 없어 오프라인 저장을
+하지 않는다. 남아 있던 `-video` 엔트리는 앱 부팅 시 `reconcileMediaStore()`(`mediaStore.ts`)가
+파일과 함께 제거한다.
+
+액션: `refresh()` — IDB에서 완료 엔트리를 다시 읽어 `cachedIds` 갱신
+
 ## adminAuthStore (`admin-auth`)
 
 파일: `src/store/adminAuthStore.ts`

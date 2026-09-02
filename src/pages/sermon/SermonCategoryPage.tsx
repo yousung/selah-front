@@ -123,7 +123,8 @@ export default function SermonCategoryPage() {
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
   const { cachedIds, refresh } = useCachedMediaStore()
-  const offlineMediaOk = isOfflineMediaSupported()
+  // 비디오 모드는 DASH 스트림 전용(저장 파일 없음) → 일괄 다운로드 UI 자체를 숨긴다.
+  const offlineMediaOk = isOfflineMediaSupported() && mediaMode !== 'video'
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set())

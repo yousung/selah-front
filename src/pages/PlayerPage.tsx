@@ -377,8 +377,11 @@ export default function PlayerPage() {
   const downloadingRef = useRef(false)
   const dlStatus = dlState.key === mediaCacheKey ? dlState.status : 'idle'
   const isDownloaded = isCachedInStore || dlStatus === 'done'
-  const canSeek = !isSermonPlayer || isDownloaded
-  const offlineMediaOk = isOfflineMediaSupported()
+  // 설교는 저장 파일이 있어야 구간 이동을 허용한다. 단 비디오 모드는 DASH라 스트림에서도 seek 가능.
+  const canSeek = !isSermonPlayer || isDownloaded || mediaMode === 'video'
+  // 비디오 모드는 DASH 스트림 전용이다 — 저장할 단일 파일이 없으므로 오프라인 저장을 하지 않는다.
+  // (다운로드 버튼·자동 다운로드·캐시 조회가 전부 이 플래그 하나로 꺼진다.)
+  const offlineMediaOk = isOfflineMediaSupported() && mediaMode !== 'video'
   const isDraggingRef = useRef(false)
   const dragValueRef = useRef<number | null>(null)
   const hasPlayedRef = useRef(false)
@@ -697,12 +700,10 @@ export default function PlayerPage() {
       let retries = 0
       while (true) {
         try {
-          const downloadPath = mediaMode === 'video'
-            ? `/videos/${id}/download`
-            : `/audios/${id}/download`
+          // offlineMediaOk가 비디오 모드를 이미 배제하므로 여기는 항상 오디오 경로다.
           const { data } = await api.get<{ url: string; bitrate?: number; duration?: number | null; mimeType?: string }>(
-            downloadPath,
-            mediaMode !== 'video' ? { params: { quality: 'high' } } : undefined,
+            `/audios/${id}/download`,
+            { params: { quality: 'high' } },
           )
           // 총 크기를 헤더로 알 수 없어(CDN CORS) bitrate×duration으로 추정해 진행률 표시
           const durSec = data.duration ?? video.duration ?? 0
@@ -830,7 +831,7 @@ export default function PlayerPage() {
         <SecretThumbPlaceholder />
       ) : isLiveVideo(video?.isLive) ? (
         <SecretThumbPlaceholder label="방송중" />
-      ) : isTempVideo(video?.isTemp) ? (
+      ) : video && isTempVideo(video.isTemp) ? (
         <>
           <TempArtworkPlaceholder />
           {video.chapter != null && (

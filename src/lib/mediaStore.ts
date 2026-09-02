@@ -658,6 +658,8 @@ let _reconcilePromise: Promise<void> | null = null
  * - status='downloading' 고아 엔트리: 다운로드 도중 프로세스가 죽어 남은 잠금 →
  *   부분 OPFS 파일과 함께 제거 (다음 재생/다운로드가 깨끗하게 다시 받도록).
  * - status='complete'이지만 OPFS 파일이 없거나 크기가 기록과 다른 엔트리: 손상 → 제거.
+ * - `-video` 엔트리: 비디오 모드가 DASH 스트림 전용이 되면서 더 이상 재생에 쓰이지 않는
+ *   유물 → 제거(용량만 차지한다).
  */
 export function reconcileMediaStore(): Promise<void> {
   if (_reconcilePromise) return _reconcilePromise
@@ -671,6 +673,12 @@ export function reconcileMediaStore(): Promise<void> {
     }
     for (const entry of entries) {
       try {
+        if (entry.id.endsWith('-video')) {
+          // 비디오 모드는 DASH 스트림 전용으로 바뀌어 저장 파일을 재생에 쓰지 않는다.
+          if (import.meta.env.DEV) console.warn('[mediaStore] reconcile evicting (video no longer cached):', entry.id)
+          await removeMediaCacheKey(entry.id)
+          continue
+        }
         if (entry.status !== 'complete') {
           // 미완료(다운로드 중) 잠금 = 강종 잔재 → 부분 파일/엔트리 제거
           await removeMediaCacheKey(entry.id)

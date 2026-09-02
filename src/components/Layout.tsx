@@ -163,7 +163,6 @@ export default function Layout() {
     currentVideo,
     stop,
     reactPlayerRef,
-    videoUrl,
     videoSlotRef,
     onVideoPlay,
     onVideoPause,
@@ -347,11 +346,11 @@ export default function Layout() {
           )}
         </main>
 
-        {/* ── Persistent Video Element (video mode navigation persistence) ── */}
+        {/* ── Persistent Video Element (video mode navigation persistence) ──
+            src는 shaka(dashPlayer)가 소유한다 — React가 같이 세팅하면 MediaSource가 깨진다. */}
         {mediaMode === "video" && (
           <video
             ref={reactPlayerRef as React.RefObject<HTMLVideoElement>}
-            src={videoUrl ?? undefined}
             playsInline
             style={
               videoRect

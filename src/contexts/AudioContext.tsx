@@ -6,6 +6,7 @@ import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { api } from '@/lib/api'
 import { deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
 import type { MediaDownloadedDetail } from '@/lib/mediaStore'
+import { destroyDash, ensureDashPlayer, isDashAbortError, loadDash, unloadDash } from '@/lib/dashPlayer'
 import { setLastPlayback, setLastPlaybackError } from '@/lib/mediaDiag'
 import { thumbUrl, thumbQualityFor } from '@/lib/thumb'
 import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
@@ -53,10 +54,11 @@ interface AudioContextValue {
   autoNextProgress: number | null
   error: string | null
   volume: number
-  videoUrl: string | null
   reactPlayerRef: RefObject<HTMLVideoElement | null>
   videoSlotRef: RefObject<HTMLDivElement | null>
-  playVideo: (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number }) => Promise<void>
+  // resume: "이미 듣던 같은 트랙을 그 위치에서 이어서 연다"는 뜻. 다운로드 완료 후 재생 전환,
+  // 캐시 재생 실패 후 스트림 폴백 등 내부 재진입에만 쓴다(새 트랙 첫 오픈에는 쓰지 않는다).
+  playVideo: (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number; resume?: boolean }) => Promise<void>
   stop: () => void
   togglePlay: () => void
   seek: (seconds: number) => void
@@ -160,7 +162,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [autoNextProgress, setAutoNextProgress] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [volume, setVolume] = useState(1)
-  const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const currentVideoDataRef = useRef<VideoInfo | null>(null)
   const playVideoRef = useRef<AudioContextValue['playVideo'] | null>(null)
   const localPlaybackRef = useRef<{ id: string; type: 'audio' | 'video' } | null>(null)
@@ -217,7 +218,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (pos >= dur - 30) { clearSermonResume(vid.id); return }
       if (pos <= 0) return
       const mode = useSettingsStore.getState().mediaMode
-      const downloaded = useCachedMediaStore.getState().cachedIds.has(`${vid.id}-${mode}`)
+      // downloaded는 원래 "구간 이동이 가능한가"(=로컬 파일이 있는가)를 뜻했고, 이어듣기 팝업의
+      // 조건으로 쓰인다. 비디오 모드는 DASH 스트림이라 저장 파일이 없어도 seek이 되므로 true.
+      const downloaded = mode === 'video' || useCachedMediaStore.getState().cachedIds.has(`${vid.id}-${mode}`)
       saveSermonResume({
         videoId: vid.id,
         videoTitle: vid.title,
@@ -399,8 +402,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // 저장(다운로드) 파일을 자동재생으로 틀 때만 호출한다. 3초 내 실제 재생 진행(position>0)이
   // 없으면 파일 손상으로 간주: 파일 삭제 후 재다운로드(MEDIA_CORRUPT_EVENT)를 트리거하고,
   // 재다운로드 후에도 손상이면 무한루프 방지로 스트림 폴백한다.
-  const armCacheWatchdog = useCallback((id: string, type: 'audio' | 'video') => {
+  // 비디오 모드는 DASH 스트림 전용(저장 파일이 없음)이라 오디오에만 설치된다.
+  const armCacheWatchdog = useCallback((id: string) => {
     clearCacheWatchdog()
+    const type = 'audio' as const
     const key = `${id}-${type}`
     cacheWatchdogRef.current = setTimeout(() => {
       cacheWatchdogRef.current = null
@@ -408,8 +413,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       // 여전히 같은 로컬 재생이고, 다른 폴백이 진행 중이 아니며, 진행이 전혀 없을 때만 손상 처리
       if (!lp || `${lp.id}-${lp.type}` !== key) return
       if (localFallbackInProgressRef.current) return
-      const isVideo = mediaModeRef.current === 'video'
-      const media = isVideo ? reactPlayerRef.current : audioRef.current
+      const media = audioRef.current
       if (positionRef.current > 0 || (media?.currentTime ?? 0) > 0) return
       const activeVideo = currentVideoDataRef.current
 
@@ -421,7 +425,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (media) {
         media.pause()
         media.src = ''
-        if (isVideo) { media.load(); setVideoUrl(null) }
       }
       setIsLoading(false)
       setIsPlaying(false)
@@ -463,14 +466,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     pendingCorruptReplayRef.current = null
     corruptHandlingRef.current = false
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
-    if (reactPlayerRef.current) { reactPlayerRef.current.pause(); reactPlayerRef.current.src = '' }
+    // 모드 전환 → Layout이 <video>를 언마운트/재마운트하므로 shaka Player를 완전히 파괴한다.
+    // (destroyDash는 reactPlayerRef가 이미 null이어도 자체 보관한 엘리먼트에서 detach한다.)
+    reactPlayerRef.current?.pause()
+    void destroyDash()
     clearMediaSessionMetadata()
     cancelAutoNext()
     localPlaybackRef.current = null
     localFallbackInProgressRef.current = false
     pendingAutoPlayRef.current = false
     pendingSeekRef.current = null
-    setVideoUrl(null)
     setCurrentVideo(null)
     currentVideoDataRef.current = null
     currentVideoIdRef.current = null
@@ -517,13 +522,22 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         if (v?.type === 'SERMON') clearSermonResume(v.id)
       }],
       ['error', () => {
+        // 비디오 모드에서 <audio>는 쓰이지 않는다(재생은 shaka가 <video>에서 한다).
+        // 이 엘리먼트의 error를 사용자 배너로 올리면 멀쩡한 DASH 재생 위에 "재생 오류"가 뜬다.
+        if (mediaModeRef.current === 'video') return
+        // src를 비우는 정리 과정(effect cleanup의 `audio.src = ''`, 모드 전환)에서도 브라우저는
+        // error(code 4, MEDIA_ERR_SRC_NOT_SUPPORTED)를 쏜다. 실제 재생 실패가 아니므로 무시한다.
+        // (React StrictMode의 dev 이펙트 2회 실행이 이 경로를 매 로드마다 밟게 만든다.)
+        if (!audio.getAttribute('src')) return
         if (cacheWatchdogRef.current) { clearTimeout(cacheWatchdogRef.current); cacheWatchdogRef.current = null }
         // 손상 처리 중 떼어낸 src로 인한 후속 error는 무시(재다운로드 흐름 유지).
         if (corruptHandlingRef.current) { setIsLoading(false); return }
         const localPlayback = localPlaybackRef.current
         const activeVideo = currentVideoDataRef.current
         if (localPlayback && activeVideo?.id === localPlayback.id && !localFallbackInProgressRef.current) {
-          const seekTo = positionRef.current
+          // 아직 적용되지 못한 pending seek이 있으면 그게 "있어야 할 위치"다. loadedmetadata
+          // 전에 error가 나면 positionRef는 0이라, 이걸 안 보면 폴백이 0초로 되감긴다.
+          const seekTo = pendingSeekRef.current ?? positionRef.current
           const errorCode = audio.error?.code ?? null
           // 진짜 손상(MEDIA_ERR_DECODE=3)일 때만 파일 삭제한다. NETWORK(2)/
           // SRC_NOT_SUPPORTED(4)/ABORTED(1) 등 SW-라우팅 실패성 에러에선 파일을 보존하고
@@ -556,6 +570,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
               autoPlay: true,
               skipRecentAdd: true,
               seekTo,
+              resume: true,
             }).finally(() => { localFallbackInProgressRef.current = false })
           })
           return
@@ -575,7 +590,22 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [applyPendingSeek, syncPosition, updateActualDuration, updatePositionState])
 
-  const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number }) => {
+  // shaka error 이벤트(로드 중단/취소 코드는 dashPlayer가 걸러낸 뒤 호출) → 기존 에러 UX.
+  // 이게 없으면 매니페스트/세그먼트 실패 시 사용자가 회색 화면만 보게 된다.
+  const handleDashError = useCallback((code: number | null) => {
+    setLastPlaybackError({
+      code,
+      networkState: reactPlayerRef.current?.networkState ?? null,
+      readyState: reactPlayerRef.current?.readyState ?? null,
+      src: `dash:${currentVideoIdRef.current ?? ''}`,
+      preservedFile: true,
+    })
+    setError('비디오 재생 오류가 발생했습니다.')
+    setIsLoading(false)
+    setIsPlaying(false)
+  }, [])
+
+  const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number; resume?: boolean }) => {
     // 비공개 영상: 모든 미디어 요청 차단 + 현재 재생 중인 미디어를 즉시 멈춘다.
     // (early-return만 하면 이전 곡 오디오가 계속 재생되고, currentVideo가 이전 곡으로
     //  남아 그 곡 다운로드 완료 시 재생되는 버그가 생긴다.)
@@ -585,9 +615,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       pendingCorruptReplayRef.current = null
       corruptHandlingRef.current = false
       if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
-      if (reactPlayerRef.current) { reactPlayerRef.current.pause(); reactPlayerRef.current.src = '' }
+      reactPlayerRef.current?.pause()
+      void unloadDash()
       clearMediaSessionMetadata()
-      setVideoUrl(null)
       localPlaybackRef.current = null
       pendingAutoPlayRef.current = false
       pendingSeekRef.current = null
@@ -645,50 +675,41 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setDuration(dbDuration ?? 0)
 
     const mediaType = isVideoMode ? 'video' : 'audio'
-    const cacheKey = `${video.id}-${mediaType}`
-    if (isOpfsSupported() && !_forceStreamThisSession.has(cacheKey)) {
+    const cacheKey = `${video.id}-audio`
+    // 저장 파일 재생은 오디오 전용이다. 비디오 모드는 DASH 스트림 전용(저장 기능 없음).
+    if (!isVideoMode && isOpfsSupported() && !_forceStreamThisSession.has(cacheKey)) {
       try {
-        const localUrl = await getCachedMediaPlaybackUrl(video.id, mediaType)
+        const localUrl = await getCachedMediaPlaybackUrl(video.id, 'audio')
         if (localUrl) {
           if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
           if (localUrl.startsWith('blob:')) blobUrlRef.current = localUrl
-          localPlaybackRef.current = { id: video.id, type: mediaType }
-          setLastPlayback({ id: video.id, type: mediaType, source: localUrl.startsWith('blob:') ? 'blob' : 'sw', src: localUrl })
-          if (isVideoMode) {
-            pendingAutoPlayRef.current = autoPlay
-            if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
-            setVideoUrl(localUrl)
-            // 저장 파일 재생: 3초 무진행 시 손상 판정 watchdog (자동재생일 때만).
-            if (autoPlay) armCacheWatchdog(video.id, mediaType)
-            if (!autoPlay) setIsLoading(false)
-          } else {
-            setVideoUrl(null)
-            const audio = audioRef.current
-            if (!audio) return
-            audio.src = localUrl
-            audio.volume = volume
-            applyPlaybackRate(audio)
-            pendingAutoPlayRef.current = autoPlay
-            if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
-            if (!autoPlay) {
-              audio.load()
-              setIsLoading(false)
-              return
-            }
-            // 저장 파일 재생: 3초 무진행 시 손상 판정 watchdog.
-            armCacheWatchdog(video.id, mediaType)
-            try {
-              await audio.play()
-            } catch (e) {
-              setIsLoading(false)
-              // 자동재생 차단(NotAllowedError)은 손상이 아니므로 watchdog 해제(오삭제 방지).
-              if (
-                (e as DOMException)?.name === 'NotAllowedError' &&
-                localPlaybackRef.current?.id === video.id &&
-                localPlaybackRef.current?.type === mediaType
-              ) {
-                clearCacheWatchdog()
-              }
+          localPlaybackRef.current = { id: video.id, type: 'audio' }
+          setLastPlayback({ id: video.id, type: 'audio', source: localUrl.startsWith('blob:') ? 'blob' : 'sw', src: localUrl })
+          const audio = audioRef.current
+          if (!audio) return
+          audio.src = localUrl
+          audio.volume = volume
+          applyPlaybackRate(audio)
+          pendingAutoPlayRef.current = autoPlay
+          if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
+          if (!autoPlay) {
+            audio.load()
+            setIsLoading(false)
+            return
+          }
+          // 저장 파일 재생: 3초 무진행 시 손상 판정 watchdog.
+          armCacheWatchdog(video.id)
+          try {
+            await audio.play()
+          } catch (e) {
+            setIsLoading(false)
+            // 자동재생 차단(NotAllowedError)은 손상이 아니므로 watchdog 해제(오삭제 방지).
+            if (
+              (e as DOMException)?.name === 'NotAllowedError' &&
+              localPlaybackRef.current?.id === video.id &&
+              localPlaybackRef.current?.type === 'audio'
+            ) {
+              clearCacheWatchdog()
             }
           }
           return
@@ -697,22 +718,58 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
 
     if (isVideoMode) {
+      // 비디오 = DASH(shaka). YouTube가 muxed 포맷을 끊어 단일 progressive URL로는 화면이
+      // 안 나온다(오디오 폴백만 옴). 백엔드가 절대 BaseURL로 치환한 MPD 전문을 주면
+      // blob URL로 만들어 shaka에 로드한다. seek 위치는 load()의 startTime으로 넘긴다.
+      const videoEl = reactPlayerRef.current
+      if (!videoEl) {
+        setError('스트림을 불러올 수 없습니다.')
+        setIsLoading(false)
+        return
+      }
       try {
-        const { data } = await api.get<{ url: string; bitrate: number; encoding?: string; duration?: number | null }>(
-          `/videos/${video.id}/stream`,
+        const { data } = await api.get<{ manifest: string; duration: number | null; mimeType: string }>(
+          `/videos/${video.id}/manifest`,
         )
+        // 네트워크 대기 중 트랙이 바뀌었으면(다른 곡 재생/정지) 이 결과는 폐기한다.
+        if (currentVideoIdRef.current !== video.id) return
         const streamDuration = normalizeDbDuration(data.duration)
         if (streamDuration != null) {
           hasAuthoritativeDurationRef.current = true
           setDuration(streamDuration)
         }
-        setLastPlayback({ id: video.id, type: mediaType, source: 'stream', src: data.url })
+        setLastPlayback({ id: video.id, type: mediaType, source: 'stream', src: `dash:${video.id}` })
         localPlaybackRef.current = null
         pendingAutoPlayRef.current = autoPlay
-        if (video.type !== 'SERMON' && options?.seekTo != null) pendingSeekRef.current = options.seekTo
-        setVideoUrl(data.url)
-        if (!autoPlay) setIsLoading(false)
-      } catch {
+        // shaka가 startTime을 처리하므로 element 기반 pending seek은 쓰지 않는다.
+        pendingSeekRef.current = null
+        await ensureDashPlayer(videoEl, handleDashError)
+        if (currentVideoIdRef.current !== video.id) return
+        videoEl.volume = volume
+        await loadDash(data.manifest, data.mimeType, options?.seekTo ?? null)
+        if (currentVideoIdRef.current !== video.id) return
+        applyPlaybackRate(videoEl)
+        // shaka는 load() resolve 시점에 startTime을 아직 element에 반영하지 않은 경우가 있다
+        // (currentTime=0, readyState=0). 넘긴 seekTo가 있으면 그것을 시작 위치로 본다 —
+        // 안 그러면 첫 timeupdate 전까지 진행바가 0으로 튄다.
+        const startPos = videoEl.currentTime > 0 ? videoEl.currentTime : (options?.seekTo ?? 0)
+        positionRef.current = startPos
+        setPosition(startPos)
+        if (!autoPlay) {
+          setIsLoading(false)
+          return
+        }
+        if (pendingAutoPlayRef.current) {
+          pendingAutoPlayRef.current = false
+          try {
+            await videoEl.play()
+          } catch {
+            setIsLoading(false)
+          }
+        }
+      } catch (e) {
+        // 새 load가 이전 load를 대체하며 나는 취소는 사용자 에러가 아니다.
+        if (isDashAbortError(e)) return
         setError('스트림을 불러올 수 없습니다.')
         setIsLoading(false)
       }
@@ -736,14 +793,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       }
       setLastPlayback({ id: video.id, type: 'audio', source: 'stream', src: data.url })
       localPlaybackRef.current = null
-      setVideoUrl(null)
       const audio = audioRef.current
       if (!audio) return
       audio.src = data.url
       audio.volume = volume
       applyPlaybackRate(audio)
       pendingAutoPlayRef.current = autoPlay
-      if (video.type !== 'SERMON' && options?.seekTo != null) pendingSeekRef.current = options.seekTo
+      // 설교 스트림은 "구간 이동 불가"라 새로 열 때의 이어듣기 위치를 무시한다(228a51d).
+      // 단 resume(=듣던 트랙을 이어서 여는 내부 재진입)은 타입과 무관하게 위치를 존중한다.
+      // 안 그러면 다운로드 완료/캐시 실패 폴백 때 설교만 0초로 되감긴다.
+      if ((video.type !== 'SERMON' || options?.resume) && options?.seekTo != null) pendingSeekRef.current = options.seekTo
       if (!autoPlay) {
         audio.load()
         setIsLoading(false)
@@ -761,7 +820,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setError('스트림을 불러올 수 없습니다.')
       setIsLoading(false)
     }
-  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog])
+  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog, handleDashError])
 
   useEffect(() => {
     playVideoRef.current = playVideo
@@ -786,6 +845,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         autoPlay: isCorruptReplay ? true : isPlayingRef.current,
         skipRecentAdd: true,
         seekTo: positionRef.current,
+        resume: true,
       })
     }
 
@@ -800,9 +860,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     corruptHandlingRef.current = false
     pendingAutoPlayRef.current = false
     if (mediaModeRef.current === 'video') {
-      const video = reactPlayerRef.current
-      if (video) { video.pause(); video.src = ''; video.load() }
-      setVideoUrl(null)
+      // shaka가 <video>의 src(MediaSource)를 소유하므로 src를 직접 비우면 안 된다.
+      reactPlayerRef.current?.pause()
+      void unloadDash()
     } else {
       const audio = audioRef.current
       if (audio) { audio.pause(); audio.src = '' }
@@ -837,9 +897,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // 설교 스트림은 즉시 재생만 허용한다(구간 이동 불가). 다운로드 완료 후 로컬 파일로 전환되면 허용.
+  // 비디오 모드는 DASH(shaka)라 저장 파일 없이도 구간 이동이 되므로 제한하지 않는다.
+  const isSeekBlocked = useCallback(() => {
+    if (currentVideoDataRef.current?.type !== 'SERMON') return false
+    if (mediaModeRef.current === 'video') return false
+    return !localPlaybackRef.current
+  }, [])
+
   const seek = useCallback((seconds: number) => {
-    // 설교 스트림은 즉시 재생만 허용한다. 다운로드 완료 후 로컬 파일로 전환되면 구간 이동 허용.
-    if (currentVideoDataRef.current?.type === 'SERMON' && !localPlaybackRef.current) return
+    if (isSeekBlocked()) return
     const video = reactPlayerRef.current
     if (mediaModeRef.current === 'video' && video) {
       applySeek(video, seconds)
@@ -851,10 +918,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (!audio) return
       applySeek(audio, seconds)
     }
-  }, [applySeek])
+  }, [applySeek, isSeekBlocked])
 
   const seekBy = useCallback((delta: number) => {
-    if (currentVideoDataRef.current?.type === 'SERMON' && !localPlaybackRef.current) return
+    if (isSeekBlocked()) return
     const video = reactPlayerRef.current
     if (mediaModeRef.current === 'video' && video) {
       applySeek(video, positionRef.current + delta)
@@ -866,7 +933,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (!audio) return
       applySeek(audio, audio.currentTime + delta)
     }
-  }, [applySeek])
+  }, [applySeek, isSeekBlocked])
 
   const seekFraction = useCallback((fraction: number) => {
     const media = mediaModeRef.current === 'video' ? reactPlayerRef.current : audioRef.current
@@ -964,7 +1031,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const activeVideo = currentVideoDataRef.current
     const video = reactPlayerRef.current
     if (localPlayback && activeVideo?.id === localPlayback.id && !localFallbackInProgressRef.current) {
-      const seekTo = positionRef.current
+      const seekTo = pendingSeekRef.current ?? positionRef.current
       const errorCode = video?.error?.code ?? null
       // audio 핸들러와 동일한 안전 픽스: 진짜 손상(MEDIA_ERR_DECODE=3)일 때만 삭제.
       // 그 외(NETWORK/SRC_NOT_SUPPORTED 등 라우팅 실패)는 전 플랫폼에서 파일 보존.
@@ -992,6 +1059,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           autoPlay: true,
           skipRecentAdd: true,
           seekTo,
+          resume: true,
         }).finally(() => { localFallbackInProgressRef.current = false })
       })
       return
@@ -1136,12 +1204,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // AudioCtx 소비자(13개 컴포넌트)가 초당 수회 리렌더되지 않는다. position은 별도 PositionCtx로 공급.
   const value = useMemo<AudioContextValue>(() => ({
     currentVideo, isPlaying, isLoading, isEnded, duration: effectiveDuration, autoNextProgress, error, volume,
-    videoUrl, reactPlayerRef, videoSlotRef,
+    reactPlayerRef, videoSlotRef,
     playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, setVolume: handleSetVolume,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
     onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
   }), [
-    currentVideo, isPlaying, isLoading, isEnded, effectiveDuration, autoNextProgress, error, volume, videoUrl,
+    currentVideo, isPlaying, isLoading, isEnded, effectiveDuration, autoNextProgress, error, volume,
     reactPlayerRef, videoSlotRef,
     playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, handleSetVolume,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,

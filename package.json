@@ -21,6 +21,7 @@
     "react-dom": "^18.3.1",
     "react-player": "^3.4.0",
     "react-router-dom": "^6.26.2",
+    "shaka-player": "^5.2.8",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

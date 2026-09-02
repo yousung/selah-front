@@ -281,7 +281,7 @@ export default function SettingsPage() {
         {/* ════════════ 재생 ════════════ */}
         <SectionBox title="재생">
           <div data-tour="setting-media">
-            <Field title="미디어 모드" description="오디오는 영상 없이 소리만 재생해 데이터 사용량을 크게 줄일 수 있습니다. 비디오는 영상과 함께 재생됩니다. 데이터 절약을 원하시면 오디오를 권장합니다.">
+            <Field title="미디어 모드" description="오디오는 영상 없이 소리만 재생해 데이터 사용량을 크게 줄일 수 있습니다. 비디오는 영상과 함께 재생되며, 스트리밍으로만 재생돼 오프라인 저장은 되지 않습니다. 데이터 절약과 오프라인 저장을 원하시면 오디오를 권장합니다.">
               <Segmented value={mediaMode} onChange={setMediaMode} options={MEDIA_MODE_OPTIONS} />
             </Field>
           </div>
