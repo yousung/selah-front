@@ -365,7 +365,7 @@ export default function PlayerPage() {
   const mediaCacheKey = id ? `${id}-${mediaType}` : null
   const isCachedInStore = useCachedMediaStore((s) => !!mediaCacheKey && s.cachedIds.has(mediaCacheKey))
   const {
-    currentVideo, isPlaying, isLoading, duration, autoNextProgress, error,
+    currentVideo, isPlaying, isLoading, duration, autoNextProgress, error, streamSeekable,
     playVideo, togglePlay, seekBy, seekFraction, cancelAutoNext, videoSlotRef,
   } = useAudio()
   const position = usePosition()
@@ -377,8 +377,11 @@ export default function PlayerPage() {
   const downloadingRef = useRef(false)
   const dlStatus = dlState.key === mediaCacheKey ? dlState.status : 'idle'
   const isDownloaded = isCachedInStore || dlStatus === 'done'
-  // 설교는 저장 파일이 있어야 구간 이동을 허용한다. 단 비디오 모드는 DASH라 스트림에서도 seek 가능.
-  const canSeek = !isSermonPlayer || isDownloaded || mediaMode === 'video'
+  // 설교는 저장 파일이 있어야 구간 이동을 허용한다. 단 DASH(MSE)로 재생 중이면 스트림에서도 된다.
+  // 판정을 `mediaMode === 'video'`로 하면 안 된다 — MSE 미지원 기기는 비디오 모드에서도 실제로는
+  // 오디오 스트림으로 폴백해 seek이 안 되는데 버튼만 활성돼 "눌러도 반응 없음"이 됐다.
+  // AudioContext의 streamSeekable이 실동작(isSeekBlocked)과 같은 값이라 어긋날 수 없다.
+  const canSeek = !isSermonPlayer || isDownloaded || streamSeekable
   // 비디오 모드는 DASH 스트림 전용이다 — 저장할 단일 파일이 없으므로 오프라인 저장을 하지 않는다.
   // (다운로드 버튼·자동 다운로드·캐시 조회가 전부 이 플래그 하나로 꺼진다.)
   const offlineMediaOk = isOfflineMediaSupported() && mediaMode !== 'video'

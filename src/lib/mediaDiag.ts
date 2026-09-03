@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { isIOS, iosVersion } from '@/lib/platform'
 import {
   isPwa,
   isIosWebKit,
@@ -30,9 +31,51 @@ export interface LastPlayback {
   at: number
 }
 
+/**
+ * 재생 시작을 위한 **첫 `play()` 시도**의 결과. iOS 실기기에서 "첫 탭은 재생이 안 되고
+ * 두 번째 탭부터 된다"는 보고가 추측이 아니라 데이터가 되게 하려고 남긴다.
+ *
+ * 읽는 법:
+ * - `ok=false, errorName='NotAllowedError'` → 자동재생/제스처 정책에 막힘.
+ *   `userActivation`이 같이 false면 제스처 창이 만료된 것이고, true인데도 막혔다면
+ *   엘리먼트별 제약(= `primed`가 false였는지 확인)이다.
+ * - `ok=true`인데 소리가 안 난다 → play()는 통과했다는 뜻이라 정책 문제가 아니다.
+ *   `readyState`/`networkState`로 버퍼링·네트워크 쪽을 봐야 한다.
+ */
+export interface PlayAttempt {
+  /** 어느 경로의 play()인가: 저장파일 / 오디오 스트림 / DASH(shaka) */
+  phase: 'cache' | 'stream' | 'dash'
+  /**
+   * `true`=재생 시작, `false`=거절, **`null`=promise가 아직 안 끝남(pending)**.
+   * pending이 그대로 남아 있으면 정책 차단이 아니라 **미디어가 시작을 못 한 것**이다
+   * (`play()`의 promise는 실제 재생이 시작돼야 resolve된다 — 버퍼링에 걸리면 영원히 pending).
+   * 이 셋을 구분 못 하면 "첫 탭에 소리가 안 난다"의 원인을 좁힐 수 없다.
+   */
+  ok: boolean | null
+  /** 거절 사유(`NotAllowedError`, `AbortError`, `NotSupportedError` …). 성공 시 null. */
+  errorName: string | null
+  readyState: number | null
+  networkState: number | null
+  /** `HTMLMediaElement.error.code` (1=ABORTED 2=NETWORK 3=DECODE 4=SRC_NOT_SUPPORTED) */
+  mediaErrorCode: number | null
+  /** play() 호출 시점의 `navigator.userActivation.isActive`. 미지원 브라우저는 null. */
+  userActivation: boolean | null
+  /** 이 재생 요청에서 iOS 제스처 언락 프라이머(mediaUnlock)를 돌렸는가. */
+  primed: boolean
+  /** display-mode: standalone (설치형 PWA) */
+  isPwa: boolean
+  /** iOS 전용 홈화면 추가 여부(`navigator.standalone`). 비-iOS는 null. */
+  iosStandalone: boolean | null
+  /** 예: '18.7'. UA에서 못 읽으면 null. */
+  iosVersion: string | null
+  at: number
+}
+
 interface LastPlaybackState extends LastPlayback {
+  play: PlayAttempt | null
   setPlayback: (p: { id: string; type: 'audio' | 'video'; source: PlaybackSource; src: string }) => void
   setError: (e: { code: number | null; networkState: number | null; readyState: number | null; src: string | null; preservedFile: boolean }) => void
+  setPlayAttempt: (a: PlayAttempt) => void
 }
 
 export const useLastPlaybackStore = create<LastPlaybackState>((set) => ({
@@ -46,6 +89,7 @@ export const useLastPlaybackStore = create<LastPlaybackState>((set) => ({
   errorSrc: null,
   preservedFile: false,
   at: 0,
+  play: null,
   setPlayback: (p) =>
     set({
       id: p.id,
@@ -57,6 +101,9 @@ export const useLastPlaybackStore = create<LastPlaybackState>((set) => ({
       readyState: null,
       errorSrc: null,
       preservedFile: false,
+      // 새 재생 요청 → 이전 곡의 play() 결과는 스테일이다. 지우지 않으면 다음 진단 리포트가
+      // 엉뚱한 곡의 실패를 이번 곡의 원인으로 보고하게 된다.
+      play: null,
       at: Date.now(),
     }),
   setError: (e) =>
@@ -68,6 +115,7 @@ export const useLastPlaybackStore = create<LastPlaybackState>((set) => ({
       preservedFile: e.preservedFile,
       at: Date.now(),
     }),
+  setPlayAttempt: (a) => set({ play: a }),
 }))
 
 /** 비-React 코드(AudioContext)에서 호출하는 경량 setter. */
@@ -85,7 +133,40 @@ export function setLastPlaybackError(e: {
   useLastPlaybackStore.getState().setError(e)
 }
 
-export function getLastPlayback(): LastPlayback {
+/**
+ * `play()` 시도를 기록한다. **호출 직전에 `pending: true`로 한 번, settle된 뒤 결과로 또 한 번**
+ * 부른다. pending 기록이 없으면 promise가 영영 안 끝나는 경우(버퍼링에 걸려 재생이 시작조차
+ * 못 함)가 "시도 없음"과 구분되지 않아, 정작 제일 흔한 실패 모드를 놓친다.
+ * 성공도 남긴다 — "play()는 통과했는데 소리가 안 난다"면 정책 문제가 아니라는 증거가 된다.
+ * 엘리먼트 상태는 호출 시점에 즉시 읽는다(나중에 읽으면 이미 변해 있다).
+ */
+export function setLastPlayAttempt(a: {
+  phase: PlayAttempt['phase']
+  el: HTMLMediaElement | null
+  error: unknown
+  primed: boolean
+  /** play() 호출 직전 기록(결과 미확정). */
+  pending?: boolean
+}): void {
+  const err = a.error as { name?: string } | null
+  useLastPlaybackStore.getState().setPlayAttempt({
+    phase: a.phase,
+    ok: a.pending ? null : a.error == null,
+    errorName: a.pending || a.error == null ? null : err?.name ?? String(a.error),
+    readyState: a.el?.readyState ?? null,
+    networkState: a.el?.networkState ?? null,
+    mediaErrorCode: a.el?.error?.code ?? null,
+    userActivation: navigator.userActivation ? navigator.userActivation.isActive : null,
+    primed: a.primed,
+    isPwa: isPwa(),
+    // navigator.standalone은 iOS 전용 비표준 속성이라 타입에 없다.
+    iosStandalone: isIOS() ? (navigator as { standalone?: boolean }).standalone ?? null : null,
+    iosVersion: iosVersion(),
+    at: Date.now(),
+  })
+}
+
+export function getLastPlayback(): LastPlayback & { play: PlayAttempt | null } {
   return useLastPlaybackStore.getState()
 }
 
@@ -324,5 +405,15 @@ export function toText(report: MediaDiagReport): string {
   lines.push(`src=${last.src ?? '-'}`)
   lines.push(`errorCode=${last.errorCode ?? '-'} networkState=${last.networkState ?? '-'} readyState=${last.readyState ?? '-'}`)
   lines.push(`errorSrc=${last.errorSrc ?? '-'} preservedFile=${last.preservedFile}`)
+  lines.push('-- first play() attempt --')
+  const p = last.play
+  if (!p) {
+    lines.push('(없음 — 이 곡에서 play()가 아직 시도되지 않음)')
+  } else {
+    lines.push(`phase=${p.phase} ok=${p.ok === null ? 'pending(promise 미완료)' : p.ok} errorName=${p.errorName ?? '-'}`)
+    lines.push(`readyState=${p.readyState ?? '-'} networkState=${p.networkState ?? '-'} mediaErrorCode=${p.mediaErrorCode ?? '-'}`)
+    lines.push(`userActivation=${p.userActivation ?? '-'} primed=${p.primed}`)
+    lines.push(`isPwa=${p.isPwa} iosStandalone=${p.iosStandalone ?? '-'} iosVersion=${p.iosVersion ?? '-'}`)
+  }
   return lines.join('\n')
 }

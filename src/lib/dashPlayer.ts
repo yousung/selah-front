@@ -1,14 +1,20 @@
 /**
- * DASH(shaka-player) 재생 래퍼 — 비디오 모드 전용.
+ * DASH(shaka-player) 재생 래퍼 — `<video>`(비디오 모드)와 `<audio>`(Safari 계열 오디오) 공용.
  *
  * YouTube가 muxed(영상+음성 합본) 제공을 끊어 백엔드 `/videos/:id/stream`은 오디오 폴백만
  * 돌려준다. 영상을 보려면 video-only + audio-only 트랙을 MSE로 합쳐야 하고, 그게 DASH다.
  * 백엔드 `/videos/:id/manifest`가 모든 `<BaseURL>`을 절대 URL로 치환한 MPD 전문을 준다.
  *
- * - shaka는 ~300KB라 **동적 import로 지연 로드**한다. 오디오 전용 사용자는 내려받지 않는다.
+ * 오디오 모드에서도 쓴다: Invidious 오디오 스트림(itag 140)은 fragmented MP4라
+ * Safari(AVFoundation)가 progressive `<audio src>`로 못 읽고 **파일을 끝까지 받아야**
+ * 재생을 시작한다(실측 27.8초). MSE로 먹이면 shaka가 `sidx`로 필요한 레인지만 받아
+ * 즉시 시작한다. 자세한 근거는 `.omc/findings-download-slow.md`.
+ *
+ * - shaka는 ~300KB라 **동적 import로 지연 로드**한다. DASH를 안 쓰는 기기는 내려받지 않는다.
  * - `shaka.Player`는 앱 전체에서 **하나만** 만들어 재사용한다(attach → load → unload → destroy).
- * - **shaka가 `<video>`의 src를 소유한다.** React가 `src`를 같이 세팅하면 충돌하므로
- *   Layout의 `<video>`에는 `src`를 넘기지 않는다.
+ *   `<video>`↔`<audio>` 사이를 오갈 수 있으므로 엘리먼트가 바뀌면 먼저 detach한다.
+ * - **shaka가 엘리먼트의 src를 소유한다.** 밖에서 `src`를 쓰면 MediaSource가 깨지므로
+ *   Layout의 `<video>`에는 `src`를 넘기지 않고, `<audio>`도 `isDashAttached()`로 걸러야 한다.
  * - `reactPlayerRef`에 의존하지 않는다: 모드 전환 시 React가 ref를 먼저 null로 만들기 때문에
  *   이 모듈이 attach한 엘리먼트를 자체 보관해 정리(detach/destroy)한다.
  */
@@ -21,6 +27,7 @@ interface ShakaPlayer {
   load(uri: string, startTime?: number | null, mimeType?: string): Promise<void>
   unload(): Promise<void>
   destroy(): Promise<void>
+  configure(config: { manifest?: { disableVideo?: boolean } }): void
   addEventListener(type: string, listener: (event: Event) => void): void
 }
 
@@ -45,7 +52,7 @@ const SEVERITY_CRITICAL = 2
 let shakaNs: ShakaNamespace | null = null
 let shakaLoadPromise: Promise<ShakaNamespace> | null = null
 let player: ShakaPlayer | null = null
-let attachedEl: HTMLVideoElement | null = null
+let attachedEl: HTMLMediaElement | null = null
 let errorHandler: ((code: number | null) => void) | null = null
 // 현재 load에 쓰인 MPD blob URL. 다음 load/unload/destroy 때 해제한다(로드 직후 해제하면
 // shaka가 재시도로 매니페스트를 다시 요청할 때 URL이 이미 죽어 있을 수 있다).
@@ -101,12 +108,13 @@ export async function isDashSupported(): Promise<boolean> {
 }
 
 /**
- * 싱글턴 Player를 준비해 주어진 `<video>`에 붙인다. 이미 다른 엘리먼트에 붙어 있으면
- * (모드 전환으로 Layout이 `<video>`를 새로 마운트한 경우) 재부착한다.
+ * 싱글턴 Player를 준비해 주어진 미디어 엘리먼트에 붙인다. 이미 다른 엘리먼트에 붙어 있으면
+ * (모드 전환으로 Layout이 `<video>`를 새로 마운트했거나, 오디오 DASH ↔ 비디오 DASH 전환)
+ * 먼저 떼어낸 뒤 재부착한다.
  * `onError`는 shaka error 이벤트를 받는다(load 중단/취소 코드는 걸러낸 뒤 호출).
  */
 export async function ensureDashPlayer(
-  el: HTMLVideoElement,
+  el: HTMLMediaElement,
   onError: (code: number | null) => void,
 ): Promise<void> {
   const ns = await loadShaka()
@@ -139,8 +147,37 @@ export async function ensureDashPlayer(
       errorHandler?.(code)
     })
   }
+  // 다른 엘리먼트에 붙어 있으면 명시적으로 뗀다. detach()가 이전 엘리먼트의 MediaSource와
+  // `<source>` 자식을 정리하고 disableRemotePlayback도 원복하므로(shaka
+  // `media_source_engine.js`), 그 엘리먼트에 다시 `src`를 쓰는 progressive 경로가 살아난다.
+  if (attachedEl && attachedEl !== el) {
+    try {
+      await player.detach()
+    } catch {
+      /* 이미 떨어진 상태 — 무시 */
+    }
+    attachedEl = null
+  }
   await player.attach(el)
   attachedEl = el
+  // 오디오 전용 제한. shaka는 `<audio>`에 붙으면 스스로 `manifest.disableVideo`를 켜지만
+  // (`lib/player.js` applyConfig_: "Don't read video segments if the player is attached to an
+  // audio element"), 싱글턴이 `<video>`에서 옮겨온 경우까지 확실히 하려고 명시한다.
+  // 이게 켜지면 DASH 파서가 video AdaptationSet을 아예 무시해 **비디오 바이트를 0 받는다.**
+  //
+  // `restrictions.maxHeight = 0`을 쓰면 안 된다: 이 매니페스트는 audio 1 + video 3 구성이라
+  // shaka DASH 파서가 audio×video 조합 variant만 만든다(audio-only variant 없음). 그 상태에서
+  // 모든 variant를 제한하면 RESTRICTIONS_CANNOT_BE_MET(4012)로 재생이 죽는다.
+  player.configure({ manifest: { disableVideo: el.nodeName === 'AUDIO' } })
+}
+
+/**
+ * shaka가 이 엘리먼트를 소유(attach)하고 있는가.
+ * 소유 중이면 엘리먼트의 `src`를 밖에서 건드리면 안 된다(shaka가 MediaSource를 물고 있다).
+ * `unload()`는 src를 비우지만 attach는 유지하므로 src 유무로는 판별할 수 없다.
+ */
+export function isDashAttached(el: HTMLMediaElement | null | undefined): boolean {
+  return player != null && el != null && attachedEl === el
 }
 
 /**

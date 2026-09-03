@@ -90,6 +90,24 @@ export default function MediaDebugOverlay() {
         <div style={{ wordBreak: 'break-all' }}><span style={label}>src:</span> {last.src ?? '-'}</div>
         <div><span style={label}>errCode:</span> {last.errorCode ?? '-'} <span style={label}>net:</span> {last.networkState ?? '-'} <span style={label}>ready:</span> {last.readyState ?? '-'}</div>
         <div><span style={label}>preserved:</span> {String(last.preservedFile)}</div>
+        {/* 첫 play() 결과 — iOS "첫 탭 무음" 보고를 데이터로 받기 위한 핵심 줄.
+            ok=false + NotAllowedError면 정책 차단, ok=true인데 무음이면 정책이 아니다. */}
+        {last.play ? (
+          <>
+            <div style={{ color: last.play.ok === null ? '#fcd34d' : last.play.ok ? '#6ee7b7' : '#fca5a5' }}>
+              <span style={label}>play({last.play.phase}):</span>{' '}
+              {last.play.ok === null ? 'pending' : last.play.ok ? 'ok' : last.play.errorName ?? 'fail'}{' '}
+              <span style={label}>UA:</span> {String(last.play.userActivation ?? '-')}{' '}
+              <span style={label}>primed:</span> {String(last.play.primed)}
+            </div>
+            <div>
+              <span style={label}>pwa:</span> {String(last.play.isPwa)}/{String(last.play.iosStandalone ?? '-')}{' '}
+              <span style={label}>iOS:</span> {last.play.iosVersion ?? '-'}
+            </div>
+          </>
+        ) : (
+          <div><span style={label}>play:</span> (아직 시도 없음)</div>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
