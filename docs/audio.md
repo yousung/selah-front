@@ -39,10 +39,16 @@ Invidious 오디오 스트림(itag 140)은 fragmented MP4라 Safari(AVFoundation
 스트리밍하지 못하고 **파일을 끝까지 받아야** 재생을 시작한다(iOS 실측 27.8초, 데스크탑
 Safari도 readyState가 25초간 0). MSE로 먹이면 shaka가 `sidx`로 필요한 레인지만 받는다.
 
-- 게이트: `!isVideoMode && (isIosWebKit() || isDesktopSafari()) && await isDashSupported()`.
+- 게이트: `!isVideoMode && (isIosWebKit() || isDesktopSafari()) && await checkDashSupport() === 'supported'`.
   UA 판정을 먼저 평가해야 비-Safari가 shaka 청크(gzip 267KB)를 내려받지 않는다.
   `isDesktopSafari()`가 iPadOS의 데스크탑 UA도 잡는다.
 - 실패 시 기존 progressive 경로로 폴백한다(`destroyDash()`로 detach한 뒤 `audio.src`).
+  이때 **shaka 청크 로드 실패(`load-failed`)는 세션 래치하지 않는다** — 기기 능력이 아니라
+  일시적 사유이므로 `dashLoadFailedRef`(재생마다 리셋)로만 이번 재생을 막는다.
+  `isVideoPlayback()`도 이 값을 같이 봐야 그 재생 동안 재생 주체 판정이 일관된다.
+- **critical shaka 에러(`handleDashError`) 뒤에는 `dashOnAudioRef`/`streamSeekable`을 내린다.**
+  안 내리면 (a) 다운로드가 끝나도 `MEDIA_DOWNLOADED`가 "DASH로 잘 재생 중"으로 보고 로컬
+  전환을 건너뛰어 죽은 재생을 못 살리고, (b) 죽은 MediaSource 위에서 seek 버튼이 활성으로 남는다.
 - 비디오 트랙은 shaka가 `<audio>`에 붙으면 `manifest.disableVideo`를 자동으로 켜서
   아예 파싱하지 않는다. **`restrictions.maxHeight = 0`을 쓰면 안 된다** — 이 매니페스트는
   audio×video 조합 variant만 있어서 전부 제한되면 `RESTRICTIONS_CANNOT_BE_MET`(4012)이 난다.
@@ -56,6 +62,15 @@ DASH로 재생 중이면 로컬 파일로 **갈아타지 않는다**(`dashOnAudi
 목적("progressive는 느리고 seek이 안 되니 저장 파일로 바꾼다")이 DASH에서는 이미 해결돼
 있고, 갈아타려면 shaka를 내리고 `<audio src>`를 새로 물려야 해서 그 순간 끊긴다.
 파일은 저장돼 있으므로 **다음 재생부터** 캐시 경로로 들어간다.
+
+### 이어듣기 팝업은 `resume: true`를 넘겨야 한다
+
+`sermonResume`의 `downloaded`는 "저장 파일이 있다"가 아니라 **"그 위치로 되돌아갈 수 있다"**
+이다(DASH 재생 중에도 참). 그래서 저장 안 된 설교에도 팝업이 뜰 수 있는데, 그 재생이
+DASH 실패로 progressive로 떨어지면 `video.type !== 'SERMON' || options?.resume` 조건에 걸려
+**seekTo가 버려지고 0초로 되감긴다**(seek도 막혀 되돌아갈 방법이 없다).
+팝업이 거는 재생(`PlayerPage`의 `handleSermonResumeContinue`, 설교 탭에서 넘어온 `sermonSeek`)은
+반드시 `resume: true`를 같이 넘긴다.
 
 ## Context Value 인터페이스
 
@@ -135,10 +150,9 @@ DASH로 재생 중이면 로컬 파일로 **갈아타지 않는다**(`dashOnAudi
   비디오 모드는 실제로 오디오 스트림 폴백이라 seek이 안 되는데 버튼만 켜져 있었고,
   Safari 오디오는 DASH라 seek이 되는데 버튼이 꺼져 있었다.
   `streamSeekable`은 `playVideo` 진입 시 false로 리셋하고 DASH 로드 성공 분기에서만 켠다.
-- 설교를 **새로 열 때**의 이어듣기 위치는 오디오 스트림 분기에서 무시된다(스트림은 구간
-  이동 불가). 단 `resume: true`로 들어온 **같은 트랙의 내부 재진입**(다운로드 완료 후
-  로컬 전환, 캐시 재생 실패 후 스트림 폴백)은 타입과 무관하게 위치를 존중한다 —
-  이게 없으면 설교만 다운로드 완료 시 0초로 되감긴다.
+- 설교 progressive 스트림은 `resume` 없이는 `seekTo`를 버린다("구간 이동 불가" 규칙).
+  `resume: true`는 내부 재진입(다운로드 완료 후 로컬 전환, 캐시 실패 후 스트림 폴백)과
+  **이어듣기 팝업**이 붙인다 — 아래 "이어듣기 팝업은 `resume: true`를 넘겨야 한다" 참조.
 - 모바일 동적 오디오: `src` 설정 후 `load()`, `canplay`에서 보류된 자동재생 재시도
 - 모바일 오디오 엘리먼트: `new Audio()` 분리 객체 대신 Provider DOM에 숨김 마운트
 - 스트림이 8초 안에 시작되지 않으면 다운로드를 시작해 로컬 재생 복구 경로 유지

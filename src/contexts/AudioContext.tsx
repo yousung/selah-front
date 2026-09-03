@@ -6,11 +6,11 @@ import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { api } from '@/lib/api'
 import { deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
 import type { MediaDownloadedDetail } from '@/lib/mediaStore'
-import { destroyDash, ensureDashPlayer, isDashAbortError, isDashAttached, isDashSupported, loadDash, unloadDash } from '@/lib/dashPlayer'
+import { checkDashSupport, destroyDash, ensureDashPlayer, isDashAbortError, isDashAttached, loadDash, reloadOnceForShakaChunk, unloadDash } from '@/lib/dashPlayer'
 import { isDesktopSafari, isIosWebKit } from '@/lib/mediaStore'
 import { primeMediaElement } from '@/lib/mediaUnlock'
 import { isIOS } from '@/lib/platform'
-import { setLastPlayback, setLastPlaybackError, setLastPlayAttempt } from '@/lib/mediaDiag'
+import { setLastDashSupport, setLastPlayback, setLastPlaybackError, setLastPlayAttempt } from '@/lib/mediaDiag'
 import { thumbUrl, thumbQualityFor } from '@/lib/thumb'
 import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
 import { isLiveVideo } from '@/lib/liveVideo'
@@ -64,8 +64,11 @@ interface AudioContextValue {
   streamSeekable: boolean
   reactPlayerRef: RefObject<HTMLVideoElement | null>
   videoSlotRef: RefObject<HTMLDivElement | null>
-  // resume: "이미 듣던 같은 트랙을 그 위치에서 이어서 연다"는 뜻. 다운로드 완료 후 재생 전환,
-  // 캐시 재생 실패 후 스트림 폴백 등 내부 재진입에만 쓴다(새 트랙 첫 오픈에는 쓰지 않는다).
+  // resume: "이 트랙을 그 위치에서 이어서 연다"는 뜻 = **seekTo를 존중하라는 표시**.
+  // 두 경우에 쓴다: (1) 내부 재진입(다운로드 완료 후 전환, 캐시 실패 후 스트림 폴백),
+  // (2) 사용자가 이어듣기 팝업에서 그 위치를 명시적으로 고른 경우(PlayerPage).
+  // 설교 progressive 스트림은 resume이 없으면 seekTo를 버리므로(구간 이동 불가 규칙),
+  // 위치를 지켜야 하는 재생은 반드시 이 플래그를 넘겨야 한다.
   playVideo: (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number; resume?: boolean }) => Promise<void>
   stop: () => void
   togglePlay: () => void
@@ -398,12 +401,21 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // `<audio>` 스트림 경로로 폴백한다. 기기 능력이라 세션 내내 안 바뀐다(리셋하지 않는다).
   const dashFallbackRef = useRef(false)
   /**
+   * **이번 재생에서** shaka 청크 로드가 실패했는가. `dashFallbackRef`와 달리 래치하지 않고
+   * `playVideo` 진입마다 리셋한다 — 청크 404는 기기 능력이 아니라 배포 직후 stale
+   * index.html 같은 **일시적** 원인이라 다음 재생에서 다시 시도해야 한다.
+   * 그래도 이번 재생 안에서는 `isVideoPlayback()`이 일관되게 false를 답해야 하므로
+   * (재생 주체가 `<audio>`인데 `<video>`라고 답하면 error 가드·mediaSession·seek가 전부
+   * 엉뚱한 엘리먼트를 본다) 아래 판정에 같이 넣는다.
+   */
+  const dashLoadFailedRef = useRef(false)
+  /**
    * 실제 재생이 `<video>`(shaka)에서 일어나는가.
    * 비디오 모드라도 DASH 폴백 중이면 재생 주체는 `<audio>`이므로 false다.
    * 재생 엘리먼트를 고르는 모든 분기는 `mediaModeRef.current === 'video'` 대신 이걸 써야 한다.
    */
   const isVideoPlayback = useCallback(
-    () => mediaModeRef.current === 'video' && !dashFallbackRef.current,
+    () => mediaModeRef.current === 'video' && !dashFallbackRef.current && !dashLoadFailedRef.current,
     [],
   )
 
@@ -488,6 +500,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       corruptHandlingRef.current = true
       if (media) {
         media.pause()
+        // isDashAttached 가드가 없어도 안전한 이유: 이 watchdog은 `localPlaybackRef`가 이 곡을
+        // 가리킬 때만(=저장 파일 재생 중일 때만) 여기 도달하는데, 그 경로는 진입 전에
+        // releaseAudioFromDash()로 shaka를 이미 떼어낸다. **이 불변식이 깨지면 가드를 넣어야 한다.**
         media.src = ''
       }
       setIsLoading(false)
@@ -638,6 +653,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           localFallbackInProgressRef.current = true
           localPlaybackRef.current = null
           audio.pause()
+          // 위 watchdog과 같은 이유로 가드가 없다: 이 블록은 `localPlayback`(=저장 파일 재생)
+          // 조건 안이고, 그 경로는 releaseAudioFromDash()로 shaka를 떼고 들어온다.
           audio.src = ''
           const cleanup = shouldDelete
             ? deleteMedia(localPlayback.id, localPlayback.type)
@@ -697,7 +714,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // togglePlay가 `video.paused === false`를 보고 **멀쩡히 나오던 재생을 오히려 일시정지**시킨다.
     // 실제로 멈추는 순간엔 <video>의 pause 이벤트(onVideoPause)가 isPlaying을 내려준다.
     if (!el || el.paused) setIsPlaying(false)
-  }, [])
+
+    // 이 재생은 죽었다 → DASH 관련 상태를 내려놓는다(둘 다 안 내리면 이후가 망가진다):
+    //  - dashOnAudioRef가 true로 남으면 MEDIA_DOWNLOADED 핸들러가 "DASH로 잘 재생 중"이라고
+    //    보고 로컬 전환을 건너뛴다 → 다운로드가 끝나도 **저장 파일이 죽은 재생을 못 살린다.**
+    //  - streamSeekable이 true로 남으면 죽은 MediaSource 위에서 seek 버튼이 계속 활성이다.
+    // 여기서 false로 내려도 shaka는 아직 <audio>에 attach된 상태라, 이어지는 캐시 재생은
+    // releaseAudioFromDash()의 isDashAttached() 검사에 걸려 정상적으로 detach 후 진행된다.
+    dashOnAudioRef.current = false
+    setStreamSeekable(false)
+  }, [setStreamSeekable])
 
   const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number; resume?: boolean }) => {
     // 비공개 영상: 모든 미디어 요청 차단 + 현재 재생 중인 미디어를 즉시 멈춘다.
@@ -847,9 +873,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           } catch (e) {
             setLastPlayAttempt({ phase: 'cache', el: audio, error: e, primed })
             setIsLoading(false)
-            // 자동재생 차단(NotAllowedError)은 손상이 아니므로 watchdog 해제(오삭제 방지).
+            // 자동재생 차단(NotAllowedError)과 재생 중단(AbortError)은 **파일 손상이 아니다**
+            // → watchdog 해제(멀쩡한 파일 오삭제 방지).
+            // AbortError는 다른 코드가 이 엘리먼트의 src를 갈아끼웠을 때 나온다. shaka teardown
+            // 경합은 destroyDash의 idempotent teardown으로 막았지만, 그런 부류의 경합이 하나라도
+            // 남으면 결과가 "멀쩡한 다운로드 파일 삭제 + 재다운로드"라 안전망을 같이 둔다.
+            const errName = (e as DOMException)?.name
             if (
-              (e as DOMException)?.name === 'NotAllowedError' &&
+              (errName === 'NotAllowedError' || errName === 'AbortError') &&
               localPlaybackRef.current?.id === video.id &&
               localPlaybackRef.current?.type === 'audio'
             ) {
@@ -878,14 +909,39 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
     // MSE 미지원 기기는 DASH를 아예 못 돌린다. 확인 없이 load()하면 실패해서
     // 화면도 소리도 안 나오므로(= progressive 시절 대비 기능 회귀), 아래 오디오
-    // 스트림 경로로 흘려보낸다. 기기 능력이라 한 번 false면 세션 내내 false다.
-    if ((isVideoMode || wantsAudioDash) && !dashFallbackRef.current && !(await isDashSupported())) {
-      dashFallbackRef.current = true
+    // 스트림 경로로 흘려보낸다.
+    //
+    // **"기기 미지원"과 "청크 로드 실패"를 구분해서 래치한다.** 전자는 기기 능력이라 세션
+    // 내내 안 바뀌지만, 후자는 배포 직후 stale index.html이 옛 chunk 해시를 가리켜 404나는
+    // 일시적 상황이다. 둘을 뭉뚱그려 래치하면 한 번 걸린 세션은 끝까지 Safari 오디오가
+    // 27.8초 progressive로 되돌아가고(= 이 릴리스가 고친 바로 그 증상) 비디오 모드는 영구
+    // 오디오 전용이 된다. `loadShaka()`는 실패 시 재시도가 가능하게 해 두었으므로,
+    // 로드 실패는 이번 재생만 폴백하고 다음 재생에서 다시 물어본다.
+    dashLoadFailedRef.current = false
+    if ((isVideoMode || wantsAudioDash) && !dashFallbackRef.current) {
+      const support = await checkDashSupport()
+      // 진단에 남긴다 — "Safari인데 왜 느리냐" 신고에서 게이트 미적용인지 청크 404인지 가른다.
+      setLastDashSupport(support)
+      if (support === 'unsupported') dashFallbackRef.current = true
+      else if (support === 'load-failed') {
+        dashLoadFailedRef.current = true
+        // 청크를 못 받았다. 재시도로는 절대 복구되지 않으므로(ES 모듈 맵이 실패를 문서
+        // 단위로 캐시) **리로드 한 번**이 유일한 복구 경로다. 세션당 1회로 묶여 있다.
+        //
+        // 조건을 좁힌 이유: 리로드는 재생을 끊는다. 사용자가 방금 카드를 눌러 아직 소리를
+        // 기다리는 중일 때만(= 새로 여는 재생) 안전하다. `resume`/`skipRecentAdd`가 붙은
+        // 내부 재진입(다운로드 완료 전환, 캐시 실패 폴백, 손상 복구, 이어듣기 팝업)은
+        // 이미 듣고 있던 흐름이라 끊으면 안 되므로 제외한다.
+        if (autoPlay && !options?.resume && !options?.skipRecentAdd && reloadOnceForShakaChunk()) {
+          return
+        }
+      }
     }
+    const dashUsable = !dashFallbackRef.current && !dashLoadFailedRef.current
     // 네트워크/동적 import 대기 중 트랙이 바뀌었으면 이 재생 요청은 폐기한다.
     if (currentVideoIdRef.current !== video.id) return
 
-    if (wantsAudioDash && !dashFallbackRef.current && audioRef.current) {
+    if (wantsAudioDash && dashUsable && audioRef.current) {
       const audio = audioRef.current
       // "DASH로 간다"는 의도를 **첫 await 이전에** 세운다. 로드 성공 후에 켜면 그 사이
       // (매니페스트 왕복 ~1초)에 끼어드는 MEDIA_DOWNLOADED 재진입이 false를 보고 캐시
@@ -944,7 +1000,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    if (isVideoMode && !dashFallbackRef.current) {
+    if (isVideoMode && dashUsable) {
       // 비디오 = DASH(shaka). YouTube가 muxed 포맷을 끊어 단일 progressive URL로는 화면이
       // 안 나온다(오디오 폴백만 옴). 백엔드가 절대 BaseURL로 치환한 MPD 전문을 주면
       // blob URL로 만들어 shaka에 로드한다. seek 위치는 load()의 startTime으로 넘긴다.
@@ -1037,9 +1093,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       audio.volume = volume
       applyPlaybackRate(audio)
       pendingAutoPlayRef.current = autoPlay
-      // 설교 스트림은 "구간 이동 불가"라 새로 열 때의 이어듣기 위치를 무시한다(228a51d).
-      // 단 resume(=듣던 트랙을 이어서 여는 내부 재진입)은 타입과 무관하게 위치를 존중한다.
-      // 안 그러면 다운로드 완료/캐시 실패 폴백 때 설교만 0초로 되감긴다.
+      // 설교 스트림은 "구간 이동 불가"라 위치를 임의로 복원하지 않는다(228a51d).
+      // 단 resume이 붙으면 위치를 존중한다 — 내부 재진입(다운로드 완료/캐시 실패 폴백)뿐
+      // 아니라 **이어듣기 팝업에서 사용자가 그 위치를 고른 경우**도 포함이다.
+      // 안 그러면 그 재생이 progressive로 떨어질 때 0초로 되감기고 seek도 막혀 갇힌다.
       if ((video.type !== 'SERMON' || options?.resume) && options?.seekTo != null) pendingSeekRef.current = options.seekTo
       if (!autoPlay) {
         audio.load()

@@ -612,7 +612,9 @@ export default function PlayerPage() {
         categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
         categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
       },
-      { autoPlay: autoPlayOnDetail, seekTo: sermonSeek },
+      // sermonSeek는 설교 탭 이어듣기 팝업이 넘긴 위치다 → resume으로 표시해야 progressive
+      // 분기가 seekTo를 버리지 않는다(위 handleSermonResumeContinue와 같은 이유).
+      { autoPlay: autoPlayOnDetail, seekTo: sermonSeek, resume: sermonSeek != null },
     )
   }, [autoPlayOnDetail, currentVideo?.id, isSermonPlayer, playVideo, video, sermonSeek, sermonStateCategoryId, sermonStateCategoryTitle])
 
@@ -630,7 +632,11 @@ export default function PlayerPage() {
         categoryId: sermonResumeChoice.categoryId ?? sermonStateCategoryId,
         categoryTitle: sermonResumeChoice.categoryTitle ?? sermonStateCategoryTitle,
       },
-      { autoPlay: true, seekTo: sermonResumeChoice.position },
+      // resume: true 필수. 이게 없으면 progressive 오디오 분기가 "설교 스트림은 구간 이동
+      // 불가"라며 seekTo를 버려 **0초로 되감기고 seek도 막힌다**(돌아갈 방법이 없어진다).
+      // 이어듣기 팝업은 저장 파일뿐 아니라 DASH 재생에서도 뜨는데(streamSeekable),
+      // 그 재생이 DASH 실패로 progressive로 떨어지면 정확히 그 상황이 된다.
+      { autoPlay: true, seekTo: sermonResumeChoice.position, resume: true },
     )
     setSermonResumeChoice(null)
   }, [video, sermonResumeChoice, sermonStateCategoryId, sermonStateCategoryTitle, playVideo])

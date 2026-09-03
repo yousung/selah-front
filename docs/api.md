@@ -57,7 +57,7 @@ export const adminApi = axios.create({
 ## dashPlayer.ts — shaka 래퍼
 
 ```ts
-isDashSupported(): Promise<boolean>                                  // MSE/MMS 가능 여부(+shaka 지연 로드)
+checkDashSupport(): Promise<DashSupport>                             // 'supported' | 'unsupported' | 'load-failed'
 ensureDashPlayer(el: HTMLMediaElement, onError): Promise<void>       // 싱글턴 Player를 el에 attach
 loadDash(manifest: string, mimeType: string, startTime?): Promise<void>
 unloadDash(): Promise<void>                                          // 재생만 내림(attach 유지)
@@ -73,6 +73,22 @@ isDashAbortError(err): boolean                                       // 7000/700
 - attach 직후 `configure({ manifest: { disableVideo: el.nodeName === 'AUDIO' } })`로
   오디오 전용을 명시한다(실측: 오디오 재생 중 네트워크 요청은 `itag=140`뿐,
   video itag 136/134/160 요청 0건).
+- **`checkDashSupport()`의 `unsupported`와 `load-failed`를 뭉뚱그리면 안 된다.** 전자는 기기
+  능력이라 세션 래치해도 되지만, 후자는 shaka 청크 404(배포 직후 stale index.html 등)라
+  일시적이다. 래치하면 그 세션 내내 Safari 오디오가 27.8초 progressive로 되돌아간다.
+  ⚠️ **재시도로는 복구되지 않는다** — ES 모듈 맵이 실패한 모듈 레코드를 문서 단위로 캐시해
+  `import()`가 네트워크를 다시 타지 않는다(실측: 재생 3회 동안 청크 요청 1건, 서버에 파일을
+  되돌려 놔도 마찬가지). 그래서 `reloadOnceForShakaChunk()`로 **세션당 1회 리로드**한다:
+  `sessionStorage['selah-shaka-reload']` 가드 + SW `registration.update()` 후 `location.reload()`.
+  HashRouter라 리로드 후 같은 페이지로 돌아온다. 리로드 후에도 실패하면 가드 때문에 다시
+  리로드하지 않고 조용히 progressive로 정착한다(청크가 정말 없는 경우의 올바른 최종 상태).
+  **트리거는 정상 배포 그 자체다** — 앱을 열어둔 사용자의 문서가 가리키는 옛 해시 청크가
+  배포로 사라진다. 진단은 `mediaDiag`의 `dashSupport`/`dashLoadFailures`/`shakaChunkReloadTried`.
+- **`isDashAttached(el)`는 정리(teardown) 진행 중도 참이다.** `destroyDash()`가 비동기이고
+  그 과정에서 shaka가 엘리먼트의 `src`를 지우고 `load()`를 부르기 때문이다. 예전처럼
+  플래그를 동기로 지우면 그 창에서 호출부가 물린 `src`를 뒤늦은 teardown이 빼앗아
+  `play()`가 AbortError → 캐시 watchdog이 손상으로 오판 → **멀쩡한 저장 파일 삭제**.
+  `destroyDash()`는 idempotent라 중복 호출은 같은 Promise를 돌려준다.
 - **`isDashAttached(el)`가 참이면 밖에서 `el.src`를 쓰면 안 된다.** `unload()`는 src를 비우되
   attach는 유지하므로 src 유무로는 판별할 수 없다. `<audio>`에서 progressive로 돌아가려면
   `destroyDash()`까지 해야 한다.

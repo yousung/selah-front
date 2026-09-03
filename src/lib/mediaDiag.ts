@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { didAttemptShakaChunkReload, type DashSupport } from '@/lib/dashPlayer'
 import { isIOS, iosVersion } from '@/lib/platform'
 import {
   isPwa,
@@ -73,9 +74,19 @@ export interface PlayAttempt {
 
 interface LastPlaybackState extends LastPlayback {
   play: PlayAttempt | null
+  /**
+   * 가장 최근 `checkDashSupport()` 결과. `'load-failed'`가 보이면 **기기 문제가 아니라
+   * shaka 청크를 못 받은 것**이다 — 앱을 열어둔 채로 배포가 나가면 그 페이지의 index.html이
+   * 가리키는 옛 해시 청크가 서버에서 사라져 404가 난다. 이 값이 없으면 "Safari인데 27.8초
+   * 걸린다"는 신고에서 게이트 미적용인지 청크 404인지 구분할 수 없다.
+   */
+  dashSupport: DashSupport | null
+  /** 이 세션에서 shaka 청크 로드가 실패한 횟수(재생 시도마다 1). */
+  dashLoadFailures: number
   setPlayback: (p: { id: string; type: 'audio' | 'video'; source: PlaybackSource; src: string }) => void
   setError: (e: { code: number | null; networkState: number | null; readyState: number | null; src: string | null; preservedFile: boolean }) => void
   setPlayAttempt: (a: PlayAttempt) => void
+  setDashSupport: (s: DashSupport) => void
 }
 
 export const useLastPlaybackStore = create<LastPlaybackState>((set) => ({
@@ -90,6 +101,8 @@ export const useLastPlaybackStore = create<LastPlaybackState>((set) => ({
   preservedFile: false,
   at: 0,
   play: null,
+  dashSupport: null,
+  dashLoadFailures: 0,
   setPlayback: (p) =>
     set({
       id: p.id,
@@ -116,11 +129,25 @@ export const useLastPlaybackStore = create<LastPlaybackState>((set) => ({
       at: Date.now(),
     }),
   setPlayAttempt: (a) => set({ play: a }),
+  setDashSupport: (v) =>
+    set((st) => ({
+      dashSupport: v,
+      dashLoadFailures: st.dashLoadFailures + (v === 'load-failed' ? 1 : 0),
+    })),
 }))
 
 /** 비-React 코드(AudioContext)에서 호출하는 경량 setter. */
 export function setLastPlayback(p: { id: string; type: 'audio' | 'video'; source: PlaybackSource; src: string }): void {
   useLastPlaybackStore.getState().setPlayback(p)
+}
+
+/**
+ * DASH 가용성 판정 결과를 남긴다. `'load-failed'`는 진단에서 제일 중요한 값이다 —
+ * 기기 미지원(`'unsupported'`)과 달리 **일시적이고 배포와 함께 발생**하므로,
+ * 같은 신고가 또 오면 이 값 하나로 원인이 갈린다.
+ */
+export function setLastDashSupport(v: DashSupport): void {
+  useLastPlaybackStore.getState().setDashSupport(v)
 }
 
 export function setLastPlaybackError(e: {
@@ -166,7 +193,11 @@ export function setLastPlayAttempt(a: {
   })
 }
 
-export function getLastPlayback(): LastPlayback & { play: PlayAttempt | null } {
+export function getLastPlayback(): LastPlayback & {
+  play: PlayAttempt | null
+  dashSupport: DashSupport | null
+  dashLoadFailures: number
+} {
   return useLastPlaybackStore.getState()
 }
 
@@ -405,6 +436,16 @@ export function toText(report: MediaDiagReport): string {
   lines.push(`src=${last.src ?? '-'}`)
   lines.push(`errorCode=${last.errorCode ?? '-'} networkState=${last.networkState ?? '-'} readyState=${last.readyState ?? '-'}`)
   lines.push(`errorSrc=${last.errorSrc ?? '-'} preservedFile=${last.preservedFile}`)
+  lines.push(
+    `dashSupport=${last.dashSupport ?? '-'} dashLoadFailures=${last.dashLoadFailures}` +
+      ` shakaChunkReloadTried=${didAttemptShakaChunkReload()}`,
+  )
+  if (last.dashSupport === 'load-failed') {
+    lines.push('  ⚠️ shaka 청크를 못 받았다(기기 문제 아님). 앱을 열어둔 채 배포가 나가면')
+    lines.push('     옛 해시 청크가 서버에서 사라져 404가 난다. 리로드해야 복구된다.')
+    lines.push('     shakaChunkReloadTried=true인데도 load-failed면 자동 리로드 1회가 이미')
+    lines.push('     돌았고 그래도 실패한 것이다 = 청크가 정말로 없다(무한 리로드는 막혀 있다).')
+  }
   lines.push('-- first play() attempt --')
   const p = last.play
   if (!p) {

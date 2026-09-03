@@ -6,6 +6,12 @@ export interface SermonResumeData {
   categoryId?: string
   categoryTitle?: string
   position: number
+  /**
+   * **"저장 파일이 있다"가 아니라 "그 위치로 되돌아갈 수 있다"는 뜻이다.**
+   * 저장 파일뿐 아니라 DASH(MSE) 재생 중일 때도 true다(`AudioContext`의 `streamSeekable`).
+   * 이어듣기 팝업의 표시 조건이며, 팝업이 재생을 걸 때는 반드시 `resume: true`를 같이
+   * 넘겨야 한다 — 안 그러면 progressive 폴백 시 위치가 버려진다.
+   */
   downloaded: boolean
   updatedAt: number
 }
