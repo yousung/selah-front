@@ -139,6 +139,7 @@ function ItemBody({ item, hero }: { item: MemoryVerse; hero: boolean }) {
                 fontSize: fs(hero ? 15 : 13),
                 lineHeight: fs(hero ? 26 : 22),
                 color: 'var(--ink-1)',
+                whiteSpace: 'pre-line',
                 wordBreak: 'keep-all',
                 marginBottom: 0,
               }}
