@@ -9,7 +9,7 @@ try {
       // UI fixtures only: do not depend on or modify the production DB.
       await page.route('**/api/prayers/**', route => route.fulfill({ json: [] }))
       await page.goto('http://localhost:5173/#/memorize')
-      await page.getByRole('tab', { name: '기도문', exact: true }).click()
+      await page.getByRole('tab', { name: '기도', exact: true }).click()
       const menu = page.getByRole('tablist', { name: '기도문 종류' })
       await menu.evaluate((element, value) => element.style.setProperty('--font-scale', String(value)), scale)
       await page.evaluate(() => document.fonts.ready)

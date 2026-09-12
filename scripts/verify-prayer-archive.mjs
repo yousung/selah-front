@@ -23,7 +23,7 @@ try {
       await route.fulfill({ json: rows })
     })
     await page.goto('http://localhost:5173/#/memorize')
-    await page.getByRole('tab', { name: '기도문', exact: true }).click()
+    await page.getByRole('tab', { name: '기도', exact: true }).click()
     for (const [value, tabLabel, label] of categories) {
       await page.getByRole('tab', { name: tabLabel, exact: true }).click()
       await page.getByRole('heading', { name: `${value}-current`, exact: true }).waitFor()

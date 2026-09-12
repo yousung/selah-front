@@ -17,7 +17,7 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 | `/sermon` | `SermonPage` | 설교 시리즈 목록 (2열 그리드) |
 | `/sermon/series/:id` | `SermonSeriesPage` | 시리즈별 설교 목록 + 설교자 필터 칩 |
 | `/sermon/player/:id` | `SermonPlayerPage` | 설교 플레이어 (YouTube iframe, 영상/음성 전환) |
-| `/memorize` | `MemorizePage` | 이번 주 양식 / 기도문 탭. 헤더의 이전 버튼으로 양식은 별도 목록으로 이동하고 기도문은 본문 보기를 전환한다. 노출 조건과 화면 구성 기준은 `../DESIGN.md` 참조 |
+| `/memorize` | `MemorizePage` | 이번 주 양식 / 기도 탭. 헤더의 이전 버튼으로 양식은 별도 목록으로 이동하고 기도문은 본문 보기를 전환한다. 노출 조건과 화면 구성 기준은 `../DESIGN.md` 참조 |
 | `/memorize/archive` | `WeeklyFormArchivePage` | 이전 양식 주간 목록 |
 | `/memorize/archive/:startDate` | `WeeklyFormDetailPage` | 이전 양식 상세 |
 | `/catechism` | `CatechismPage` | 교리서 (준비 중 placeholder) |

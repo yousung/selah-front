@@ -24,7 +24,7 @@ try {
     await page.getByRole('heading', { name: '이전 양식', exact: true }).waitFor()
     await page.getByRole('button', { name: '한 주간의 양식으로 돌아가기' }).click()
     await page.waitForURL('**/#/memorize')
-    await page.getByRole('tab', { name: '기도문', exact: true }).click()
+    await page.getByRole('tab', { name: '기도', exact: true }).click()
     await page.getByRole('heading', { name: '칼빈의 기도문을 따라 드리는 일상의 기도' }).waitFor()
     const content = await page.locator('#prayer-category-panel article p').last().textContent()
     assert.equal((content.match(/^\d\. /gm) || []).length, 8)

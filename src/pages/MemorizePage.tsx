@@ -314,7 +314,7 @@ export default function MemorizePage() {
         <div role="tablist" aria-label="양식 콘텐츠" style={{ display: 'flex', padding: '0 16px', gap: fs(24) }}>
           {([
             ['weekly-form', '이번 주 양식'],
-            ['prayer', '기도문'],
+            ['prayer', '기도'],
           ] as const).map(([tab, label]) => (
             <button
               key={tab}

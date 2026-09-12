@@ -30,7 +30,7 @@ try {
       await page.getByText('이번 주 양식이 아직 등록되지 않았습니다.', { exact: true }).waitFor()
       assert.equal(await weekly.count(), 0)
     }
-    await page.getByRole('tab', { name: '기도문', exact: true }).click()
+    await page.getByRole('tab', { name: '기도', exact: true }).click()
     await page.getByText('등록된 기도문이 없습니다.', { exact: true }).waitFor()
     const daily = page.locator('header').getByRole('button', { name: '이전 일상 기도' })
     if (mode === 'populated') {
