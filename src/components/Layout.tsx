@@ -8,7 +8,7 @@ import { useSettingsStore } from "@/store/settingsStore";
 import { useQueueStore } from "@/store/queueStore";
 import { cancelDownload } from "@/lib/mediaStore";
 import { fs } from "@/lib/fontScale";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 /* ─── Icons ─────────────────────────────────────────── */
 function IconNote({ active }: { active: boolean }) {
@@ -231,6 +231,26 @@ export default function Layout() {
   }, [isPlayerPage, mediaMode, videoSlotRef]);
 
   const showMini = !isPlayerPage && !!currentVideo && !miniDismissed;
+  const navRef = useRef<HTMLElement>(null);
+  const miniRef = useRef<HTMLDivElement>(null);
+  const [navHeight, setNavHeight] = useState(64);
+  const [miniHeight, setMiniHeight] = useState(0);
+  useEffect(() => {
+    const measure = () => {
+      setNavHeight(navRef.current?.getBoundingClientRect().height ?? 0);
+      setMiniHeight(miniRef.current?.getBoundingClientRect().height ?? 0);
+    };
+    if (typeof ResizeObserver === "undefined") {
+      measure();
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+    const observer = new ResizeObserver(measure);
+    if (navRef.current) observer.observe(navRef.current);
+    if (miniRef.current) observer.observe(miniRef.current);
+    measure();
+    return () => observer.disconnect();
+  }, [showMini, fontScale]);
 
   const isActive = (to: string) => {
     const p = location.pathname;
@@ -257,13 +277,24 @@ export default function Layout() {
   const [myPlaylistsOpen, setMyPlaylistsOpen] = useState(false);
 
   return (
-    <div className="flex min-h-dvh" style={{ background: "var(--surface-0)" }}>
+    <div
+      className="user-app flex min-h-dvh"
+      data-font-scale={fontScale}
+      style={
+        {
+          background: "var(--surface-0)",
+          "--font-scale": fontScale,
+          "--bottom-nav-height": `${navHeight}px`,
+          "--mini-player-height": `${miniHeight}px`,
+        } as React.CSSProperties
+      }
+    >
       {/* ═══════════════ Desktop Sidebar (lg+) ═══════════════ */}
       <aside
-        className="hidden lg:flex flex-col fixed inset-y-0 left-0 z-40"
+        aria-label="사이드 메뉴"
+        className="app-sidebar hidden min-[600px]:flex w-[112px] lg:w-[240px] flex-col fixed inset-y-0 left-0 z-40"
         style={
           {
-            width: 240,
             background: "var(--white)",
             borderRight: "1px solid var(--divider)",
             ["--font-scale" as string]: fontScale,
@@ -275,8 +306,9 @@ export default function Layout() {
           className="px-5 py-5 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--divider)" }}
         >
-          <NavLink to="/">
-            <Logo />
+          <NavLink to="/" aria-label="셀라 홈">
+            <span className="hidden lg:block"><Logo /></span>
+            <span className="lg:hidden font-bold" style={{ color: 'var(--primary-700)', fontSize: fs(14) }}>셀라</span>
           </NavLink>
         </div>
 
@@ -296,10 +328,10 @@ export default function Layout() {
                 }}
               >
                 <item.Icon active={active} />
-                {item.label}
+                <span>{item.label}</span>
                 {item.beta && (
                   <span
-                    className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                    className="hidden lg:inline ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
                     style={{
                       background: "#FEF3C7",
                       color: "#D97706",
@@ -316,7 +348,7 @@ export default function Layout() {
       </aside>
 
       {/* ═══════════════ Main Column ═══════════════ */}
-      <div className="flex flex-col flex-1 min-w-0 lg:ml-[240px]">
+      <div className="app-main-column flex flex-col flex-1 min-w-0 min-[600px]:ml-[112px] lg:ml-[240px]">
         {/* ── Content ── */}
         {/* NOTE: overflow-y-auto 제거 — main이 scroll container가 되면 페이지 내부의
             position:sticky 헤더가 window 스크롤을 따라 사라진다. 실제 스크롤러는 window
@@ -333,15 +365,15 @@ export default function Layout() {
           <div
             style={{
               height: showMini
-                ? "calc(68px + 24px + 64px * var(--font-scale, 1) + env(safe-area-inset-bottom))"
-                : "calc(64px * var(--font-scale, 1) + env(safe-area-inset-bottom))",
+                ? "calc(var(--bottom-nav-height) + var(--mini-player-height) + 40px)"
+                : "var(--bottom-nav-height)",
             }}
-            className="lg:hidden"
+            className="min-[600px]:hidden"
           />
           {!isPlayerPage && (
             <div
-              style={{ height: showMini ? 108 : 0 }}
-              className="hidden lg:block"
+              style={{ height: showMini ? miniHeight + 48 : 0 }}
+              className="hidden min-[600px]:block"
             />
           )}
         </main>
@@ -391,7 +423,9 @@ export default function Layout() {
         {/* ── Universal Floating MiniPlayer ── */}
         {showMini && (
           <div
-            className="fixed z-30 left-4 right-4 bottom-[calc(84px_+_env(safe-area-inset-bottom))] lg:bottom-6 lg:right-6 lg:left-[264px]"
+            ref={miniRef}
+            aria-label="미니 플레이어"
+            className="fixed z-30 left-4 right-4 bottom-[calc(var(--bottom-nav-height)_+_20px)] min-[600px]:bottom-6 min-[600px]:left-[128px] lg:right-6 lg:left-[264px]"
             style={{ filter: "drop-shadow(0 0 0 transparent)" }}
           >
             <MiniPlayer
@@ -425,7 +459,7 @@ export default function Layout() {
               className="fixed z-50 flex items-center justify-end"
               style={{
                 right: 16,
-                bottom: `calc(${showMini ? 170 + 68 : 80 + 68}px + env(safe-area-inset-bottom))`,
+                bottom: `calc(var(--bottom-nav-height) + ${showMini ? 'var(--mini-player-height) + 40px' : '16px'} + 68px)`,
                 opacity: fabOpen ? 1 : 0,
                 transform: fabOpen
                   ? "translateY(0) scale(1)"
@@ -485,7 +519,7 @@ export default function Layout() {
               className="fixed z-50 flex items-center justify-end"
               style={{
                 right: 16,
-                bottom: `calc(${showMini ? 170 + 136 : 80 + 136}px + env(safe-area-inset-bottom))`,
+                bottom: `calc(var(--bottom-nav-height) + ${showMini ? 'var(--mini-player-height) + 40px' : '16px'} + 136px)`,
                 opacity: fabOpen ? 1 : 0,
                 transform: fabOpen
                   ? "translateY(0) scale(1)"
@@ -555,7 +589,7 @@ export default function Layout() {
               className="fixed z-50 flex items-center justify-center rounded-full transition-transform active:scale-95"
               style={{
                 right: 16,
-                bottom: `calc(${showMini ? 170 : 80}px + env(safe-area-inset-bottom))`,
+                bottom: `calc(var(--bottom-nav-height) + ${showMini ? 'var(--mini-player-height) + 40px' : '16px'})`,
                 width: 56,
                 height: 56,
                 background: "var(--primary-700)",
@@ -615,7 +649,9 @@ export default function Layout() {
 
         {/* ── Mobile + Tablet Bottom Nav ── */}
         <nav
-          className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center"
+          ref={navRef}
+          aria-label="주 메뉴"
+          className="min-[600px]:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center"
           style={
             {
               minHeight: 64,
@@ -632,7 +668,7 @@ export default function Layout() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                className="flex-1 flex flex-col items-center justify-center gap-1 py-2"
+                className="flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-2"
                 {...(item.to === "/my" ? { "data-tour": "my-tab" } : {})}
               >
                 <div className="relative">
@@ -643,7 +679,8 @@ export default function Layout() {
                       style={{
                         background: "#FEF3C7",
                         color: "#D97706",
-                        lineHeight: fs(14),
+                        lineHeight: 1.4,
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       beta
@@ -651,8 +688,11 @@ export default function Layout() {
                   )}
                 </div>
                 <span
-                  className="text-[10px] font-medium"
+                  className="font-medium"
                   style={{
+                    fontSize: fs(10),
+                    lineHeight: 1.25,
+                    whiteSpace: "nowrap",
                     color: active ? "var(--primary-700)" : "var(--ink-3)",
                   }}
                 >

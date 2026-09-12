@@ -44,7 +44,7 @@ try {
     await page.getByLabel('일상 기도 이전 목록', { exact: true }).getByRole('button').click()
     assert.equal(await sections.count(), 8)
     await page.getByRole('tab', { name: '기도제목', exact: true }).click()
-    await page.locator('article p').waitFor()
+    await page.locator('article .prayer-topics, article .prayer-topics-fallback').waitFor()
     assert.equal(await sections.count(), 0)
     console.log(`PASS ${width}px: eight sections, default collapsed, keyboard, independent toggles, full text, archive, other categories, font scales`)
     await page.close()

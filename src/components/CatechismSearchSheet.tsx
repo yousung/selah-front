@@ -80,7 +80,7 @@ function sectionToResult(
 }
 
 const inputStyle: React.CSSProperties = {
-  minHeight: 40,
+  minHeight: 'calc(40px * var(--font-scale, 1))',
   background: 'var(--surface-1)',
   border: '1px solid var(--divider)',
   borderRadius: 10,
@@ -278,7 +278,8 @@ export default function CatechismSearchSheet({
           borderRadius: 16,
           width: '100%',
           maxWidth: 480,
-          height: '90dvh',
+          height: 'min(90dvh, 720px)',
+          maxHeight: '90dvh',
           animation: 'popIn 0.25s ease-out',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -300,7 +301,7 @@ export default function CatechismSearchSheet({
               aria-label="문 번호로 이동"
               style={{
                 ...inputStyle,
-                width: 64,
+                width: 'calc(64px * var(--font-scale, 1))',
                 flexShrink: 0,
                 textAlign: 'center',
                 padding: '0 8px',
@@ -338,7 +339,7 @@ export default function CatechismSearchSheet({
 
           <button
             onClick={onClose}
-            style={{ color: 'var(--ink-2)', fontSize: 20, lineHeight: 1, padding: '0 4px' }}
+            style={{ color: 'var(--ink-2)', fontSize: 20, lineHeight: 1, padding: '0 4px', minWidth: 32, minHeight: 44 }}
             aria-label="닫기"
           >
             ✕
@@ -438,6 +439,7 @@ export default function CatechismSearchSheet({
                             fontSize: fs(14),
                             fontWeight: 500,
                             color: 'var(--ink-0)',
+                            lineHeight: 1.45,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             display: '-webkit-box',

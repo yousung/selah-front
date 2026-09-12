@@ -213,8 +213,8 @@
 
 @layer utilities {
   /* ─── 글자 크기(--font-scale) 연동 ───────────────────────────────
-     콘텐츠 텍스트만 스케일. var 기본값 1 → scale=1에서 픽셀 동일(시각 회귀 0).
-     <main>에만 --font-scale가 걸리므로 크롬/오버레이는 상속받지 않아 자동 1 유지.
+     사용자 Layout 텍스트를 스케일. var 기본값 1 → 관리자 등은 기존 크기 유지.
+     본문·내비게이션·Layout 하위 오버레이가 같은 설정을 상속한다.
      text-xs/sm/base/lg/xl/2xl 는 tailwind.config.js theme.extend.fontSize 에서 스케일
      (leading-* cascade 보존 위해 index.css가 아닌 config에 정의). 아래는 폰트크기만
      쓰는 arbitrary/serif 유틸이라 line-height 미설정 → leading-* 충돌 없음. */
@@ -275,6 +275,43 @@
   animation: thumbShimmer 1.4s ease infinite;
 }
 .daily-prayer-section { border-bottom: 1px solid var(--divider); }
+.prayer-topics { list-style: none; padding: 0; margin: 16px 0 0; }
+.prayer-topic { display: flex; align-items: baseline; gap: 12px; padding: 22px 0; }
+.prayer-topic + .prayer-topic { border-top: 1px solid var(--divider); }
+.prayer-topic-number { flex-shrink: 0; color: var(--primary-700); font-size: calc(12px * var(--font-scale, 1)); font-weight: 700; font-variant-numeric: tabular-nums; }
+.prayer-topic-content { flex: 1; min-width: 0; }
+.prayer-topic-title { margin: 0; font-size: calc(16px * var(--font-scale, 1)); line-height: 1.7; font-weight: 600; color: var(--ink-0); word-break: keep-all; overflow-wrap: anywhere; }
+.prayer-topic-details { margin-top: 14px; padding-left: 12px; border-left: 2px solid var(--primary-100); font-size: calc(17px * var(--font-scale, 1)); line-height: 1.9; color: var(--ink-1); white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
+.prayer-topics-fallback { margin: 16px 0 0; line-height: 1.9; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; color: var(--ink-1); }
+@media (max-width: 360px) {
+  .prayer-topic { gap: 8px; }
+  .prayer-topic-details { padding-left: 8px; }
+}
+.user-app { overflow-wrap: anywhere; }
+.user-app > aside svg { flex-shrink: 0; }
+@media (min-width: 600px) and (max-width: 1023px) {
+  .app-sidebar > div { padding: 20px 8px; text-align: center; }
+  .app-sidebar nav { padding-inline: 8px; }
+  .app-sidebar nav a {
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 4px;
+    text-align: center;
+    font-size: calc(10px * var(--font-scale, 1));
+    line-height: 1.5;
+  }
+}
+.user-app nav[aria-label="주 메뉴"] a { text-align: center; }
+.settings-content { max-width: 760px; margin-inline: auto; }
+.settings-page legend { max-width: 100%; }
+.settings-page { word-break: keep-all; }
+.settings-page button { line-height: 1.5; }
+.settings-option { flex: 1 1 auto; }
+@media (max-width: 480px) {
+  .settings-content { padding: 16px 12px; }
+  .settings-page fieldset { padding-inline: 10px; }
+  .user-app[data-font-scale="2"] .settings-option { flex-basis: 100%; }
+}
 .daily-prayer-heading { margin: 0; }
 .daily-prayer-trigger {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;

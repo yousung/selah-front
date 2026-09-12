@@ -15,8 +15,10 @@
 | `autoNextDelay` | `'immediate' \| '3s' \| '5s' \| 'off'` | `'3s'` |
 | `playMode` | `'single' \| 'playlist' \| 'repeat' \| 'loop'` | `'playlist'` |
 | `playbackRate` | `number` | `1` |
+| `fontScale` | `1 \| 1.5 \| 2` | `1` |
 
 - `theme` 변경 시 `ThemeApplicator`(App.tsx)가 `document.documentElement` 에 `dark` class 토글
+- `fontScale`은 `Layout` 사용자 영역의 `--font-scale`로 전달되어 본문·내비게이션·하위 오버레이에 적용된다. 관리자 UI는 별도 영역이다.
 
 ## queueStore (`selah-queue`)
 

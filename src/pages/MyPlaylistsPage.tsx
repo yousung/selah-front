@@ -85,7 +85,7 @@ export default function MyPlaylistsPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--surface-0)' }}>
+    <div style={{ background: 'var(--surface-0)' }}>
       {/* Header */}
       <header
         className="sticky top-0 z-20 px-4 flex items-center safe-top"

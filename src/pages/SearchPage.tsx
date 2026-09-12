@@ -167,7 +167,7 @@ export default function SearchPage() {
         style={{ background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
       >
         {/* Search field chips */}
-        <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+        <div className="scrollbar-hide flex items-center gap-2 overflow-x-auto px-4 pt-3 pb-2">
           {SEARCH_FIELDS.map(({ value, label }) => {
             const active = searchField === value
             return (
@@ -176,6 +176,7 @@ export default function SearchPage() {
                 onClick={() => handleSearchFieldChange(value)}
                 className="text-xs font-medium transition-colors duration-150"
                 style={{
+                  flexShrink: 0,
                   padding: '4px 10px',
                   borderRadius: 20,
                   border: `1px solid ${active ? 'var(--primary-500)' : 'var(--divider)'}`,
@@ -188,7 +189,7 @@ export default function SearchPage() {
             )
           })}
 
-          <div style={{ width: 1, height: 16, background: 'var(--divider)', marginLeft: 4 }} />
+          <div style={{ width: 1, height: 16, background: 'var(--divider)', marginLeft: 4, flexShrink: 0 }} />
 
           {TAG_FILTERS.map(({ value, label }) => {
             const active = tagFilter === value
@@ -198,6 +199,7 @@ export default function SearchPage() {
                 onClick={() => setTagFilter(value)}
                 className="text-xs font-medium transition-colors duration-150"
                 style={{
+                  flexShrink: 0,
                   padding: '4px 10px',
                   borderRadius: 20,
                   border: `1px solid ${active ? 'var(--primary-700)' : 'var(--divider)'}`,

@@ -25,7 +25,7 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 
 기도문 이전 보기(`PrayerContent`)는 `/memorize` 안에서 주제별 버튼 → 제목 목록 → 선택 기간 상세로 전환된다. 주제를 바꾸면 날짜 선택과 이전 보기 상태를 초기화한다. DB/API는 기존 분류별 archive 조회를 재사용한다.
 
-`Layout` 컴포넌트: BottomNav(4탭) + MiniPlayer 공통 렌더.
+`Layout` 컴포넌트: BottomNav(5탭) + MiniPlayer 공통 렌더. 사용자 앱 루트의 `--font-scale`을 하위 화면과 오버레이가 상속한다.
 
 ## 관리자 라우트 (`AdminGuard` → `AdminLayout`)
 

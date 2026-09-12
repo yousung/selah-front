@@ -46,7 +46,7 @@ export default {
       // 글자 크기(--font-scale) 연동: font-size/line-height에 calc(... * var(--font-scale,1)).
       // theme.extend.fontSize로 정의해야 Tailwind가 fontSize 네이티브 위치(leading-* 앞)에
       // 방출 → 명시적 leading-* 가 cascade에서 이기고, scale=1에서 픽셀 동일(시각 회귀 0).
-      // var 기본값 1 → <main> 밖 크롬은 상속 안 받아 자동 1 유지.
+      // 사용자 Layout 전체에 상속. 관리자 등 Layout 밖은 기본값 1 유지.
       fontSize: {
         xs:   ['calc(0.75rem * var(--font-scale, 1))',  'calc(1rem * var(--font-scale, 1))'],
         sm:   ['calc(0.875rem * var(--font-scale, 1))', 'calc(1.25rem * var(--font-scale, 1))'],

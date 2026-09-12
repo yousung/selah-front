@@ -79,7 +79,7 @@ export default function MyPage() {
   ]
 
   return (
-    <div style={{ background: 'var(--surface-0)', minHeight: '100dvh' }}>
+    <div style={{ background: 'var(--surface-0)' }}>
       <header
         style={{
           background: 'var(--white)',
@@ -142,7 +142,7 @@ export default function MyPage() {
                   >
                     {item.icon}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, wordBreak: 'keep-all' }}>
                     <p style={{ fontSize: fs(15), fontWeight: 600, color: 'var(--ink-0)' }}>{item.label}</p>
                     {item.sub && (
                       <p style={{ fontSize: fs(12), color: 'var(--ink-3)', marginTop: 1 }}>{item.sub}</p>

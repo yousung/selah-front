@@ -60,7 +60,7 @@ function ChildSubCatCard({ node, accent, onClick }: { node: CategoryNode; accent
   const total = subtreeVideoCount(node)
   return (
     <div onClick={onClick} style={{ cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}>
-      <div style={{ width: '100%', height: 80, borderRadius: 10, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ width: '100%', minHeight: 80, aspectRatio: '5 / 3', borderRadius: 10, position: 'relative', overflow: 'hidden' }}>
         {node.thumbnail ? (
           <>
             <Thumb src={node.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -70,7 +70,7 @@ function ChildSubCatCard({ node, accent, onClick }: { node: CategoryNode; accent
           <>
             <div style={{ width: '100%', height: '100%', background: `linear-gradient(140deg, ${accent}e0 0%, ${accent}70 100%)` }} />
             <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 30%, rgba(255,255,255,0.18) 0%, transparent 60%)' }} />
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', textAlign: 'center', color: '#fff', fontSize: fs(15), fontWeight: 800, lineHeight: fs(19), textShadow: '0 1px 3px rgba(0,0,0,0.28)', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', textAlign: 'center', color: '#fff', fontSize: fs(15), fontWeight: 800, lineHeight: 1.28, textShadow: '0 1px 3px rgba(0,0,0,0.28)', overflow: 'hidden' }}>
               <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{node.title}</span>
             </div>
           </>
@@ -96,10 +96,10 @@ function ChildCategoryRow({ node, accent }: { node: CategoryNode; accent: string
   const navigate = useNavigate()
   return (
     <section style={{ marginBottom: 36 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 16px', marginBottom: 12, minWidth: 0, flexWrap: 'wrap' }}>
         <div style={{ width: 4, height: 18, background: accent, borderRadius: 2, flexShrink: 0 }} />
-        <span style={{ fontSize: fs(16), fontWeight: 700, color: 'var(--ink-0)' }}>{node.title}</span>
-        <span style={{ fontSize: fs(12), color: 'var(--ink-3)', marginLeft: 2 }}>
+        <span style={{ fontSize: fs(16), fontWeight: 700, color: 'var(--ink-0)', minWidth: 0, overflowWrap: 'anywhere' }}>{node.title}</span>
+        <span style={{ fontSize: fs(12), color: 'var(--ink-3)', marginLeft: 2, whiteSpace: 'nowrap' }}>
           {`${node.children.length}개 시리즈`}
         </span>
       </div>
@@ -498,8 +498,8 @@ export default function SermonCategoryPage() {
         background: 'var(--white)',
         borderBottom: '1px solid var(--divider)',
       }}>
-        <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, flex: 1 }}>
             <button
               onClick={() => selectMode ? handleExitSelectMode() : navigate(-1)}
               style={{ padding: '8px 8px 8px 0', color: 'var(--ink-0)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
@@ -508,7 +508,7 @@ export default function SermonCategoryPage() {
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-            <h1 style={{ fontSize: fs(17), fontWeight: 700, color: 'var(--ink-0)' }}>{category?.title}</h1>
+            <h1 style={{ fontSize: fs(17), fontWeight: 700, color: 'var(--ink-0)', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.35 }}>{category?.title}</h1>
             {category?.isCompleted && (
               <span style={{
                 padding: '2px 8px',
@@ -526,7 +526,7 @@ export default function SermonCategoryPage() {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {total > 0 && <span style={{ fontSize: fs(12), color: 'var(--ink-2)' }}>총 {total}편</span>}
+            {total > 0 && <span style={{ fontSize: fs(12), color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>총 {total}편</span>}
             {offlineMediaOk && offlineStorageMode !== 'thrift' && total > 0 && !selectMode && (
               <button
                 onClick={() => setSelectMode(true)}
@@ -748,7 +748,7 @@ export default function SermonCategoryPage() {
         <div style={{
           position: 'fixed', bottom: 0, left: 0, right: 0,
           background: 'var(--white)', borderTop: '1px solid var(--divider)',
-          padding: '10px 16px', display: 'flex', gap: 10, alignItems: 'center',
+          padding: '10px 16px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
           zIndex: 50,
         }}>
           <button
@@ -757,7 +757,7 @@ export default function SermonCategoryPage() {
               padding: '10px 16px', borderRadius: 8,
               border: '1.5px solid var(--divider)',
               background: 'var(--surface-0)', fontSize: fs(14), fontWeight: 600,
-              color: 'var(--ink-1)', cursor: 'pointer', flexShrink: 0,
+              color: 'var(--ink-1)', cursor: 'pointer', flex: '1 1 150px',
               WebkitTapHighlightColor: 'transparent',
             }}
           >
@@ -773,6 +773,7 @@ export default function SermonCategoryPage() {
               border: 'none', fontSize: fs(14), fontWeight: 700,
               cursor: selected.size > 0 ? 'pointer' : 'default',
               WebkitTapHighlightColor: 'transparent',
+              minWidth: 130,
             }}
           >
             {selected.size > 0 ? `${selected.size}개 다운로드` : '다운로드'}

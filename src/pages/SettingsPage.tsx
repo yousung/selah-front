@@ -135,7 +135,7 @@ const OFFLINE_MODE_OPTIONS: { value: OfflineStorageMode; label: string; desc: st
 function SectionBox({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <fieldset className="relative rounded-[18px] px-3 pt-3 pb-4 min-w-0 w-full box-border m-0" style={{ border: '1px solid var(--divider)' }}>
-      <legend className="text-base font-bold px-1.5 ml-1" style={{ color: 'var(--primary-700)' }}>{title}</legend>
+      <legend className="font-bold px-1.5 ml-1" style={{ color: 'var(--primary-700)', fontSize: fs(16), lineHeight: 1.35 }}>{title}</legend>
       <div className="space-y-3">{children}</div>
     </fieldset>
   )
@@ -145,9 +145,9 @@ function SectionBox({ title, children }: { title: string; children: React.ReactN
 function Field({ title, description, children }: { title: string; description?: React.ReactNode; children: React.ReactNode }) {
   return (
     <fieldset className="relative rounded-[14px] px-3.5 pt-3 pb-3.5 min-w-0 w-full box-border m-0" style={{ border: '1px solid var(--divider)', background: 'var(--white)' }}>
-      <legend className="text-sm font-semibold px-1.5 ml-1" style={{ color: 'var(--ink-0)' }}>{title}</legend>
+      <legend className="font-semibold px-1.5 ml-1" style={{ color: 'var(--ink-0)', fontSize: fs(14), lineHeight: 1.35 }}>{title}</legend>
       {children}
-      {description && <p className="text-xs mt-2.5 leading-relaxed" style={{ color: 'var(--ink-2)' }}>{description}</p>}
+      {description && <p className="mt-2.5 leading-relaxed" style={{ color: 'var(--ink-2)', fontSize: fs(12) }}>{description}</p>}
     </fieldset>
   )
 }
@@ -160,8 +160,9 @@ function Segmented<T extends string | number>({ value, onChange, options }: { va
         const active = o.value === value
         return (
           <button key={String(o.value)} type="button" onClick={() => onChange(o.value)}
-            className="flex-1 py-2.5 rounded-[10px] text-sm font-medium transition-colors text-center whitespace-nowrap"
-            style={{ minWidth: 52, background: active ? 'var(--primary-700)' : 'var(--surface-2)', color: active ? 'var(--white)' : 'var(--ink-1)' }}>
+            aria-pressed={active}
+            className="settings-option py-2.5 px-3 rounded-[10px] font-medium transition-colors text-center"
+            style={{ minHeight: 44, minWidth: 58, overflowWrap: 'anywhere', wordBreak: 'keep-all', fontSize: fs(14), lineHeight: 1.35, background: active ? 'var(--primary-700)' : 'var(--surface-2)', color: active ? 'var(--white)' : 'var(--ink-1)' }}>
             {o.label}
           </button>
         )
@@ -174,8 +175,8 @@ function Segmented<T extends string | number>({ value, onChange, options }: { va
 function ToggleField({ title, description, checked, onChange }: { title: string; description?: React.ReactNode; checked: boolean; onChange: () => void }) {
   return (
     <Field title={title} description={description}>
-      <button type="button" onClick={onChange} className="w-full flex items-center justify-between" style={{ background: 'transparent' }}>
-        <span className="text-sm" style={{ color: 'var(--ink-1)' }}>{checked ? '켜짐' : '꺼짐'}</span>
+      <button type="button" role="switch" aria-label={title} aria-checked={checked} onClick={onChange} className="w-full flex items-center justify-between gap-3" style={{ background: 'transparent', minHeight: 44 }}>
+        <span style={{ color: 'var(--ink-1)', fontSize: fs(14), lineHeight: 1.35 }}>{checked ? '켜짐' : '꺼짐'}</span>
         <span className="relative inline-flex flex-shrink-0 transition-colors" style={{ width: 42, height: 24, borderRadius: 999, background: checked ? 'var(--primary-700)' : 'var(--surface-3)' }} aria-hidden="true">
           <span className="absolute transition-transform" style={{ width: 20, height: 20, top: 2, left: 2, borderRadius: '50%', background: 'var(--white)', transform: checked ? 'translateX(18px)' : 'translateX(0)' }} />
         </span>
@@ -268,7 +269,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="settings-page animate-fade-in">
       <header
         className="sticky top-0 z-10 flex items-center px-4 safe-top"
         style={{ minHeight: 56, background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
@@ -276,7 +277,7 @@ export default function SettingsPage() {
         <h1 className="text-base font-medium" style={{ color: 'var(--ink-0)' }}>설정</h1>
       </header>
 
-      <div className="p-5 space-y-5">
+      <div className="settings-content p-5 space-y-5">
 
         {/* ════════════ 재생 ════════════ */}
         <SectionBox title="재생">
@@ -470,7 +471,7 @@ export default function SettingsPage() {
             ].map(({ label, value }) => (
               <div
                 key={label}
-                className="flex items-center justify-between py-2.5"
+                className="flex flex-wrap gap-2 items-center justify-between py-2.5"
                 onClick={label === '앱 버전' ? handleVersionTap : undefined}
               >
                 <span className="text-sm" style={{ color: 'var(--ink-2)' }}>{label}</span>

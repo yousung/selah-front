@@ -48,4 +48,7 @@ npm run dev       # 개발 서버 (port 5173)
 npm run build     # 프로덕션 빌드
 npm run lint      # ESLint
 npm run typecheck # TypeScript 체크
+node scripts/verify-font-scale.mjs # 실행 중인 로컬 프론트에서 글자 크기·작은 화면 회귀 검증 (API는 테스트 데이터로 대체)
+node scripts/verify-foldable-layout.mjs # 접기/펼치기와 태블릿 메뉴 전환 경계 검증
+node scripts/verify-prayer-topics.mjs # 기도제목 목록·하위 일정·원문 보존·작은 화면 검증
 ```

@@ -49,6 +49,8 @@ export default function MiniPlayer({ onDismiss }: Props) {
 
   return (
     <div
+      role="region"
+      aria-label="미니 플레이어"
       className="animate-fade-up overflow-hidden"
       style={{
         background: 'var(--white)',
@@ -80,14 +82,14 @@ export default function MiniPlayer({ onDismiss }: Props) {
       </div>
 
       <div
-        className="flex items-center gap-3 px-4 cursor-pointer"
-        style={{ height: 68 }}
+        className="flex items-center gap-3 cursor-pointer"
+        style={{ minHeight: 68, padding: '10px 12px' }}
         onClick={handleOpen}
       >
         {/* Thumbnail */}
         <div
           className="relative rounded-[8px] overflow-hidden flex-shrink-0"
-          style={{ width: 44, height: 44, background: 'var(--surface-2)' }}
+          style={{ width: 48, height: 48, background: 'var(--surface-2)' }}
         >
           <Thumb
             src={currentVideo.thumbnail}
@@ -114,7 +116,7 @@ export default function MiniPlayer({ onDismiss }: Props) {
         {/* Play/pause */}
         <button
           className="relative flex items-center justify-center rounded-full flex-shrink-0 transition-all"
-          style={{ width: 38, height: 38, background: 'var(--primary-700)', color: 'var(--white)' }}
+          style={{ width: 44, height: 44, background: 'var(--primary-700)', color: 'var(--white)' }}
           onClick={(e) => {
             e.stopPropagation()
             if (autoNextProgress !== null) cancelAutoNext()
@@ -150,17 +152,17 @@ export default function MiniPlayer({ onDismiss }: Props) {
             </svg>
           )}
           {isLoading ? (
-            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <svg width="18" height="18" className="animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <circle cx="12" cy="12" r="10" strokeOpacity={0.25} />
               <path d="M12 2a10 10 0 0 1 10 10" />
             </svg>
           ) : isPlaying ? (
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <rect x="6" y="4" width="4" height="16" rx="1" />
               <rect x="14" y="4" width="4" height="16" rx="1" />
             </svg>
           ) : (
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7L8 5z" />
             </svg>
           )}
@@ -170,7 +172,7 @@ export default function MiniPlayer({ onDismiss }: Props) {
         {onDismiss && (
           <button
             className="flex items-center justify-center flex-shrink-0 transition-opacity hover:opacity-60"
-            style={{ width: 28, height: 28, color: 'var(--ink-3)' }}
+            style={{ width: 36, height: 36, color: 'var(--ink-3)' }}
             onClick={(e) => { e.stopPropagation(); onDismiss() }}
             aria-label="닫기"
           >

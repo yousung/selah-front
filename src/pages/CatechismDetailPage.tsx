@@ -77,6 +77,8 @@ function TocList({ tocGroups, sectionAnchors, onItemClick, isMobile }: TocListPr
                     textAlign: 'left',
                     transition: 'all 0.2s ease',
                     fontWeight: 500,
+                    lineHeight: 1.45,
+                    overflowWrap: 'anywhere',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--primary-100)'
@@ -401,7 +403,7 @@ export default function CatechismDetailPage() {
   const showSearchFab = !!(confession && confession.sections.length > 1)
 
   return (
-    <div style={{ background: 'var(--surface-0)', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--surface-0)', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <style>{`
         @keyframes highlight {
           0% {
@@ -456,7 +458,7 @@ export default function CatechismDetailPage() {
                 <path d="M19 12H5M12 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>교리서</h1>
+            <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)', lineHeight: 1.35 }}>교리서</h1>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -464,6 +466,7 @@ export default function CatechismDetailPage() {
             {!isDesktop && hasHeadings && showCatechismToc && (
               <button
                 onClick={() => setTocOpen(!tocOpen)}
+                aria-label={tocOpen ? '제목 가이드 닫기' : '제목 가이드 열기'}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -550,7 +553,7 @@ export default function CatechismDetailPage() {
         <div
           style={{
             position: 'fixed',
-            top: 56,
+            top: 'calc(56px + env(safe-area-inset-top))',
             left: 0,
             right: 0,
             bottom: 0,
@@ -590,7 +593,7 @@ export default function CatechismDetailPage() {
       )}
 
       {/* Content Wrapper with Desktop TOC */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         {/* Desktop TOC Sidebar */}
         {isDesktop && hasHeadings && showCatechismToc && (
           <aside
@@ -601,6 +604,9 @@ export default function CatechismDetailPage() {
               padding: '24px 16px',
               overflowY: 'auto',
               minHeight: 0,
+              maxHeight: 'calc(100dvh - 56px)',
+              position: 'sticky',
+              top: 0,
             }}
           >
             <h3 style={{ fontSize: fs(13), fontWeight: 700, color: 'var(--ink-0)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -617,7 +623,7 @@ export default function CatechismDetailPage() {
         )}
 
         {/* Main Content */}
-        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, maxWidth: isDesktop ? 'none' : 720, margin: isDesktop ? '0' : '0 auto', padding: '24px 16px 32px', width: '100%' }}>
+        <div style={{ flex: 1, minHeight: 0, maxWidth: isDesktop ? 'none' : 720, margin: isDesktop ? '0' : '0 auto', padding: '24px 16px 32px', width: '100%', minWidth: 0 }}>
         {isLoading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 32px' }}>
             <svg className="animate-spin w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ color: 'var(--primary-700)' }}>

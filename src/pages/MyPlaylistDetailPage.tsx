@@ -171,9 +171,9 @@ export default function MyPlaylistDetailPage() {
     navigate(`/player/${video.id}`)
   }
 
-if (!playlist) {
+  if (!playlist) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+      <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
         <p className="text-sm" style={{ color: 'var(--ink-3)' }}>플레이리스트를 찾을 수 없어요</p>
         <button onClick={() => navigate('/my-playlists')} className="mt-4 text-sm" style={{ color: 'var(--primary-700)' }}>
           목록으로
@@ -183,7 +183,7 @@ if (!playlist) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--surface-0)' }}>
+    <div className="flex flex-col" style={{ background: 'var(--surface-0)' }}>
       {/* Header */}
       <header
         className="sticky top-0 z-20 flex items-center px-2 safe-top"

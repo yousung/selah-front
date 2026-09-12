@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { DailyPrayerBody } from './DailyPrayerBody'
+import { PrayerTopicsBody } from './PrayerTopicsBody'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentPrayers, getPreviousPrayers, Prayer, PrayerCategory } from '@/lib/api'
 import { fs } from '@/lib/fontScale'
@@ -121,11 +122,6 @@ export function PrayerContent({ headerTarget }: { headerTarget: HTMLElement | nu
             <span aria-hidden="true">←</span> 이전 목록
           </button>
         )}
-        <div style={{ paddingBottom: fs(18), borderBottom: '1px solid var(--divider)' }}>
-          <p style={{ fontSize: fs(13), fontWeight: 800, color: 'var(--primary-700)', margin: 0 }}>
-            {showArchive ? `이전 ${activeCategory.archiveLabel}` : activeCategory.label}
-          </p>
-        </div>
 
         {isLoading && (
           <p style={{ padding: `${fs(44)} 0`, textAlign: 'center', color: 'var(--ink-3)', fontSize: fs(14), margin: 0 }}>
@@ -198,8 +194,8 @@ export function PrayerContent({ headerTarget }: { headerTarget: HTMLElement | nu
                 <h2
                   style={{
                     fontFamily: SERIF,
-                    fontSize: fs(18),
-                    lineHeight: fs(28),
+                    fontSize: fs(24),
+                    lineHeight: 1.5,
                     fontWeight: 700,
                     color: 'var(--ink-0)',
                     wordBreak: 'keep-all',
@@ -208,7 +204,7 @@ export function PrayerContent({ headerTarget }: { headerTarget: HTMLElement | nu
                 >
                   {prayer.title}
                 </h2>
-                {category === 'daily' ? <DailyPrayerBody key={prayer.content} content={prayer.content} /> : <p
+                {category === 'daily' ? <DailyPrayerBody key={prayer.content} content={prayer.content} /> : category === 'topics' ? <PrayerTopicsBody content={prayer.content} /> : <p
                   style={{
                     margin: `${fs(12)} 0 0`,
                     fontFamily: SERIF,

@@ -82,7 +82,7 @@ export default function PwaInstallPrompt() {
       style={{ background: 'rgba(0,0,0,0.32)' }}
     >
       <div
-        className="w-full max-w-[420px] rounded-[12px] px-4 py-3 shadow-lg animate-fade-up"
+        className="w-full max-w-[420px] max-h-[calc(100dvh-32px)] overflow-y-auto rounded-[12px] px-4 py-3 shadow-lg animate-fade-up"
         style={{
           background: 'var(--white)',
           border: '1px solid var(--divider)',
@@ -93,7 +93,7 @@ export default function PwaInstallPrompt() {
           <img src="/icon-192.png" alt="" className="h-10 w-10 rounded-[10px] flex-shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold" style={{ color: 'var(--ink-0)' }}>셀라 앱으로 열기</p>
-            <p className="mt-0.5 text-xs leading-5" style={{ color: 'var(--ink-2)' }}>
+            <p className="mt-0.5 text-xs leading-relaxed" style={{ color: 'var(--ink-2)' }}>
               홈 화면에 설치하면 더 빠르게 찬양을 재생할 수 있습니다.
             </p>
           </div>
@@ -103,7 +103,7 @@ export default function PwaInstallPrompt() {
           <button
             type="button"
             onClick={handleInstall}
-            className="h-10 rounded-[8px] text-sm font-semibold transition-transform active:scale-[0.98]"
+            className="min-h-11 px-2 py-2 rounded-[8px] text-sm font-semibold transition-transform active:scale-[0.98]"
             style={{ background: 'var(--primary-700)', color: 'var(--white)' }}
           >
             PWA로 설치
@@ -111,7 +111,7 @@ export default function PwaInstallPrompt() {
           <button
             type="button"
             onClick={() => setVisible(false)}
-            className="h-10 rounded-[8px] text-sm font-semibold transition-colors"
+            className="min-h-11 px-2 py-2 rounded-[8px] text-sm font-semibold transition-colors"
             style={{ background: 'var(--surface-1)', color: 'var(--ink-1)' }}
           >
             닫기

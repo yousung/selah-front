@@ -73,22 +73,24 @@ export default function PlaylistBottomSheet({ videoId, videoYoutubeId, videoTitl
       <div
         ref={sheetRef}
         className="w-full rounded-2xl overflow-hidden"
-        style={{ background: 'var(--white)', maxHeight: '60vh', maxWidth: 480, display: 'flex', flexDirection: 'column' }}
+        role="dialog" aria-modal="true" aria-label="내 플레이리스트에 추가"
+        style={{ background: 'var(--white)', maxHeight: 'calc(100dvh - 32px)', maxWidth: 480, display: 'flex', flexDirection: 'column' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--divider)' }}>
+        <div className="flex items-center justify-between gap-3 px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--divider)' }}>
           <h2 className="text-base font-semibold" style={{ color: 'var(--ink-0)' }}>내 플레이리스트에 추가</h2>
           <button
             onClick={onClose}
-            style={{ color: 'var(--ink-2)', fontSize: 20, lineHeight: 1 }}
+            aria-label="닫기"
+            style={{ color: 'var(--ink-2)', fontSize: 20, lineHeight: 1, minWidth: 44, minHeight: 44, flexShrink: 0 }}
           >
             ✕
           </button>
         </div>
 
         {/* List */}
-        <div className="overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1 min-h-0">
           {playlists.length === 0 && !showNew && (
             <p className="px-4 py-6 text-sm text-center" style={{ color: 'var(--ink-3)' }}>
               아직 플레이리스트가 없어요
@@ -106,7 +108,7 @@ export default function PlaylistBottomSheet({ videoId, videoYoutubeId, videoTitl
                 onChange={() => toggle(p.id)}
                 className="w-4 h-4 accent-[var(--primary-700)] flex-shrink-0"
               />
-              <span className="flex-1 text-sm font-medium truncate" style={{ color: 'var(--ink-0)' }}>
+              <span className="flex-1 min-w-0 text-sm font-medium break-words" style={{ color: 'var(--ink-0)' }}>
                 {p.name}
               </span>
               <span className="text-xs flex-shrink-0" style={{ color: 'var(--ink-3)' }}>
@@ -117,7 +119,7 @@ export default function PlaylistBottomSheet({ videoId, videoYoutubeId, videoTitl
 
           {/* Inline new playlist */}
           {showNew ? (
-            <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--divider)' }}>
+            <div className="flex flex-wrap items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--divider)' }}>
               <input
                 ref={inputRef}
                 value={newName}
@@ -127,7 +129,7 @@ export default function PlaylistBottomSheet({ videoId, videoYoutubeId, videoTitl
                   if (e.key === 'Escape') { setShowNew(false); setNewName('') }
                 }}
                 placeholder="플레이리스트 이름"
-                className="flex-1 text-sm outline-none"
+                className="flex-1 min-w-0 text-sm"
                 style={{
                   background: 'var(--surface-1)',
                   border: '1px solid var(--divider)',

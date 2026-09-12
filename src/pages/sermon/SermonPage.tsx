@@ -58,10 +58,10 @@ function VideoThumbCard({ video, onPlay, titleOnly }: { video: Video; onPlay: ()
   return (
     <div
       onClick={onPlay}
-      style={{ flexShrink: 0, width: 164, cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}
+      style={{ flexShrink: 0, width: 'clamp(164px, calc(164px * var(--font-scale, 1)), 220px)', cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}
     >
       <div style={{
-        width: 164, height: 92,
+        width: '100%', aspectRatio: '16 / 9',
         borderRadius: 8, overflow: 'hidden',
         background: 'var(--surface-2)',
         position: 'relative',
@@ -89,7 +89,10 @@ function VideoThumbCard({ video, onPlay, titleOnly }: { video: Video; onPlay: ()
       <div style={{
         marginTop: 7, fontSize: fs(13), fontWeight: 500,
         color: 'var(--ink-1)', lineHeight: 1.4,
-        overflow: 'hidden', maxHeight: '2.8em',
+        overflow: 'hidden',
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
       }}>
         {video.isSecret ? (video.description || video.title) : titleOnly ? video.title : (video.description || video.title)}
       </div>
@@ -106,7 +109,7 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
       style={{ cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}
     >
       <div style={{
-        width: '100%', height: 80, borderRadius: 10,
+        width: '100%', minHeight: 80, aspectRatio: '5 / 3', borderRadius: 10,
         position: 'relative', overflow: 'hidden',
       }}>
         {node.thumbnail ? (
@@ -124,7 +127,7 @@ function SubCatCard({ node, accent, onClick }: { node: CategoryNode; accent: str
               position: 'absolute', inset: 0,
               background: 'radial-gradient(circle at 70% 30%, rgba(255,255,255,0.18) 0%, transparent 60%)',
             }} />
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', textAlign: 'center', color: '#fff', fontSize: fs(15), fontWeight: 800, lineHeight: fs(19), textShadow: '0 1px 3px rgba(0,0,0,0.28)', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', textAlign: 'center', color: '#fff', fontSize: fs(15), fontWeight: 800, lineHeight: 1.28, textShadow: '0 1px 3px rgba(0,0,0,0.28)', overflow: 'hidden' }}>
               <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{node.title}</span>
             </div>
           </>
@@ -245,10 +248,10 @@ function CategoryRow({ node, accent }: { node: CategoryNode; accent: string }) {
   return (
     <section style={{ marginBottom: 36 }}>
       {/* 헤더 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '0 16px', marginBottom: 12, minWidth: 0, flexWrap: 'wrap' }}>
           <div style={{ width: 4, height: 18, background: accent, borderRadius: 2, flexShrink: 0 }} />
-          <span style={{ fontSize: fs(16), fontWeight: 700, color: 'var(--ink-0)' }}>{node.title}</span>
-          <span style={{ fontSize: fs(12), color: 'var(--ink-3)', marginLeft: 2 }}>
+          <span style={{ fontSize: fs(16), fontWeight: 700, color: 'var(--ink-0)', minWidth: 0, overflowWrap: 'anywhere' }}>{node.title}</span>
+          <span style={{ fontSize: fs(12), color: 'var(--ink-3)', marginLeft: 2, whiteSpace: 'nowrap' }}>
             {isLeaf ? (total > 0 ? `${total}편` : '준비중') : `${node.children.length}개 시리즈`}
           </span>
       </div>
@@ -318,13 +321,13 @@ function SearchResultRow({ result, onClick }: { result: SeriesSearchResult; onCl
         cursor: 'pointer',
       }}
     >
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
         {parentPath && (
           <div style={{ fontSize: fs(11), color: 'var(--ink-3)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {parentPath}
           </div>
         )}
-        <div style={{ fontSize: fs(15), fontWeight: 600, color: 'var(--ink-0)' }}>{result.title}</div>
+        <div style={{ fontSize: fs(15), fontWeight: 600, color: 'var(--ink-0)', lineHeight: 1.45, overflowWrap: 'anywhere' }}>{result.title}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 12 }}>
         <span style={{ fontSize: fs(12), color: 'var(--ink-3)' }}>{count}</span>

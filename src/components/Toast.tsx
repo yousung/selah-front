@@ -13,7 +13,7 @@ export default function Toast({ message, onClose, duration = 3000 }: { message: 
       onClick={onClose}
       className="fixed left-1/2 z-[300] cursor-pointer animate-fade-in"
       style={{
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
+        bottom: 'calc(var(--bottom-nav-height, 64px) + var(--mini-player-height, 0px) + 32px)',
         transform: 'translateX(-50%)',
         width: 'min(320px, calc(100vw - 40px))',
         padding: '12px 16px',

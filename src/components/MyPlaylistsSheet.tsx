@@ -28,7 +28,7 @@ export default function MyPlaylistsSheet({ onClose }: Props) {
         className="w-full rounded-t-2xl overflow-hidden flex flex-col"
         style={{
           background: 'var(--white)',
-          maxHeight: '70vh',
+          maxHeight: 'calc(100dvh - 32px)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -39,7 +39,7 @@ export default function MyPlaylistsSheet({ onClose }: Props) {
 
         {/* Header */}
         <div
-          className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+          className="flex items-center justify-between gap-3 px-4 py-3 flex-shrink-0"
           style={{ borderBottom: '1px solid var(--divider)' }}
         >
           <h2 className="text-base font-semibold" style={{ color: 'var(--ink-0)' }}>
@@ -52,14 +52,15 @@ export default function MyPlaylistsSheet({ onClose }: Props) {
           </h2>
           <button
             onClick={onClose}
-            style={{ color: 'var(--ink-2)', fontSize: 20, lineHeight: 1, padding: '4px 8px' }}
+            aria-label="닫기"
+            style={{ color: 'var(--ink-2)', fontSize: 20, lineHeight: 1, minWidth: 44, minHeight: 44, flexShrink: 0 }}
           >
             ✕
           </button>
         </div>
 
         {/* List */}
-        <div className="overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1 min-h-0">
           {playlists.length === 0 ? (
             <p className="px-4 py-10 text-sm text-center" style={{ color: 'var(--ink-3)' }}>
               저장한 재생목록이 없어요
@@ -86,7 +87,7 @@ export default function MyPlaylistsSheet({ onClose }: Props) {
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--ink-0)' }}>
+                  <p className="text-sm font-medium break-words" style={{ color: 'var(--ink-0)' }}>
                     {p.name}
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--ink-3)' }}>
