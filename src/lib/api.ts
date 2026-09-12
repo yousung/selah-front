@@ -112,6 +112,20 @@ export interface MemoryVerse {
   content: string | null    // 본문/통독 범위/소요리 답(여러 줄 가능)
 }
 
+export type PrayerCategory = 'daily' | 'topics' | 'pastoral' | 'representative'
+
+export interface Prayer {
+  id: string
+  category: PrayerCategory
+  title: string
+  content: string
+  startDate: string
+  endDate: string
+  itemOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
 export interface WeeklyFormSummary {
   period: string
   startDate: string
@@ -136,5 +150,15 @@ export async function getPreviousWeeklyForms(): Promise<WeeklyFormSummary[]> {
 
 export async function getWeeklyForm(startDate: string): Promise<MemoryVerse[]> {
   const { data } = await api.get<MemoryVerse[]>(`/memory-verses/week/${encodeURIComponent(startDate)}`)
+  return data
+}
+
+export async function getCurrentPrayers(category: PrayerCategory): Promise<Prayer[]> {
+  const { data } = await api.get<Prayer[]>('/prayers/current', { params: { category } })
+  return data
+}
+
+export async function getPreviousPrayers(category: PrayerCategory): Promise<Prayer[]> {
+  const { data } = await api.get<Prayer[]>('/prayers/archive', { params: { category } })
   return data
 }

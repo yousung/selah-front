@@ -17,11 +17,13 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 | `/sermon` | `SermonPage` | 설교 시리즈 목록 (2열 그리드) |
 | `/sermon/series/:id` | `SermonSeriesPage` | 시리즈별 설교 목록 + 설교자 필터 칩 |
 | `/sermon/player/:id` | `SermonPlayerPage` | 설교 플레이어 (YouTube iframe, 영상/음성 전환) |
-| `/memorize` | `MemorizePage` | 최신 등록 주간 양식 |
+| `/memorize` | `MemorizePage` | 이번 주 양식 / 기도문 탭. 이전 양식은 이번 주 양식 탭 body 상단의 버튼(별도 목록으로 이동), 이전 기도문은 기도문 탭 body의 보기 전환으로 각각 분리된다. 화면 구성 기준은 `../DESIGN.md` 참조 |
 | `/memorize/archive` | `WeeklyFormArchivePage` | 이전 양식 주간 목록 |
 | `/memorize/archive/:startDate` | `WeeklyFormDetailPage` | 이전 양식 상세 |
 | `/catechism` | `CatechismPage` | 교리서 (준비 중 placeholder) |
 | `/my` | `MyPage` | MY 허브 — 내 재생목록/최근/검색/설정 링크 모음 |
+
+기도문 이전 보기(`PrayerContent`)는 `/memorize` 안에서 주제별 버튼 → 제목 목록 → 선택 기간 상세로 전환된다. 주제를 바꾸면 날짜 선택과 이전 보기 상태를 초기화한다. DB/API는 기존 분류별 archive 조회를 재사용한다.
 
 `Layout` 컴포넌트: BottomNav(4탭) + MiniPlayer 공통 렌더.
 

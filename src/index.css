@@ -122,6 +122,34 @@
 }
 
 @layer components {
+  .content-archive-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 6px 0;
+    border: 0;
+    background: transparent;
+    color: var(--primary-700);
+    font-size: calc(13px * var(--font-scale, 1));
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .weekly-item { padding: 22px 0; }
+  .weekly-item-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .weekly-body { min-width: 0; overflow-wrap: anywhere; }
+  .weekly-label > span { font-size: calc(14px * var(--font-scale, 1)) !important; font-weight: 700 !important; letter-spacing: 0 !important; }
+  .weekly-body p { text-align: left !important; line-height: 1.8 !important; }
+  .weekly-body > div { justify-content: flex-start !important; }
+  .weekly-body img { width: 76px !important; box-shadow: none !important; border-radius: 3px !important; }
+  .weekly-body img + div { text-align: left !important; }
+  .weekly-body button { box-shadow: none !important; border-radius: 8px !important; min-height: 44px; }
+  @media (min-width: 640px) {
+    .weekly-item-layout { grid-template-columns: minmax(120px, 0.28fr) minmax(0, 1fr); gap: 28px; }
+  }
+  .weekly-item-layout--catechism { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .weekly-item-layout--catechism .weekly-label > span { font-size: calc(17px * var(--font-scale, 1)) !important; }
+
   .serif { font-family: 'Noto Serif KR', serif; }
 
   .btn-primary {

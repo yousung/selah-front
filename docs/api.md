@@ -43,6 +43,21 @@ export const adminApi = axios.create({
 | `GET /audios/:id/download?quality=high` | `{ url, bitrate?, duration?, mimeType? }` | `PlayerPage.handleDownload` → `downloadMedia()` |
 | `GET /videos/:id/manifest` | `{ manifest, duration, mimeType }` | `AudioContext` → `dashPlayer.loadDash()` |
 
+## 주간 양식·기도문 엔드포인트 소비
+
+| 엔드포인트 | 응답 | 소비처 |
+|-----------|------|--------|
+| `GET /memory-verses/current` | `MemoryVerse[]` | `MemorizePage` 이번 주 양식 탭 |
+| `GET /memory-verses/previous` | `WeeklyFormSummary[]` | `WeeklyFormArchivePage` |
+| `GET /memory-verses/week/:startDate` | `MemoryVerse[]` | `WeeklyFormDetailPage` |
+| `GET /prayers/current?category=<category>` | `Prayer[]` | `PrayerContent` 기도문 탭 |
+| `GET /prayers/archive?category=<category>` | `Prayer[]` | `PrayerContent` 주제별 제목 목록/선택 기간 상세 |
+
+`Prayer.category`는 `daily`(일상기도), `topics`(기도제목), `pastoral`(목회기도), `representative`(대표기도) 중 하나다.
+`/prayers/current`는 선택한 카테고리에서 최신 등록 기간의 항목을 `itemOrder` 표시 순서로 소비한다.
+`/prayers/archive`는 선택한 카테고리에서 최신 등록 기간을 제외한 이전 기도문을 최근 기간부터 소비한다.
+본문은 HTML로 렌더하지 않고 `white-space: pre-line`으로 줄바꿈만 보존한다.
+
 `/videos/:id/manifest`는 DASH MPD **전문**을 문자열로 준다(`Cache-Control: no-store`).
 모든 `<BaseURL>`이 백엔드에서 이미 절대 URL(`https://youtube.lovizu.com:443/videoplayback?...`)로
 치환돼 있으므로 **프론트에서 추가 치환하지 않는다.** blob URL로 만들어 shaka에 넘긴다.

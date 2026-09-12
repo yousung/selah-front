@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { PrayerContent } from '@/components/PrayerContent'
 import { getCurrentMemoryVerses, MemoryVerse, WeeklyItemType } from '@/lib/api'
 import { fs } from '@/lib/fontScale'
 
@@ -249,28 +251,33 @@ function ItemBody({ item, hero }: { item: MemoryVerse; hero: boolean }) {
 /** 항목 리스트 (구분선 + 여백) */
 export function ItemList({ items, hero }: { items: MemoryVerse[]; hero: boolean }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className={hero ? 'weekly-items' : undefined} style={{ display: 'flex', flexDirection: 'column' }}>
       {items.map((it, i) => (
         <div
           key={it.id}
+          className={hero ? 'weekly-item' : undefined}
           style={{
-            paddingTop: i > 0 ? fs(hero ? 20 : 16) : 0,
-            marginTop: i > 0 ? fs(hero ? 20 : 16) : 0,
+            paddingTop: !hero && i > 0 ? fs(16) : undefined,
+            marginTop: !hero && i > 0 ? fs(16) : undefined,
             borderTop: i > 0 ? '1px solid var(--divider)' : 'none',
           }}
         >
-          <div style={{ marginBottom: fs(hero ? 10 : 8) }}>
-            <TypeLabel type={it.type} hero={hero} />
+          <div className={hero ? `weekly-item-layout${it.type === 'shorter_catechism' ? ' weekly-item-layout--catechism' : ''}` : undefined}>
+            <div className={hero ? 'weekly-label' : undefined} style={{ marginBottom: hero ? 0 : fs(8) }}>
+              <TypeLabel type={it.type} hero={hero} />
+            </div>
+            <div className={hero ? 'weekly-body' : undefined}><ItemBody item={it} hero={hero} /></div>
           </div>
-          <ItemBody item={it} hero={hero} />
         </div>
       ))}
     </div>
   )
 }
 
+
 export default function MemorizePage() {
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<'weekly-form' | 'prayer'>('weekly-form')
   const { data: items, isLoading, error } = useQuery({
     queryKey: ['memory-verses', 'current'],
     queryFn: getCurrentMemoryVerses,
@@ -286,89 +293,85 @@ export default function MemorizePage() {
     : null
 
   return (
-    <div style={{ background: 'var(--surface-0)', minHeight: '100dvh' }}>
+    <div className="weekly-page" style={{ background: 'var(--surface-0)' }}>
       {/* Header */}
       <header style={{ background: 'var(--white)', borderBottom: '1px solid var(--divider)', position: 'sticky', top: 0, zIndex: 10, paddingTop: 'env(safe-area-inset-top)' }}>
         <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>한 주간의 양식</h1>
-          <button
-            type="button"
-            onClick={() => navigate('/memorize/archive')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              border: '1px solid var(--divider)',
-              borderRadius: 999,
-              background: 'var(--white)',
-              color: 'var(--primary-700)',
-              padding: '7px 12px',
-              fontSize: fs(13),
-              fontWeight: 700,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-              <path d="M3 3v5h5" />
-              <path d="M12 7v5l3 2" />
-            </svg>
-            이전 양식
-          </button>
+        </div>
+        <div role="tablist" aria-label="양식 콘텐츠" style={{ display: 'flex', padding: '0 16px', gap: fs(24) }}>
+          {([
+            ['weekly-form', '이번 주 양식'],
+            ['prayer', '기도문'],
+          ] as const).map(([tab, label]) => (
+            <button
+              key={tab}
+              id={`memorize-tab-${tab}`}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab}
+              aria-controls={`memorize-panel-${tab}`}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                border: 'none',
+                borderBottom: activeTab === tab ? '2px solid var(--primary-700)' : '2px solid transparent',
+                background: 'transparent',
+                color: activeTab === tab ? 'var(--primary-700)' : 'var(--ink-2)',
+                padding: `${fs(12)} 0 ${fs(10)}`,
+                fontSize: fs(14),
+                fontWeight: activeTab === tab ? 800 : 600,
+                cursor: 'pointer',
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </header>
 
-      <div style={{ maxWidth: 720, width: '100%', margin: '0 auto', padding: '0 16px', minHeight: 'calc(100dvh - 56px)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ width: '100%', margin: 'auto 0', paddingTop: 20, paddingBottom: 8 }}>
-        {isLoading && (
+      <div style={{ maxWidth: 820, width: '100%', margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ width: '100%', paddingTop: 24, paddingBottom: 24 }}>
+        {activeTab === 'weekly-form' && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button type="button" className="content-archive-link" onClick={() => navigate('/memorize/archive')}>
+              이전 양식 <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        )}
+        {activeTab === 'weekly-form' && isLoading && (
           <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: fs(14) }}>
             불러오는 중…
           </div>
         )}
 
-        {error && (
+        {activeTab === 'weekly-form' && error && (
           <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: fs(14) }}>
             양식을 불러오지 못했습니다.
           </div>
         )}
 
-        {!isLoading && !error && (
-          <>
-            {/* ── 이번 주 양식 (Hero) ── */}
-            <section
-              style={{
-                position: 'relative',
-                overflow: 'hidden',
-                borderRadius: 18,
-                padding: '24px 22px 26px',
-                background: 'linear-gradient(155deg, var(--primary-50) 0%, var(--surface-0) 78%)',
-                border: '1px solid var(--divider)',
-              }}
-            >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: fs(18), flexWrap: 'wrap' }}>
-                <span style={{ width: 8, height: 8, borderRadius: 99, background: 'var(--primary-500)' }} />
-                <span style={{ fontSize: fs(21), fontWeight: 800, letterSpacing: '0.04em', color: 'var(--primary-700)' }}>
-                  이번 주 양식
-                </span>
-                {current && (
-                  <span style={{ marginLeft: 'auto', textAlign: 'right', fontSize: fs(21), color: 'var(--ink-3)' }}>
-                    {current.startDate.slice(0, 4)} · {current.period}
-                  </span>
-                )}
-              </div>
+        {activeTab === 'weekly-form' && !isLoading && !error && (
+          <div id="memorize-panel-weekly-form" role="tabpanel" aria-labelledby="memorize-tab-weekly-form">
+            <div style={{ paddingBottom: 20, borderBottom: '1px solid var(--divider)' }}>
+              <p style={{ fontSize: fs(14), lineHeight: 1.6, color: 'var(--ink-1)', margin: 0 }}>
+                {current ? `${current.startDate.slice(0, 4)}년 · ${current.period}` : '이번 주에 함께 읽고 묵상할 내용을 확인해 보세요.'}
+              </p>
+            </div>
 
+            <section className="weekly-content">
               {current ? (
                 <ItemList items={current.items} hero />
               ) : (
-                <p style={{ fontFamily: SERIF, fontSize: fs(16), color: 'var(--ink-1)', lineHeight: fs(26), margin: `${fs(6)} 0 0` }}>
+                <p style={{ padding: `${fs(28)} ${fs(20)}`, fontFamily: SERIF, fontSize: fs(16), color: 'var(--ink-1)', lineHeight: fs(26), margin: 0 }}>
                   이번 주 양식이 아직 등록되지 않았습니다.
                 </p>
               )}
             </section>
 
-          </>
+          </div>
         )}
+
+        {activeTab === 'prayer' && <PrayerContent />}
         </div>
       </div>
     </div>
