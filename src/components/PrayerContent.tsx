@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { DailyPrayerBody } from './DailyPrayerBody'
+import { DailyPrayerBody, PrayerSection } from './DailyPrayerBody'
 import { PrayerTopicsBody } from './PrayerTopicsBody'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentPrayers, getPreviousPrayers, Prayer, PrayerCategory } from '@/lib/api'
@@ -183,7 +183,11 @@ export function PrayerContent({ headerTarget }: { headerTarget: HTMLElement | nu
 
         {!isLoading && !error && visiblePrayers.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {visiblePrayers.map((prayer, index) => (
+            {visiblePrayers.map((prayer, index) => category === 'representative' ? (
+              <article key={`${prayer.id}:${prayer.content}`}>
+                <PrayerSection title={prayer.title} body={prayer.content} headingLevel={2} />
+              </article>
+            ) : (
               <article
                 key={prayer.id}
                 style={{
