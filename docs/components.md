@@ -69,3 +69,6 @@
 - `PlaylistBottomSheet` — `playlistStore`만 사용, 서버 통신 없음
 - `MiniPlayer` — AudioContext의 `currentVideo`, `isPlaying`, `togglePlay` 사용
 - `Layout` 에서 MiniPlayer를 항상 렌더하므로 PlayerPage에서 중복 렌더 주의
+# 일상기도 본문
+
+`src/components/DailyPrayerBody.tsx`: 일상기도의 연속 번호 제목과 빈 줄을 기준으로 본문을 나누어 기본 접힘 아코디언을 표시한다. 여러 항목을 동시에 열 수 있고, 구조가 맞지 않는 원문은 일반 본문으로 보존한다. `PrayerContent`의 현재·이전 상세에서 사용한다. 버튼 ARIA와 CSS grid 높이 전환을 사용하며, 동작 줄이기 설정을 지원한다.

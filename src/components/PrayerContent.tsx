@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { DailyPrayerBody } from './DailyPrayerBody'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentPrayers, getPreviousPrayers, Prayer, PrayerCategory } from '@/lib/api'
 import { fs } from '@/lib/fontScale'
@@ -207,7 +208,7 @@ export function PrayerContent({ headerTarget }: { headerTarget: HTMLElement | nu
                 >
                   {prayer.title}
                 </h2>
-                <p
+                {category === 'daily' ? <DailyPrayerBody key={prayer.content} content={prayer.content} /> : <p
                   style={{
                     margin: `${fs(12)} 0 0`,
                     fontFamily: SERIF,
@@ -219,7 +220,7 @@ export function PrayerContent({ headerTarget }: { headerTarget: HTMLElement | nu
                   }}
                 >
                   {prayer.content}
-                </p>
+                </p>}
               </article>
             ))}
           </div>
