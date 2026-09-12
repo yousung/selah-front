@@ -96,7 +96,13 @@ export default function App() {
             <Route path="privacy" element={<PrivacyPage />} />
             <Route path="sermon" element={<SermonPage />} />
             <Route path="sermon/category/:id" element={<SermonCategoryPage />} />
-            <Route path="memorize" element={<MemorizePage />} />
+            <Route path="memorize" element={<Navigate to="/memorize/weekly" replace />} />
+            <Route path="memorize/weekly" element={<MemorizePage />} />
+            <Route path="memorize/prayer" element={<Navigate to="/memorize/prayer/daily" replace />} />
+            {(['daily', 'topics', 'pastoral', 'representative'] as const).map(category => (
+              <Route key={category} path={`memorize/prayer/${category}`} element={<MemorizePage category={category} />} />
+            ))}
+            <Route path="memorize/prayer/*" element={<Navigate to="/memorize/prayer/daily" replace />} />
             <Route path="memorize/archive" element={<WeeklyFormArchivePage />} />
             <Route path="memorize/archive/:startDate" element={<WeeklyFormDetailPage />} />
             <Route path="catechism" element={<CatechismPage />} />

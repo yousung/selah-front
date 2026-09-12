@@ -51,4 +51,5 @@ npm run typecheck # TypeScript 체크
 node scripts/verify-font-scale.mjs # 실행 중인 로컬 프론트에서 글자 크기·작은 화면 회귀 검증 (API는 테스트 데이터로 대체)
 node scripts/verify-foldable-layout.mjs # 접기/펼치기와 태블릿 메뉴 전환 경계 검증
 node scripts/verify-prayer-topics.mjs # 기도제목 목록·하위 일정·원문 보존·작은 화면 검증
+node scripts/verify-memorize-routes.mjs # 양식/기도 탭 직접 링크·새로고침·브라우저 이력 검증
 ```

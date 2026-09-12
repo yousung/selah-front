@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { DailyPrayerBody, PrayerSection } from './DailyPrayerBody'
 import { PrayerTopicsBody } from './PrayerTopicsBody'
@@ -15,8 +16,8 @@ const PRAYER_CATEGORIES: Array<{ value: PrayerCategory; label: string; archiveLa
   { value: 'representative', label: '대표기도', archiveLabel: '대표 기도' },
 ]
 
-export function PrayerContent({ headerTarget }: { headerTarget: HTMLElement | null }) {
-  const [category, setCategory] = useState<PrayerCategory>('daily')
+export function PrayerContent({ headerTarget, category }: { headerTarget: HTMLElement | null; category: PrayerCategory }) {
+  const navigate = useNavigate()
   const [showArchive, setShowArchive] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null)
   const activeCategory = PRAYER_CATEGORIES.find((item) => item.value === category)!
@@ -87,7 +88,7 @@ export function PrayerContent({ headerTarget }: { headerTarget: HTMLElement | nu
               aria-selected={selected}
               aria-controls="prayer-category-panel"
               onClick={() => {
-                setCategory(item.value)
+                if (category !== item.value) navigate(`/memorize/prayer/${item.value}`)
                 setShowArchive(false)
                 setSelectedPeriod(null)
               }}

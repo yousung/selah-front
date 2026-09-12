@@ -72,6 +72,8 @@
 - `Layout`은 재생할 영상이 있고 플레이어 화면 밖이며 사용자가 닫지 않은 경우 MiniPlayer를 표시한다. 하단 내비/미니플레이어 높이는 `ResizeObserver`로 측정해 본문 spacer와 FAB 위치에 반영한다.
 # 일상기도 본문
 
+`PrayerContent`의 `category`는 `MemorizePage`가 URL 라우트에서 전달한다. 자체 탭 상태를 중복 저장하지 않으며 분류가 바뀌면 이전 목록/선택 기간은 초기화한다. 경로 목록은 [routes.md](./routes.md)를 참조한다.
+
 `DailyPrayerBody.tsx`의 `PrayerSection`은 대표기도의 문서별 아코디언에도 재사용한다. 대표기도는 24px 문서 제목(h2)을 누르면 원문 전체를 표시하며 현재·이전 보기 모두 기본 접힘, 독립적인 펼침 상태를 사용한다.
 
 `src/components/PrayerTopicsBody.tsx`: 기도제목의 연속 번호를 목록으로 구분하고 하위 줄을 들여쓴다. 현재·이전 기도제목에 동일하게 적용하며 번호가 비연속이거나 서문이 있는 등 구조가 불명확하면 원문을 그대로 표시한다. DB 원문과 날짜는 변경하지 않는다.

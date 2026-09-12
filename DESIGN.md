@@ -27,6 +27,8 @@
 
 ## Information architecture
 
+- 양식/기도 선택은 URL을 기준으로 한다. `/memorize/weekly`와 `/memorize/prayer/{daily|topics|pastoral|representative}`를 사용하며 직접 접속·새로고침·브라우저 뒤로/앞으로 가기에도 선택 탭이 유지된다. 이전 자료 상세 상태는 기존처럼 화면 내부에서 관리한다.
+
 - Primary navigation: 5탭 하단 내비게이션의 `양식` → `#/memorize`
 - Core routes/screens: 이번 주 양식, 헤더의 이전 양식 버튼, 기도문(일상기도·기도제목·목회기도·대표기도), 기도문 안의 이전 기도문 보기
 - Content hierarchy: 주차/기간 → 현재 콘텐츠 → 항목 유형 → 본문·참조 → 이전 콘텐츠 진입

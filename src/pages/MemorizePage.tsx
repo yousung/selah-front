@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { PrayerContent } from '@/components/PrayerContent'
-import { getCurrentMemoryVerses, getPreviousWeeklyForms, MemoryVerse, WeeklyItemType } from '@/lib/api'
+import { getCurrentMemoryVerses, getPreviousWeeklyForms, MemoryVerse, WeeklyItemType, PrayerCategory } from '@/lib/api'
 import { fs } from '@/lib/fontScale'
 
 const SERIF = 'var(--font-serif)'
@@ -275,9 +275,9 @@ export function ItemList({ items, hero }: { items: MemoryVerse[]; hero: boolean 
 }
 
 
-export default function MemorizePage() {
+export default function MemorizePage({ category }: { category?: PrayerCategory }) {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'weekly-form' | 'prayer'>('weekly-form')
+  const activeTab = category ? 'prayer' : 'weekly-form'
   const [prayerHeaderTarget, setPrayerHeaderTarget] = useState<HTMLDivElement | null>(null)
   const previousWeeks = useQuery({
     queryKey: ['memory-verses', 'previous'],
@@ -323,7 +323,7 @@ export default function MemorizePage() {
               role="tab"
               aria-selected={activeTab === tab}
               aria-controls={`memorize-panel-${tab}`}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => { if (activeTab !== tab) navigate(tab === 'prayer' ? '/memorize/prayer/daily' : '/memorize/weekly') }}
               style={{
                 border: 'none',
                 borderBottom: activeTab === tab ? '2px solid var(--primary-700)' : '2px solid transparent',
@@ -376,7 +376,7 @@ export default function MemorizePage() {
           </div>
         )}
 
-        {activeTab === 'prayer' && <PrayerContent headerTarget={prayerHeaderTarget} />}
+        {category && <PrayerContent key={category} category={category} headerTarget={prayerHeaderTarget} />}
         </div>
       </div>
     </div>

@@ -17,13 +17,19 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 | `/sermon` | `SermonPage` | 설교 시리즈 목록 (2열 그리드) |
 | `/sermon/series/:id` | `SermonSeriesPage` | 시리즈별 설교 목록 + 설교자 필터 칩 |
 | `/sermon/player/:id` | `SermonPlayerPage` | 설교 플레이어 (YouTube iframe, 영상/음성 전환) |
-| `/memorize` | `MemorizePage` | 이번 주 양식 / 기도 탭. 헤더의 이전 버튼으로 양식은 별도 목록으로 이동하고 기도문은 본문 보기를 전환한다. 노출 조건과 화면 구성 기준은 `../DESIGN.md` 참조 |
+| `/memorize` | redirect | `/memorize/weekly`로 이동 (기존 링크 호환) |
+| `/memorize/weekly` | `MemorizePage` | 이번 주 양식 |
+| `/memorize/prayer` | redirect | `/memorize/prayer/daily`로 이동 |
+| `/memorize/prayer/daily` | `MemorizePage` | 기도 → 일상기도 |
+| `/memorize/prayer/topics` | `MemorizePage` | 기도 → 기도제목 |
+| `/memorize/prayer/pastoral` | `MemorizePage` | 기도 → 목회기도 |
+| `/memorize/prayer/representative` | `MemorizePage` | 기도 → 대표기도 |
 | `/memorize/archive` | `WeeklyFormArchivePage` | 이전 양식 주간 목록 |
 | `/memorize/archive/:startDate` | `WeeklyFormDetailPage` | 이전 양식 상세 |
 | `/catechism` | `CatechismPage` | 교리서 (준비 중 placeholder) |
 | `/my` | `MyPage` | MY 허브 — 내 재생목록/최근/검색/설정 링크 모음 |
 
-기도문 이전 보기(`PrayerContent`)는 `/memorize` 안에서 주제별 버튼 → 제목 목록 → 선택 기간 상세로 전환된다. 주제를 바꾸면 날짜 선택과 이전 보기 상태를 초기화한다. DB/API는 기존 분류별 archive 조회를 재사용한다.
+기도문 이전 보기(`PrayerContent`)는 해당 `/memorize/prayer/<category>` 안에서 주제별 버튼 → 제목 목록 → 선택 기간 상세로 전환된다. 이전 목록/선택 기간은 URL에 포함하지 않는다. 주제를 바꾸면 날짜 선택과 이전 보기 상태를 초기화한다. 탭은 URL에서 결정되며 새로고침·뒤로/앞으로 가기로 복원된다. 잘못된 기도 분류 경로는 일상기도로 대체한다. DB/API는 기존 분류별 archive 조회를 재사용한다.
 
 `Layout` 컴포넌트: BottomNav(5탭) + MiniPlayer 공통 렌더. 사용자 앱 루트의 `--font-scale`을 하위 화면과 오버레이가 상속한다.
 
