@@ -8,7 +8,7 @@ const categories = [
 ]
 const browser = await chromium.launch()
 try {
-  for (const width of [390, 1280]) {
+  for (const width of [320, 390, 1280]) {
     const page = await browser.newPage({ viewport: { width, height: 844 } })
     await page.route('**/api/prayers/**', async (route) => {
       const url = new URL(route.request().url())
@@ -27,7 +27,9 @@ try {
     for (const [value, tabLabel, label] of categories) {
       await page.getByRole('tab', { name: tabLabel, exact: true }).click()
       await page.getByRole('heading', { name: `${value}-current`, exact: true }).waitFor()
-      await page.getByRole('button', { name: `이전 ${label}`, exact: false }).click()
+      await page.locator('header').getByRole('button', { name: `이전 ${label}`, exact: false }).click()
+      await page.locator('header').getByRole('button', { name: `현재 ${label}` }).waitFor()
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       const list = page.getByLabel(`${label} 이전 목록`, { exact: true })
       await list.getByRole('button').first().waitFor()
       assert.equal(await list.getByRole('button').count(), 2, 'Both dates define the period')

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentPrayers, getPreviousPrayers, Prayer, PrayerCategory } from '@/lib/api'
 import { fs } from '@/lib/fontScale'
@@ -12,22 +13,28 @@ const PRAYER_CATEGORIES: Array<{ value: PrayerCategory; label: string; archiveLa
   { value: 'representative', label: '대표기도', archiveLabel: '대표 기도' },
 ]
 
-export function PrayerContent() {
+export function PrayerContent({ headerTarget }: { headerTarget: HTMLElement | null }) {
   const [category, setCategory] = useState<PrayerCategory>('daily')
   const [showArchive, setShowArchive] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null)
   const activeCategory = PRAYER_CATEGORIES.find((item) => item.value === category)!
 
+  const currentQuery = useQuery({
+    queryKey: ['prayers', 'current', category],
+    queryFn: () => getCurrentPrayers(category),
+    enabled: !showArchive,
+  })
+  const archiveQuery = useQuery({
+    queryKey: ['prayers', 'archive', category],
+    queryFn: () => getPreviousPrayers(category),
+  })
   const {
     data: prayers,
     isLoading,
     error,
     refetch,
     isFetching,
-  } = useQuery({
-    queryKey: ['prayers', showArchive ? 'archive' : 'current', category],
-    queryFn: () => showArchive ? getPreviousPrayers(category) : getCurrentPrayers(category),
-  })
+  } = showArchive ? archiveQuery : currentQuery
 
   const sortedPrayers = prayers ? [...prayers].sort((a, b) =>
     b.startDate.localeCompare(a.startDate) || b.endDate.localeCompare(a.endDate) || a.itemOrder - b.itemOrder,
@@ -43,6 +50,16 @@ export function PrayerContent() {
 
   return (
     <section id="memorize-panel-prayer" role="tabpanel" aria-labelledby="memorize-tab-prayer">
+      {headerTarget && (showArchive || (archiveQuery.isSuccess && archiveQuery.data.length > 0)) && createPortal(
+        <button type="button" className="content-archive-link" onClick={() => {
+          setShowArchive(!showArchive)
+          setSelectedPeriod(null)
+        }}>
+          {showArchive ? `현재 ${activeCategory.archiveLabel}` : `이전 ${activeCategory.archiveLabel}`}
+          <span aria-hidden="true">{showArchive ? '←' : '→'}</span>
+        </button>,
+        headerTarget,
+      )}
       <div
         role="tablist"
         aria-label="기도문 종류"
@@ -98,15 +115,6 @@ export function PrayerContent() {
         aria-labelledby={`prayer-category-${category}`}
         style={{ paddingTop: fs(20) }}
       >
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-          <button type="button" className="content-archive-link" onClick={() => {
-            setShowArchive(!showArchive)
-            setSelectedPeriod(null)
-          }}>
-            {showArchive ? `현재 ${activeCategory.archiveLabel}` : `이전 ${activeCategory.archiveLabel}`}
-            <span aria-hidden="true">{showArchive ? '←' : '→'}</span>
-          </button>
-        </div>
         {showArchive && selectedPeriod && (
           <button type="button" className="content-archive-link" onClick={() => setSelectedPeriod(null)}>
             <span aria-hidden="true">←</span> 이전 목록

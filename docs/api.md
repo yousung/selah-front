@@ -48,10 +48,10 @@ export const adminApi = axios.create({
 | 엔드포인트 | 응답 | 소비처 |
 |-----------|------|--------|
 | `GET /memory-verses/current` | `MemoryVerse[]` | `MemorizePage` 이번 주 양식 탭 |
-| `GET /memory-verses/previous` | `WeeklyFormSummary[]` | `WeeklyFormArchivePage` |
+| `GET /memory-verses/previous` | `WeeklyFormSummary[]` | `MemorizePage` 이전 자료 유무 확인, `WeeklyFormArchivePage` |
 | `GET /memory-verses/week/:startDate` | `MemoryVerse[]` | `WeeklyFormDetailPage` |
 | `GET /prayers/current?category=<category>` | `Prayer[]` | `PrayerContent` 기도문 탭 |
-| `GET /prayers/archive?category=<category>` | `Prayer[]` | `PrayerContent` 주제별 제목 목록/선택 기간 상세 |
+| `GET /prayers/archive?category=<category>` | `Prayer[]` | `PrayerContent` 주제별 이전 자료 유무 확인/제목 목록/선택 기간 상세 |
 
 `Prayer.category`는 `daily`(일상기도), `topics`(기도제목), `pastoral`(목회기도), `representative`(대표기도) 중 하나다.
 `/prayers/current`는 선택한 카테고리에서 최신 등록 기간의 항목을 `itemOrder` 표시 순서로 소비한다.

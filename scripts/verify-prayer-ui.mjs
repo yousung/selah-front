@@ -17,7 +17,7 @@ try {
     assert.ok(bodyBox.y >= labelBox.y + labelBox.height, 'Catechism body must sit below its label at every width')
     assert.ok(Math.abs(bodyBox.x - labelBox.x) < 1, 'Catechism label and body must align left')
     assert.ok((await catechism.textContent()).includes('\n\n'), 'Paragraph gaps must remain intact')
-    assert.equal(await page.locator('header').getByText('이전 양식', { exact: true }).count(), 0)
+    await page.locator('header').getByRole('button', { name: '이전 양식' }).waitFor()
     assert.equal(await page.getByRole('heading', { name: '이전 양식', exact: true }).count(), 0)
     await page.getByRole('button', { name: '이전 양식', exact: false }).click()
     await page.waitForURL('**/#/memorize/archive')
@@ -30,9 +30,6 @@ try {
     assert.equal((content.match(/^\d\. /gm) || []).length, 8)
     assert.ok(content.endsWith('예수 그리스도의 이름으로 기도하옵나이다. 아멘.'))
     assert.equal(await page.locator('header').getByRole('button', { name: '이전 일상 기도' }).count(), 0)
-    await page.getByRole('button', { name: '이전 일상 기도' }).click()
-    await page.getByText('등록된 이전 일상 기도 내역이 없습니다.', { exact: true }).waitFor()
-    await page.getByRole('button', { name: '현재 일상 기도' }).click()
     await page.getByRole('tab', { name: '기도제목', exact: true }).click()
     await page.getByText('등록된 기도문이 없습니다.', { exact: true }).waitFor()
     const overflow = await page.evaluate(() => ({

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { PrayerContent } from '@/components/PrayerContent'
-import { getCurrentMemoryVerses, MemoryVerse, WeeklyItemType } from '@/lib/api'
+import { getCurrentMemoryVerses, getPreviousWeeklyForms, MemoryVerse, WeeklyItemType } from '@/lib/api'
 import { fs } from '@/lib/fontScale'
 
 const SERIF = 'var(--font-serif)'
@@ -278,6 +278,12 @@ export function ItemList({ items, hero }: { items: MemoryVerse[]; hero: boolean 
 export default function MemorizePage() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'weekly-form' | 'prayer'>('weekly-form')
+  const [prayerHeaderTarget, setPrayerHeaderTarget] = useState<HTMLDivElement | null>(null)
+  const previousWeeks = useQuery({
+    queryKey: ['memory-verses', 'previous'],
+    queryFn: getPreviousWeeklyForms,
+    enabled: activeTab === 'weekly-form',
+  })
   const { data: items, isLoading, error } = useQuery({
     queryKey: ['memory-verses', 'current'],
     queryFn: getCurrentMemoryVerses,
@@ -298,6 +304,12 @@ export default function MemorizePage() {
       <header style={{ background: 'var(--white)', borderBottom: '1px solid var(--divider)', position: 'sticky', top: 0, zIndex: 10, paddingTop: 'env(safe-area-inset-top)' }}>
         <div style={{ padding: '0 16px', minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <h1 style={{ fontSize: fs(18), fontWeight: 700, color: 'var(--ink-0)' }}>한 주간의 양식</h1>
+          {activeTab === 'weekly-form' && previousWeeks.isSuccess && previousWeeks.data.length > 0 && (
+            <button type="button" className="content-archive-link" onClick={() => navigate('/memorize/archive')}>
+              이전 양식 <span aria-hidden="true">→</span>
+            </button>
+          )}
+          {activeTab === 'prayer' && <div ref={setPrayerHeaderTarget} style={{ flexShrink: 0 }} />}
         </div>
         <div role="tablist" aria-label="양식 콘텐츠" style={{ display: 'flex', padding: '0 16px', gap: fs(24) }}>
           {([
@@ -331,13 +343,6 @@ export default function MemorizePage() {
 
       <div style={{ maxWidth: 820, width: '100%', margin: '0 auto', padding: '0 24px' }}>
         <div style={{ width: '100%', paddingTop: 24, paddingBottom: 24 }}>
-        {activeTab === 'weekly-form' && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-            <button type="button" className="content-archive-link" onClick={() => navigate('/memorize/archive')}>
-              이전 양식 <span aria-hidden="true">→</span>
-            </button>
-          </div>
-        )}
         {activeTab === 'weekly-form' && isLoading && (
           <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: fs(14) }}>
             불러오는 중…
@@ -371,7 +376,7 @@ export default function MemorizePage() {
           </div>
         )}
 
-        {activeTab === 'prayer' && <PrayerContent />}
+        {activeTab === 'prayer' && <PrayerContent headerTarget={prayerHeaderTarget} />}
         </div>
       </div>
     </div>
