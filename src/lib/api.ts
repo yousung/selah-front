@@ -96,6 +96,7 @@ export type WeeklyItemType =
   | 'memory_verse'       // 말씀 암송
   | 'reading'            // 독서(신앙 서적)
   | 'larger_catechism'   // 대요리문답(영상)
+  | 'childcare_helper'   // 영유아 도우미
 
 export interface MemoryVerse {
   id: string

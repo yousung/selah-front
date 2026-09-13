@@ -20,6 +20,7 @@ const TYPE_LABEL: Record<WeeklyItemType, string> = {
   memory_verse: '말씀 암송',
   reading: '독서',
   larger_catechism: '대요리문답',
+  childcare_helper: '영유아 도우미',
 }
 
 /** 유형 라벨 — 본문과 같은 좌측선에 플러시 정렬(배경 없음) */
@@ -239,6 +240,29 @@ function ItemBody({ item, hero }: { item: MemoryVerse; hero: boolean }) {
                 영상 보기
               </button>
             </div>
+          )}
+        </div>
+      )
+
+    case 'childcare_helper':
+      return (
+        <div style={{ textAlign: 'center' }}>
+          <p
+            style={{
+              fontFamily: SERIF,
+              fontSize: fs(hero ? 18 : 15),
+              fontWeight: 700,
+              color: 'var(--ink-0)',
+              wordBreak: 'keep-all',
+              margin: 0,
+            }}
+          >
+            {item.content ?? item.title ?? '담당자 미정'}
+          </p>
+          {item.reference && (
+            <p style={{ margin: `${fs(6)} 0 0`, fontSize: fs(hero ? 13 : 12), color: sub }}>
+              {item.reference}
+            </p>
           )}
         </div>
       )
