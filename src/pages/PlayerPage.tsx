@@ -347,10 +347,10 @@ export default function PlayerPage() {
   const isSermonPlayer = playerBase === '/sermon/player'
   const handleBack = () => {
     clearSelahMenu()
-    // 히스토리에 돌아갈 곳이 있으면 이전 페이지로(카테고리 등), 없으면(직접 진입/공유링크) 홈으로.
+    // 히스토리에 돌아갈 곳이 있으면 이전 페이지로(카테고리 등), 없으면(직접 진입/공유링크) 소속 목록(설교/찬송)으로.
     const canGoBack = (window.history.state?.idx ?? 0) > 0
     if (canGoBack) navigate(-1)
-    else navigate('/')
+    else navigate(isSermonPlayer ? '/sermon' : '/hymn')
   }
   const [searchParams] = useSearchParams()
   const isInAnyPlaylist = usePlaylistStore((s) => s.isInAnyPlaylist)

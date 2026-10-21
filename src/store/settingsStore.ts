@@ -9,6 +9,14 @@ export type PlayMode = 'single' | 'playlist' | 'repeat' | 'loop'
 export type MediaMode = 'audio' | 'video'
 export type OfflineStorageMode = 'thrift' | 'normal' | 'generous' | 'custom'
 export type FontScale = 1 | 1.5 | 2
+export type Occupation = 'worker' | 'homemaker' | 'student' | 'pastor'
+
+export const OCCUPATION_LABELS: Record<Occupation, string> = {
+  worker: '직장인',
+  homemaker: '주부',
+  student: '학생',
+  pastor: '목사',
+}
 
 interface SettingsState {
   theme: Theme
@@ -25,6 +33,8 @@ interface SettingsState {
   autoDownload: boolean
   fontScale: FontScale
   onlyOurChurch: boolean
+  /** 지금의 기도 일과 기도 맞춤용 (null = 미설정 → 직장인으로 취급) */
+  occupation: Occupation | null
   setTheme: (t: Theme) => void
   setQuality: (q: AudioQuality) => void
   setMediaMode: (m: MediaMode) => void
@@ -39,6 +49,7 @@ interface SettingsState {
   setAutoDownload: (v: boolean) => void
   setFontScale: (v: FontScale) => void
   setOnlyOurChurch: (enabled: boolean) => void
+  setOccupation: (v: Occupation | null) => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -58,6 +69,7 @@ export const useSettingsStore = create<SettingsState>()(
       autoDownload: true,
       fontScale: 1,
       onlyOurChurch: true,
+      occupation: null,
       setTheme: (theme) => set({ theme }),
       setQuality: (quality) => set({ quality }),
       setMediaMode: (mediaMode) => set((s) => {
@@ -76,10 +88,14 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoDownload: (autoDownload) => set({ autoDownload }),
       setFontScale: (fontScale) => set({ fontScale }),
       setOnlyOurChurch: (onlyOurChurch) => set({ onlyOurChurch }),
+      setOccupation: (occupation) => set({ occupation }),
     }),
     {
       name: 'selah-settings',
       storage: createJSONStorage(() => localStorage),
+      // v1: occupation 추가 — 기존 설정은 그대로 두고 occupation만 null로 채운다
+      version: 1,
+      migrate: (persisted) => ({ occupation: null, ...(persisted as object) }) as SettingsState,
     },
   ),
 )

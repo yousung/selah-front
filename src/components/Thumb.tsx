@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/store/settingsStore'
-import { THUMB_ORDER, thumbQualityFor, ytIdFromUrl, buildThumb, getImageCacheBust } from '@/lib/thumb'
+import { THUMB_ORDER, thumbQualityFor, ytIdFromUrl, buildThumb, getImageCacheBust, type ThumbQuality } from '@/lib/thumb'
 
 interface ThumbProps {
   src: string | null | undefined
@@ -8,6 +8,8 @@ interface ThumbProps {
   style?: React.CSSProperties
   alt?: string
   fallback?: React.ReactNode
+  /** 설정 무관하게 이 등급부터 시작(홈: maxresdefault). 없으면 설정 기반. 미존재 시 기존 체인대로 다운그레이드 */
+  startQuality?: ThumbQuality
 }
 // 세션 내에서 한번 성공적으로 로드된 썸네일 URL 기억.
 // LazyRow가 행을 unmount→remount해도 이 URL이면 loaded=true로 시작 →
@@ -16,11 +18,11 @@ const loadedThumbUrls = new Set<string>()
 
 /** 썸네일: 설정별 화질 + lazy + 로딩 스켈레톤 + 404 다운그레이드 + 캐시버스트.
  *  부모 컨테이너는 position relative + overflow hidden 이어야 스켈레톤이 제대로 깔린다. */
-export default function Thumb({ src, className, style, alt = '', fallback }: ThumbProps) {
+export default function Thumb({ src, className, style, alt = '', fallback, startQuality }: ThumbProps) {
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const quality = useSettingsStore((s) => s.quality)
   const id = ytIdFromUrl(src)
-  const startIdx = THUMB_ORDER.indexOf(thumbQualityFor(mediaMode, quality))
+  const startIdx = THUMB_ORDER.indexOf(startQuality ?? thumbQualityFor(mediaMode, quality))
   const [cb] = useState(() => getImageCacheBust())
   const [qIdx, setQIdx] = useState(startIdx)
   // 이미 로드된 적 있는 URL이면 loaded=true로 시작 → 즉시 표시(페이드 없음)
@@ -38,6 +40,7 @@ export default function Thumb({ src, className, style, alt = '', fallback }: Thu
   }
   if (failed) return <>{fallback ?? null}</>
   const url = buildThumb(id, THUMB_ORDER[qIdx], cb)
+  const hqIdx = THUMB_ORDER.indexOf('hqdefault')
   return (
     <>
       {!loaded && <span className="thumb-skeleton" aria-hidden="true" />}
@@ -52,7 +55,10 @@ export default function Thumb({ src, className, style, alt = '', fallback }: Thu
           // LazyRow remount 시 브라우저 캐시로 이미 디코드 완료된 경우 onLoad가 안 올 수 있음
           // → mount 커밋 시점에 동기로 반영해 페이드 깜빡임/빈칸 없이 즉시 표시.
           if (el.complete && el.naturalWidth > 0) {
-            if (el.naturalWidth <= 120 && THUMB_ORDER[qIdx] !== 'default') { setFailed(true); return }
+            if (el.naturalWidth <= 120 && THUMB_ORDER[qIdx] !== 'default') {
+              if (qIdx < hqIdx) { setQIdx(qIdx + 1); return }
+              setFailed(true); return
+            }
             loadedThumbUrls.add(url)
             setLoaded(true)
           }
@@ -62,6 +68,8 @@ export default function Thumb({ src, className, style, alt = '', fallback }: Thu
           // YouTube는 썸네일 없는 영상에 120x90 회색 placeholder를 200으로 반환.
           // hqdefault/mqdefault(원래 480/320 너비)가 120이면 placeholder → 폴백.
           if (e.currentTarget.naturalWidth <= 120 && THUMB_ORDER[qIdx] !== 'default') {
+            // maxres/sd 미생성 시 120px 대체 이미지가 올 수 있음 → 실패가 아니라 다음 등급으로
+            if (qIdx < hqIdx) { setQIdx(qIdx + 1); setLoaded(false); return }
             setFailed(true); return
           }
           loadedThumbUrls.add(url)

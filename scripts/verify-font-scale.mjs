@@ -166,6 +166,7 @@ async function fulfillApi(route) {
     })
   }
   if (path.endsWith('/api/videos')) {
+    if (!url.searchParams.has('page')) return route.fulfill({ json: videos })
     return route.fulfill({ json: { videos, total: videos.length, page: 1, limit: 20, hasMore: false, playlists: videos.map(v => v.id) } })
   }
   if (path.endsWith('/api/sermon-categories/search')) {
@@ -337,9 +338,10 @@ try {
       await installFixtures(page, scale)
 
       await checkPage(page, '/', `${width}px/${scale}x home`)
+      await checkPage(page, '/hymn', `${width}px/${scale}x hymn`)
       await page.getByPlaceholder('제목 또는 장 검색').fill('긴 제목')
       await waitSettled(page)
-      await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x home search`)
+      await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x hymn search`)
 
       await checkPage(page, '/search?q=긴%20제목', `${width}px/${scale}x search`)
       await assert.equal(await page.getByText(/편 검색됨|총 \d+편/).first().isVisible(), true, `${width}px/${scale}x search fixture rendered`)
@@ -374,7 +376,8 @@ try {
       await checkPage(page, '/my-playlists', `${width}px/${scale}x my playlists`)
       await checkPage(page, '/my-playlists/user-list-1', `${width}px/${scale}x my playlist detail`)
       await checkPage(page, '/player/video-1', `${width}px/${scale}x player`)
-      await checkPage(page, '/my', `${width}px/${scale}x my`)
+      await checkPage(page, '/menu', `${width}px/${scale}x menu`)
+      await checkPage(page, '/news', `${width}px/${scale}x news`)
       await checkPage(page, '/settings', `${width}px/${scale}x settings`)
 
       const optionFontSize = await page.locator('[data-tour="setting-font"] button').first()
@@ -394,15 +397,15 @@ try {
     const page = await browser.newPage({ viewport: { width: 320, height: 568 } })
     await installFixtures(page, 2)
     await checkPage(page, '/settings', '320x568/2x settings')
-    await checkPage(page, '/my', '320x568/2x my')
+    await checkPage(page, '/menu', '320x568/2x menu')
     await checkPage(page, '/my-playlists', '320x568/2x my playlists')
     await checkPage(page, '/memorize', '320x568/2x weekly')
     await page.getByRole('tab', { name: '기도', exact: true }).click()
     await waitSettled(page)
     await assertNoHorizontalPageOverflow(page, '320x568/2x prayer')
     await checkPage(page, '/player/video-1', '320x568/2x player')
-    await checkPage(page, '/', '320x568/2x home with mini player')
-    await assertMiniPlayerClear(page, '320x568/2x home with mini player')
+    await checkPage(page, '/hymn', '320x568/2x hymn with mini player')
+    await assertMiniPlayerClear(page, '320x568/2x hymn with mini player')
     console.log('PASS 320x568 / 2x: short-phone smoke without overflow or bottom overlap')
     await page.close()
   }

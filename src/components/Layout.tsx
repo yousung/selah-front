@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { Outlet, NavLink, useLocation, useNavigationType } from "react-router-dom";
 import MiniPlayer from "./MiniPlayer";
 import QueuePanel from "./QueuePanel";
 import PwaInstallPrompt from "./PwaInstallPrompt";
@@ -8,7 +8,7 @@ import { useSettingsStore } from "@/store/settingsStore";
 import { useQueueStore } from "@/store/queueStore";
 import { cancelDownload } from "@/lib/mediaStore";
 import { fs } from "@/lib/fontScale";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 
 /* ─── Icons ─────────────────────────────────────────── */
 function IconNote({ active }: { active: boolean }) {
@@ -57,7 +57,7 @@ function IconMic({ active }: { active: boolean }) {
     </svg>
   );
 }
-function IconBook({ active }: { active: boolean }) {
+function IconHome({ active }: { active: boolean }) {
   const c = active ? "var(--primary-700)" : "var(--ink-3)";
   return (
     <svg
@@ -70,15 +70,13 @@ function IconBook({ active }: { active: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path
-        d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
-        fill={active ? c : "none"}
-      />
+      <path d="m3 10 9-7 9 7" />
+      <path d="M5 9v12h14V9" />
+      <path d="M9 21v-8h6v8" />
     </svg>
   );
 }
-function IconPerson({ active }: { active: boolean }) {
+function IconMenu({ active }: { active: boolean }) {
   const c = active ? "var(--primary-700)" : "var(--ink-3)";
   return (
     <svg
@@ -91,8 +89,7 @@ function IconPerson({ active }: { active: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <circle cx="12" cy="8" r="4" fill={active ? c : "none"} />
-      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+      <path d="M4 6h16M4 12h16M4 18h16" />
     </svg>
   );
 }
@@ -123,11 +120,11 @@ function IconMemorize({ active }: { active: boolean }) {
 }
 
 const navItems = [
-  { to: "/", label: "찬송", Icon: IconNote },
-  { to: "/sermon", label: "설교", Icon: IconMic, beta: true },
+  { to: "/", label: "홈", Icon: IconHome },
+  { to: "/hymn", label: "찬송", Icon: IconNote },
+  { to: "/sermon", label: "설교", Icon: IconMic },
   { to: "/memorize", label: "양식", Icon: IconMemorize },
-  { to: "/catechism", label: "교리서", Icon: IconBook },
-  { to: "/my", label: "MY", Icon: IconPerson },
+  { to: "/menu", label: "메뉴", Icon: IconMenu },
 ];
 
 /* ─── Logo ───────────────────────────────────────────── */
@@ -178,6 +175,22 @@ export default function Layout() {
   const fontScale = useSettingsStore((s) => s.fontScale);
   const queueIds = useQueueStore((s) => s.ids);
   const location = useLocation();
+  const navType = useNavigationType();
+  // 실제 스크롤러는 window. 앞으로 가는 이동(PUSH/REPLACE)은 pathname이 바뀔 때 맨 위로,
+  // 뒤로가기(POP)는 브라우저 복원에 맡긴다.
+  const prevPathRef = useRef(location.pathname);
+  useLayoutEffect(() => {
+    const prev = prevPathRef.current;
+    prevPathRef.current = location.pathname;
+    if (navType === "POP") return;
+    // 예외: 양식 탭 내부 탭 전환(/memorize/* ↔ /memorize/*)은 스크롤 유지.
+    // 다른 화면에서 /memorize로 들어올 때는 그대로 맨 위로.
+    if (prev.startsWith("/memorize") && location.pathname.startsWith("/memorize")) return;
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
   const isHymnPlayerPage =
     location.pathname.startsWith("/player/") ||
     location.pathname.startsWith("/hymn/player/");
@@ -254,25 +267,29 @@ export default function Layout() {
 
   const isActive = (to: string) => {
     const p = location.pathname;
-    if (to === "/")
+    if (to === "/") return p === "/";
+    if (to === "/hymn")
       return (
-        p === "/" ||
+        p.startsWith("/hymn") ||
         p.startsWith("/playlist/") ||
-        p.startsWith("/player/") ||
-        p.startsWith("/hymn/player/")
+        p.startsWith("/player/")
       );
-    if (to === "/my")
+    if (to === "/menu")
       return (
+        p === "/menu" ||
+        p.startsWith("/catechism") ||
+        p.startsWith("/news") ||
         p.startsWith("/my") ||
         p === "/recent" ||
         p === "/settings" ||
-        p === "/search"
+        p === "/search" ||
+        p === "/privacy"
       );
     return p.startsWith(to);
   };
 
-  // 재생목록 speed-dial FAB는 찬양(홈) 탭에서만. 설교 탭에는 표시하지 않는다.
-  const isHymnTab = isActive("/");
+  // 재생목록 speed-dial FAB와 내 재생목록 시트는 찬송 탭에서만 표시한다.
+  const isHymnTab = isActive("/hymn");
   const [fabOpen, setFabOpen] = useState(false);
   const [myPlaylistsOpen, setMyPlaylistsOpen] = useState(false);
 
@@ -320,7 +337,8 @@ export default function Layout() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                {...(item.to === "/my" ? { "data-tour": "my-tab" } : {})}
+                end={item.to === "/"}
+                {...(item.to === "/menu" ? { "data-tour": "menu-tab" } : {})}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] transition-colors text-sm font-medium"
                 style={{
                   background: active ? "var(--primary-50)" : "transparent",
@@ -329,18 +347,6 @@ export default function Layout() {
               >
                 <item.Icon active={active} />
                 <span>{item.label}</span>
-                {item.beta && (
-                  <span
-                    className="hidden lg:inline ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                    style={{
-                      background: "#FEF3C7",
-                      color: "#D97706",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    beta
-                  </span>
-                )}
               </NavLink>
             );
           })}
@@ -668,24 +674,12 @@ export default function Layout() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === "/"}
                 className="flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-2"
-                {...(item.to === "/my" ? { "data-tour": "my-tab" } : {})}
+                {...(item.to === "/menu" ? { "data-tour": "menu-tab" } : {})}
               >
                 <div className="relative">
                   <item.Icon active={active} />
-                  {item.beta && (
-                    <span
-                      className="absolute -top-1.5 -right-4 text-[8px] font-bold px-1 rounded-full"
-                      style={{
-                        background: "#FEF3C7",
-                        color: "#D97706",
-                        lineHeight: 1.4,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      beta
-                    </span>
-                  )}
                 </div>
                 <span
                   className="font-medium"

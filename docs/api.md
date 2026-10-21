@@ -165,6 +165,49 @@ clearSelahMenu()
 
 현재 메뉴 경로를 세션 스토리지에 임시 저장하는 유틸.
 
+## hymnPlaylists.ts — 찬송 플레이리스트 조회·재생 훅
+
+`HymnPage`와 홈 `HomeHymnTile`이 공유한다 (같은 queryKey → 같은 React Query 캐시).
+
+```ts
+useGridLimit(): number                                   // 화면 폭별 4/6/8 (resize 추적)
+usePlaylists(limit, excludeTemp)                         // GET /playlists, queryKey ['playlists', limit, excludeTemp]
+useRecentPlaylist(limit, excludeTemp)                    // GET /playlists/recent, queryKey ['playlists-recent', limit, excludeTemp]
+usePlayHymn(): (v: HymnVideo, playlist?: HymnPlaylist) => void
+type HymnVideo, HymnPlaylist
+```
+
+- 두 조회 훅은 localStorage(`home-playlists-cache-v2-{our-church|all}`, `home-recent-playlist-cache-v2-{our-church|all}`)에 마지막 응답을 저장해 `initialData`로 쓰고, 오프라인/요청 실패 시 그 값으로 fallback한다.
+- `usePlayHymn`: 라이브 → YouTube 새 탭 / `setSelahMenu('/hymn')` / 이미 재생 중이면 `/player/:id` 이동만 / `playlist`를 넘기면 재생 가능 항목으로 큐 교체(`id === 'recent'`면 보이는 영상만) 후 `playVideo(autoPlay: autoPlayOnDetail)` → `/player/:id`. `playlist` 생략(검색 결과)은 큐를 건드리지 않는다.
+
+## currentPrayer.ts — 지금의 기도
+
+일상 기도문(`daily`)에서 현재 시각·직업에 맞는 **한 단락만** 고른다. 기도문 전체를 보여주지 않는다.
+
+```ts
+type PrayerSlot = { title: string; body: string; section: number }  // section = 일상기도 번호(1~5), 홈 링크가 ?open=<section>으로 사용
+selectCurrentPrayer(content: string, now: Date, occupation: Occupation | null): PrayerSlot | null  // 순수 함수
+useCurrentPrayer(): { slot: PrayerSlot | null; isLoading: boolean }
+```
+
+- 훅은 `getCurrentPrayers('daily')`, queryKey `['prayers','current','daily']`(PrayerContent·홈 `HomeNowPrayer`와 같은 캐시)를 쓰고, 같은 정렬(startDate desc → endDate desc → itemOrder)의 첫 항목을 고른다. 60초 간격 + 탭 복귀(`visibilitychange`) 시 재평가하고 `occupation` 변경에 반응한다.
+- 파싱: `^\d+\.\s+제목` 줄이 섹션, 줄 전체가 괄호인 줄(`(식사후)` 등)이 하위 라벨. 섹션은 제목 키워드(공백 무시) 우선, 없으면 번호로 찾고, 라벨도 공백 무시로 비교한다.
+- 출력: `title` = 번호·괄호 제거한 섹션 제목, `body` = 선택 단락에서 괄호 구간을 정규식(`/\s*[(（][^()（）]*[)）]/g`, 중첩은 반복)으로 모두 지운 뒤 줄 trim·빈 줄 연속 축약.
+- 폴백: 하위 라벨을 못 찾으면 섹션 전체, 섹션을 못 찾으면 `null`(호출부가 숨김).
+
+시간 규칙 (기기 로컬 시각, 분 단위):
+
+| 구간 | 섹션 / 하위 |
+|------|-------------|
+| 일 00:00–16:59 | 5 주일을 위한 기도 / 주일을 시작하는 기도 |
+| 일 17:00 – 월 03:59 | 5 주일을 위한 기도 / 주일을 마치는 기도 (17:00 정각부터 마치는 기도) |
+| 그 외 04:00–07:00 | 1 하루를 시작하는 기도 |
+| 07:01–12:00, 14:01–19:00 | 3 일과를 시작하는 기도 / 직업(미설정=직장인) |
+| 12:01–14:00 | 2 식사 기도 / 간단한 기도만 |
+| 19:01–03:59 | 4 하루를 마치는 기도 (토요일 밤 포함) |
+
+검증: `node scripts/verify-current-prayer.mjs` (로컬 백엔드 `GET /prayers/current?category=daily` 실데이터 + vite `ssrLoadModule`로 TS 로드, 경계 시각 × 직업).
+
 ## 주의
 
 - `VITE_API_BASE_URL` 미설정 시 두 클라이언트 모두 동일한 AWS 엔드포인트 사용

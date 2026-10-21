@@ -14,11 +14,11 @@ interface StepDef {
 
 const STEPS: StepDef[] = [
   {
-    selector: '[data-tour="my-tab"]',
-    title: 'MY 탭 열기',
-    desc: '화면 아래 MY를 탭하세요. 설정 메뉴로 이동합니다.',
-    nextRoute: '/my',
-    autoAdvanceOn: '/my',
+    selector: '[data-tour="menu-tab"]',
+    title: '메뉴 탭 열기',
+    desc: '화면 아래 메뉴를 탭하세요. 설정으로 갈 수 있습니다.',
+    nextRoute: '/menu',
+    autoAdvanceOn: '/menu',
     pad: 14,
   },
   {

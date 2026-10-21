@@ -35,7 +35,7 @@ AI 개발 시 전체 스캔 없이 이 파일로 탐색 시작.
 **API**: `src/lib/api.ts` (공개), `src/lib/adminApi.ts` (관리자 JWT)
 
 **localStorage 키 목록**:
-- `selah-settings` — 테마, 음질, 재생 모드 등
+- `selah-settings` — 테마, 음질, 재생 모드, 직업(지금의 기도) 등
 - `selah-queue` — 현재 재생 큐
 - `selah-playlists` — 사용자 재생목록
 - `selah-durations` — 영상별 duration 캐시

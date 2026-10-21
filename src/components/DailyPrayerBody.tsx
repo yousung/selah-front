@@ -1,5 +1,6 @@
 import { fs } from '@/lib/fontScale'
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 const bodyStyle = {
   margin: `${fs(12)} 0 0`, fontFamily: 'var(--font-serif)', fontSize: fs(15),
@@ -7,12 +8,19 @@ const bodyStyle = {
   wordBreak: 'keep-all' as const, overflowWrap: 'anywhere' as const,
 }
 
-export function PrayerSection({ title, body, headingLevel = 3 }: { title: string; body: string; headingLevel?: 2 | 3 }) {
-  const [open, setOpen] = useState(false)
+export function PrayerSection({ title, body, headingLevel = 3, defaultOpen = false }: { title: string; body: string; headingLevel?: 2 | 3; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
   const id = useId()
+  const ref = useRef<HTMLElement>(null)
+  // 최초 마운트에만: Layout의 PUSH 스크롤 리셋(useLayoutEffect) 이후 rAF로 해당 섹션을 화면에 맞춘다
+  useEffect(() => {
+    if (!defaultOpen) return
+    const raf = requestAnimationFrame(() => ref.current?.scrollIntoView({ block: 'start' }))
+    return () => cancelAnimationFrame(raf)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const Heading = headingLevel === 2 ? 'h2' : 'h3'
   return (
-    <section className="daily-prayer-section" data-open={open}>
+    <section ref={ref} className="daily-prayer-section" data-open={open} style={{ scrollMarginTop: 80 }}>
       <Heading className="daily-prayer-heading">
         <button className="daily-prayer-trigger" type="button" id={`${id}-trigger`}
           style={headingLevel === 2 ? { fontSize: fs(24), lineHeight: 1.5, fontFamily: 'var(--font-serif)' } : undefined}
@@ -33,10 +41,13 @@ export function PrayerSection({ title, body, headingLevel = 3 }: { title: string
 }
 
 export function DailyPrayerBody({ content }: { content: string }) {
+  const [params] = useSearchParams()
+  const openSection = Number(params.get('open')) || 0
   const normalized = content.replace(/\r\n?/g, '\n')
   // Only split standalone numbered headings followed by a blank line.
   const headings = [...normalized.matchAll(/^(\d+)\. [^\n]+\n(?=\s*\n)/gm)]
   const sections = headings.map((match, index) => ({
+    num: Number(match[1]),
     title: match[0].trim(),
     body: normalized.slice(match.index! + match[0].length, headings[index + 1]?.index).trim(),
   }))
@@ -48,7 +59,7 @@ export function DailyPrayerBody({ content }: { content: string }) {
   return (
     <div style={{ marginTop: fs(16) }}>
       {introduction && <p style={bodyStyle}>{introduction}</p>}
-      {sections.map(section => <PrayerSection key={section.title} {...section} />)}
+      {sections.map(({ num, ...section }) => <PrayerSection key={section.title} {...section} defaultOpen={num === openSection} />)}
     </div>
   )
 }

@@ -91,12 +91,15 @@ VITE_BASE_PATH=/
 
 | Path | 화면 |
 | --- | --- |
-| `/` | 홈 |
+| `/` | 홈 (준비 중) |
+| `/hymn` | 찬송 피드 |
 | `/playlist/:id` | 플레이리스트 상세 |
 | `/player/:id` | 플레이어 |
 | `/favorites` | 즐겨찾기 |
 | `/search` | 검색 |
-| `/my` | 설정 |
+| `/menu` | 메뉴 (설정·교리서·우리들 소식·내 재생목록 등) |
+| `/news` | 우리들 소식 (준비 중) |
+| `/my` | `/menu`로 redirect |
 | `/admin` | 관리자 |
 
 라우팅은 `HashRouter`를 사용하므로 배포 환경에서 별도 서버 rewrite 설정 없이 정적 호스팅할 수 있습니다.

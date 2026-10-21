@@ -4,10 +4,17 @@
 
 | 파일 | 역할 |
 |------|------|
-| `Layout.tsx` | 사용자 앱 공통 래퍼. BottomNav(5탭: 찬송/설교/양식/교리서/MY) + MiniPlayer 포함. `.user-app`에 `--font-scale`과 하단 고정 UI 높이 변수를 제공 |
+| `Layout.tsx` | 사용자 앱 공통 래퍼. BottomNav(5탭: 홈/찬송/설교/양식/메뉴) + MiniPlayer 포함. `.user-app`에 `--font-scale`과 하단 고정 UI 높이 변수를 제공 |
 | `MiniPlayer.tsx` | 하단 고정 미니 플레이어. AudioContext 구독. `currentVideo.playerPath` 우선 navigate (설교 플레이어 대응). 글자 확대 시 자연 높이로 늘어나며 `Layout`이 실제 높이를 측정 |
 | `QueuePanel.tsx` | 현재 재생 큐 표시 패널 (queueStore 구독). 사용자 앱 글자 크기 설정을 상속 |
+| `home/HomeTodayWord.tsx` | 홈 "오늘의 암송" — 이번 주 암송 구절(첫 `memory_verse`)을 조용한 면 블록(`.hb`)에. 라벨 → 외울 말씀(세리프 14, 지금의 기도 본문과 같은 스타일, 줄 수 제한 없음) → 본문 위치(세리프 12, 우측 정렬). "암송하기 →" `/memorize/weekly`. queryKey `['memory-verses','current']`를 MemorizePage와 공유 |
+| `home/HomeNowPrayer.tsx` | 홈 "지금의 기도" — `useCurrentPrayer()`(`lib/currentPrayer.ts`)의 현재 시간대 단락, `.hb` 블록 안 세리프 제목 + 본문 미리보기(`.hp-body` 폰 3줄/나란히 4줄). "기도문 이어 읽기 →" `/memorize/prayer/daily` |
+| `home/HomeTypography.tsx` | 홈 섹션 공용 `HomeLabel`(작은 자간 라벨 h2, 장식 없음) · `HomeMoreLink`(44px 텍스트 링크 버튼) |
+| `home/HomeSermonTiles.tsx` | 홈 "이번 주 설교 N편" — 공통 섹션 헤더 + 가상 카테고리 `recent-sermon` 재생 가능 설교 최대 3편 텍스트 타일(썸네일 없음: 시리즈·날짜 / 세리프 제목 / 성경 본문(제목에 없으면 설명란 첫 줄에서) / 설명란 발췌 3줄(URL·해시태그·줄머리 타임스탬프 제거, 제목 반복 단락 제외, 본론 Ⅰ. 전 서론만, 비면 생략) / 바닥 "말씀 듣기 →"(HomeMoreLink 모양 span — 타일이 button이라 중첩 회피), `.st-grid` 폰 1열 · 768+ 편수만큼 열, 같은 높이). N>3이면 "설교 전체 →" `/sermon`. 탭 시 큐=재생 가능 전부, 탭한 인덱스부터. queryKey `['sermon-category-videos','recent-sermon']`를 SermonPage와 공유 |
+| `home/HomeHymnTile.tsx` | 홈 찬송 타일 — `GET /videos?tag=AR&sort=newest&limit=20`(page 생략 → createdAt DESC, queryKey `['home-hymns','AR-newest-20',onlyOurChurch]`) 중 재생 가능 영상 랜덤 4곡(마운트당 1회 셔플) 모자이크(폰 2열, 768+ 4열)를 `.hb` 블록으로 + "더보기 →" `/hymn`. 재생은 `usePlayHymn`(큐 = 보이는 4곡). 썸네일 `Thumb startQuality="maxresdefault"` |
+| `home/homeBento.ts` | 홈 레이아웃 CSS 문자열 `HOME_CSS`(HomePage가 `<style>` 주입) + `clamp()` 헬퍼. 공통 블록 면 `.hb`(`--surface-1`, radius 16, 그림자·그라데이션 없음). 컬럼 수 = 화면 폭 × `.home[data-fs]`(글자 크기) |
 | `VideoCard.tsx` | 영상 카드 UI (썸네일, 제목, 태그, 시간) |
+| `Thumb.tsx` | ytimg 썸네일: 설정 기반 시작 화질 + 404/120px placeholder 다운그레이드 체인(`lib/thumb.ts` `THUMB_ORDER`). 선택 prop `startQuality`로 시작 등급 강제(홈=maxres). maxres/sd가 120px 대체 이미지면 실패 대신 다음 등급 |
 | `TagBadge.tsx` | 태그 표시 뱃지 |
 | `PlaylistBottomSheet.tsx` | 영상을 재생목록에 추가하는 바텀시트 (playlistStore) |
 | `PwaInstallPrompt.tsx` | PWA 설치 유도 배너 |
@@ -78,4 +85,4 @@
 
 `src/components/PrayerTopicsBody.tsx`: 기도제목의 연속 번호를 목록으로 구분하고 하위 줄을 들여쓴다. 현재·이전 기도제목에 동일하게 적용하며 번호가 비연속이거나 서문이 있는 등 구조가 불명확하면 원문을 그대로 표시한다. DB 원문과 날짜는 변경하지 않는다.
 
-`src/components/DailyPrayerBody.tsx`: 일상기도의 연속 번호 제목과 빈 줄을 기준으로 본문을 나누어 기본 접힘 아코디언을 표시한다. 여러 항목을 동시에 열 수 있고, 구조가 맞지 않는 원문은 일반 본문으로 보존한다. `PrayerContent`의 현재·이전 상세에서 사용한다. 버튼 ARIA와 CSS grid 높이 전환을 사용하며, 동작 줄이기 설정을 지원한다.
+`src/components/DailyPrayerBody.tsx`: 일상기도의 연속 번호 제목과 빈 줄을 기준으로 본문을 나누어 기본 접힘 아코디언을 표시한다. 여러 항목을 동시에 열 수 있고, 구조가 맞지 않는 원문은 일반 본문으로 보존한다. `PrayerContent`의 현재·이전 상세에서 사용한다. 버튼 ARIA와 CSS grid 높이 전환을 사용하며, 동작 줄이기 설정을 지원한다. URL `?open=<섹션번호>`가 있으면 해당 `PrayerSection`을 `defaultOpen`(최초 마운트 한정)으로 펼치고 `scrollIntoView`(`scroll-margin-top` 80px)한다.

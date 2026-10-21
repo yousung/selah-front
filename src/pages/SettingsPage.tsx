@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useSettingsStore } from '@/store/settingsStore'
-import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale } from '@/store/settingsStore'
+import { useSettingsStore, OCCUPATION_LABELS } from '@/store/settingsStore'
+import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale, Occupation } from '@/store/settingsStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
@@ -20,6 +20,8 @@ const FONT_SCALE_OPTIONS: { value: FontScale; label: string }[] = [
   { value: 1.5, label: '크게' },
   { value: 2, label: '매우크게' },
 ]
+
+const OCCUPATION_OPTIONS = (Object.keys(OCCUPATION_LABELS) as Occupation[]).map((value) => ({ value, label: OCCUPATION_LABELS[value] }))
 
 const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings', 'selah-onboarding-v1'])
 const CACHE_BUST_PARAM = 'selah-cache-bust'
@@ -189,10 +191,10 @@ export default function SettingsPage() {
   const {
     theme, quality, mediaMode, playbackRate,
     showCatechismHeadings, showCatechismToc,
-    offlineStorageMode, fontScale, onlyOurChurch,
+    offlineStorageMode, fontScale, onlyOurChurch, occupation,
     setTheme, setQuality, setMediaMode,
     setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
-    setOfflineStorageMode, setFontScale, setOnlyOurChurch,
+    setOfflineStorageMode, setFontScale, setOnlyOurChurch, setOccupation,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
   const [clearing, setClearing] = useState(false)
@@ -352,6 +354,11 @@ export default function SettingsPage() {
             checked={onlyOurChurch}
             onChange={() => setOnlyOurChurch(!onlyOurChurch)}
           />
+
+          {/* 미설정(null)은 직장인으로 취급 — lib/currentPrayer.ts */}
+          <Field title="직업" description="홈의 '지금의 기도'에 직업에 맞는 기도를 보여줘요.">
+            <Segmented<Occupation> value={occupation ?? 'worker'} onChange={setOccupation} options={OCCUPATION_OPTIONS} />
+          </Field>
         </SectionBox>
 
         {/* ════════════ 저장 · 데이터 ════════════ */}

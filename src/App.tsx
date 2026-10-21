@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { reconcileMediaStore, requestPersistentStorage } from '@/lib/mediaStore'
 import HomePage from '@/pages/HomePage'
+import HymnPage from '@/pages/HymnPage'
 import PlaylistPage from '@/pages/PlaylistPage'
 import PlayerPage from '@/pages/PlayerPage'
 import MyPlaylistsPage from '@/pages/MyPlaylistsPage'
@@ -23,7 +24,8 @@ import WeeklyFormArchivePage from '@/pages/WeeklyFormArchivePage'
 import WeeklyFormDetailPage from '@/pages/WeeklyFormDetailPage'
 import CatechismPage from '@/pages/CatechismPage'
 import CatechismDetailPage from '@/pages/CatechismDetailPage'
-import MyPage from '@/pages/MyPage'
+import MenuPage from '@/pages/MenuPage'
+import NewsPage from '@/pages/NewsPage'
 import OnboardingGuide from '@/components/OnboardingGuide'
 import AdminLoginPage from '@/pages/admin/AdminLoginPage'
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
@@ -84,6 +86,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<HomePage />} />
+            <Route path="hymn" element={<HymnPage />} />
             <Route path="playlist/:id" element={<PlaylistPage />} />
             <Route path="player/:id" element={<PlayerPage />} />
             <Route path="hymn/player/:id" element={<PlayerPage />} />
@@ -107,7 +110,9 @@ export default function App() {
             <Route path="memorize/archive/:startDate" element={<WeeklyFormDetailPage />} />
             <Route path="catechism" element={<CatechismPage />} />
             <Route path="catechism/:code" element={<CatechismDetailPage />} />
-            <Route path="my" element={<MyPage />} />
+            <Route path="menu" element={<MenuPage />} />
+            <Route path="news" element={<NewsPage />} />
+            <Route path="my" element={<Navigate to="/menu" replace />} />
           </Route>
 
           {/* Admin Routes */}
