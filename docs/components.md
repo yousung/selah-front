@@ -16,6 +16,7 @@
 | `VideoCard.tsx` | 영상 카드 UI (썸네일, 제목, 태그, 시간) |
 | `FestivalYearChips.tsx` | 시편찬양제 연도 칩(pill, 활성 `--primary-700`). 연도 2개 미만이면 미렌더. HymnPage 시편찬양제 섹션·`FestivalPage` 헤더 공유 |
 | `Thumb.tsx` | ytimg 썸네일: 설정 기반 시작 화질 + 404/120px placeholder 다운그레이드 체인(`lib/thumb.ts` `THUMB_ORDER`). 선택 prop `startQuality`로 시작 등급 강제(홈=maxres). maxres/sd가 120px 대체 이미지면 실패 대신 다음 등급 |
+| `lib/useVideoFullscreen.ts` (훅) | 비디오 모드 `<video>` 전체화면 토글(표준/webkit API, iOS는 `webkitEnterFullscreen`). 엘리먼트 이동·리마운트 없음. Layout이 fixed `<video>` 우상단에 버튼을 띄워 사용(`<main>` 안에 두면 z 20 영상에 가려짐), 전체화면 중엔 네이티브 `controls` on, 노출 조건은 `useAudio().isVideoPlayback()` |
 | `TagBadge.tsx` | 태그 표시 뱃지 |
 | `PlaylistBottomSheet.tsx` | 영상을 재생목록에 추가하는 바텀시트 (playlistStore) |
 | `PwaInstallPrompt.tsx` | PWA 설치 유도 배너 |

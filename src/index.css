@@ -337,3 +337,7 @@
   .daily-prayer-trigger, .daily-prayer-chevron, .daily-prayer-panel { transition: none; }
 }
 @keyframes thumbShimmer { 0% { background-position: 100% 0 } 100% { background-position: 0 0 } }
+
+/* 비디오 모드 전체화면: Layout의 fixed 인라인 스타일(cover, 둥근 모서리, 크기)을 덮어쓴다. */
+video:fullscreen { object-fit: contain !important; background: #000 !important; border-radius: 0 !important; width: 100% !important; height: 100% !important; pointer-events: auto !important; }
+video:-webkit-full-screen { object-fit: contain !important; background: #000 !important; border-radius: 0 !important; width: 100% !important; height: 100% !important; pointer-events: auto !important; }

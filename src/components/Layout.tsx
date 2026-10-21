@@ -8,6 +8,7 @@ import { useSettingsStore } from "@/store/settingsStore";
 import { useQueueStore } from "@/store/queueStore";
 import { cancelDownload } from "@/lib/mediaStore";
 import { fs } from "@/lib/fontScale";
+import { useVideoFullscreen } from "@/lib/useVideoFullscreen";
 import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 
 /* ─── Icons ─────────────────────────────────────────── */
@@ -170,7 +171,9 @@ export default function Layout() {
     onVideoDurationChange,
     onVideoEnded,
     onVideoError,
+    isVideoPlayback,
   } = useAudio();
+  const { isFullscreen, toggle: toggleFullscreen } = useVideoFullscreen(reactPlayerRef);
   const mediaMode = useSettingsStore((s) => s.mediaMode);
   const fontScale = useSettingsStore((s) => s.fontScale);
   const queueIds = useQueueStore((s) => s.ids);
@@ -425,6 +428,32 @@ export default function Layout() {
             onEnded={onVideoEnded}
             onError={onVideoError}
           />
+        )}
+
+        {/* 전체화면 버튼 — <main>(스태킹 컨텍스트) 안에 두면 위 fixed <video>(z 20)에 가려지므로 여기서 같은 rect 기준으로 띄운다 */}
+        {videoRect && isVideoPlayback() && (
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "전체화면 종료" : "전체화면"}
+            className="flex items-center justify-center rounded-full text-white"
+            style={{
+              position: "fixed",
+              // 우상단 — 하단은 찬양 가사 자막과 겹친다
+              left: videoRect.left + videoRect.width - 44,
+              top: videoRect.top + 8,
+              zIndex: 21,
+              width: 36,
+              height: 36,
+              background: "rgba(0,0,0,0.6)",
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {isFullscreen
+                ? <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+                : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
+            </svg>
+          </button>
         )}
 
         {/* ── Universal Floating MiniPlayer ── */}

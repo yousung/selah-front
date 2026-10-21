@@ -62,6 +62,8 @@ interface AudioContextValue {
    * 설교 seek UI의 활성 조건은 이 값을 써야 `isSeekBlocked()`의 실동작과 어긋나지 않는다.
    */
   streamSeekable: boolean
+  /** 실제 재생이 `<video>`(DASH)에서 일어나는가. 비디오 모드 + DASH 폴백 아님. 전체화면 버튼 노출 조건. */
+  isVideoPlayback: () => boolean
   reactPlayerRef: RefObject<HTMLVideoElement | null>
   videoSlotRef: RefObject<HTMLDivElement | null>
   // resume: "이 트랙을 그 위치에서 이어서 연다"는 뜻 = **seekTo를 존중하라는 표시**.
@@ -1513,13 +1515,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // AudioCtx 소비자(13개 컴포넌트)가 초당 수회 리렌더되지 않는다. position은 별도 PositionCtx로 공급.
   const value = useMemo<AudioContextValue>(() => ({
     currentVideo, isPlaying, isLoading, isEnded, duration: effectiveDuration, autoNextProgress, error, volume,
-    streamSeekable, reactPlayerRef, videoSlotRef,
+    streamSeekable, isVideoPlayback, reactPlayerRef, videoSlotRef,
     playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, setVolume: handleSetVolume,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
     onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
   }), [
     currentVideo, isPlaying, isLoading, isEnded, effectiveDuration, autoNextProgress, error, volume,
-    streamSeekable, reactPlayerRef, videoSlotRef,
+    streamSeekable, isVideoPlayback, reactPlayerRef, videoSlotRef,
     playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, handleSetVolume,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
     onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
