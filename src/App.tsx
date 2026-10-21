@@ -9,6 +9,7 @@ import { reconcileMediaStore, requestPersistentStorage } from '@/lib/mediaStore'
 import HomePage from '@/pages/HomePage'
 import HymnPage from '@/pages/HymnPage'
 import PlaylistPage from '@/pages/PlaylistPage'
+import FestivalPage from '@/pages/FestivalPage'
 import PlayerPage from '@/pages/PlayerPage'
 import MyPlaylistsPage from '@/pages/MyPlaylistsPage'
 import MyPlaylistDetailPage from '@/pages/MyPlaylistDetailPage'
@@ -88,6 +89,7 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="hymn" element={<HymnPage />} />
             <Route path="playlist/:id" element={<PlaylistPage />} />
+            <Route path="festival/:year" element={<FestivalPage />} />
             <Route path="player/:id" element={<PlayerPage />} />
             <Route path="hymn/player/:id" element={<PlayerPage />} />
             <Route path="sermon/player/:id" element={<PlayerPage />} />

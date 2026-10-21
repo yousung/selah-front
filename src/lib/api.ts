@@ -163,3 +163,48 @@ export async function getPreviousPrayers(category: PrayerCategory): Promise<Pray
   const { data } = await api.get<Prayer[]>('/prayers/archive', { params: { category } })
   return data
 }
+
+export interface FestivalSummary {
+  id: string
+  year: number
+  title: string
+  videoCount: number
+}
+
+export interface FestivalVideo {
+  id: string
+  youtubeId?: string | null
+  title: string
+  thumbnail: string | null
+  tag: string | null
+  type?: string | null
+  chapter?: number | null
+  hymnTitle?: string | null
+  publishedAt?: string | null
+  createdAt?: string | null
+  duration?: number | null
+  isSecret?: boolean | null
+  isTemp?: boolean | null
+  isLive?: boolean | null
+  festivalTeam: string | null
+  festivalOrder: number | null
+}
+
+export interface FestivalDetail {
+  id: string
+  year: number
+  title: string
+  videos: FestivalVideo[]
+}
+
+/** 시편 찬송 모임 연도 목록 (year DESC) */
+export async function getFestivals(): Promise<FestivalSummary[]> {
+  const { data } = await api.get<FestivalSummary[]>('/festivals')
+  return data
+}
+
+/** 연도별 시편 찬송 모임 — videos는 festivalOrder 순 */
+export async function getFestival(year: number): Promise<FestivalDetail> {
+  const { data } = await api.get<FestivalDetail>(`/festivals/${year}`)
+  return data
+}

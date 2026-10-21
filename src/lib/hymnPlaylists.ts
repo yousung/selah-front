@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { api, getFestival, getFestivals, type FestivalDetail } from '@/lib/api'
 import { setSelahMenu } from '@/lib/selahMenu'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
@@ -172,5 +172,37 @@ export function usePlayHymn() {
       { autoPlay: autoPlayOnDetail },
     )
     navigate(`/player/${v.id}`)
+  }
+}
+
+export function useFestivals() {
+  return useQuery({ queryKey: ['festivals'], queryFn: getFestivals })
+}
+
+export function useFestival(year: number | undefined) {
+  return useQuery({
+    queryKey: ['festivals', year],
+    queryFn: () => getFestival(year!),
+    enabled: year != null,
+  })
+}
+
+/**
+ * 시편 찬송 모임 연도 → usePlayHymn용 임시 플레이리스트. 큐는 그해 영상만(응답 순서 그대로).
+ * 카드에는 팀명(festivalTeam)을 메인 라벨로, "{year} 시편 찬송 모임"을 서브로 보이도록 hymnTitle/title을 바꿔 넣는다.
+ */
+export function toFestivalPlaylist(festival: FestivalDetail): HymnPlaylist {
+  // 출품 영상은 시편찬송 장이 없다(DB 기본값 0) — "0장" 배지가 안 뜨게 chapter를 비운다
+  const queue = festival.videos.map((v) => ({ ...v, chapter: null }))
+  const videos = queue.map((v) => ({
+    ...v,
+    hymnTitle: v.festivalTeam || v.title,
+    title: `${festival.year} 시편 찬송 모임`,
+  }))
+  return {
+    id: `festival-${festival.year}`,
+    title: `${festival.year} 시편 찬송 모임`,
+    videos,
+    playlists: queue,
   }
 }

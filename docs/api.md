@@ -43,6 +43,15 @@ export const adminApi = axios.create({
 | `GET /audios/:id/download?quality=high` | `{ url, bitrate?, duration?, mimeType? }` | `PlayerPage.handleDownload` → `downloadMedia()` |
 | `GET /videos/:id/manifest` | `{ manifest, duration, mimeType }` | `AudioContext` → `dashPlayer.loadDash()` |
 
+## 시편찬양제 엔드포인트 소비
+
+| 엔드포인트 | 응답 | 소비처 |
+|-----------|------|--------|
+| `GET /festivals` (`getFestivals`) | `FestivalSummary[]` (year DESC) | `useFestivals` → HymnPage 시편찬양제 섹션, `FestivalPage` 연도 칩 |
+| `GET /festivals/:year` (`getFestival`) | `FestivalDetail` (`videos[]`에 `festivalTeam`/`festivalOrder`, 미존재 연도 404) | `useFestival` → HymnPage 섹션, `FestivalPage` |
+
+시편찬양제 영상은 `GET /videos` 기본 응답에서 제외되므로 이 엔드포인트로만 노출된다.
+
 ## 주간 양식·기도문 엔드포인트 소비
 
 | 엔드포인트 | 응답 | 소비처 |
@@ -174,11 +183,15 @@ useGridLimit(): number                                   // 화면 폭별 4/6/8 
 usePlaylists(limit, excludeTemp)                         // GET /playlists, queryKey ['playlists', limit, excludeTemp]
 useRecentPlaylist(limit, excludeTemp)                    // GET /playlists/recent, queryKey ['playlists-recent', limit, excludeTemp]
 usePlayHymn(): (v: HymnVideo, playlist?: HymnPlaylist) => void
+useFestivals()                                           // GET /festivals, queryKey ['festivals']
+useFestival(year?)                                       // GET /festivals/:year, queryKey ['festivals', year]
+toFestivalPlaylist(festival): HymnPlaylist               // id 'festival-{year}', 큐 = 그해 전체(응답 순서)
 type HymnVideo, HymnPlaylist
 ```
 
 - 두 조회 훅은 localStorage(`home-playlists-cache-v2-{our-church|all}`, `home-recent-playlist-cache-v2-{our-church|all}`)에 마지막 응답을 저장해 `initialData`로 쓰고, 오프라인/요청 실패 시 그 값으로 fallback한다.
 - `usePlayHymn`: 라이브 → YouTube 새 탭 / `setSelahMenu('/hymn')` / 이미 재생 중이면 `/player/:id` 이동만 / `playlist`를 넘기면 재생 가능 항목으로 큐 교체(`id === 'recent'`면 보이는 영상만) 후 `playVideo(autoPlay: autoPlayOnDetail)` → `/player/:id`. `playlist` 생략(검색 결과)은 큐를 건드리지 않는다.
+- `toFestivalPlaylist`: 카드 표시용 `videos`는 `hymnTitle = festivalTeam`, `title = "{year} 시편찬양제"`로 바꾸고, 큐용 `playlists`는 원본 영상(원 제목) 그대로.
 
 ## currentPrayer.ts — 지금의 기도
 

@@ -272,6 +272,7 @@ export default function Layout() {
       return (
         p.startsWith("/hymn") ||
         p.startsWith("/playlist/") ||
+        p.startsWith("/festival/") ||
         p.startsWith("/player/")
       );
     if (to === "/menu")

@@ -9,6 +9,7 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 | `/` | `HomePage` | 홈 — 머리말(SELAH·날짜·인사) 아래 섹션 4개(`src/pages/HomePage.tsx` 기준) 위→아래: `HomeTodayWord`(오늘의 암송=이번 주 암송 구절) · `HomeNowPrayer`(지금의 기도) — 카드 없는 타이포, 1024+·2x 미만에서 두 단 → `HomeSermonTiles`(이번 주 설교 타일) → `HomeHymnTile`(찬송 타일). 데이터 없는 섹션은 숨김. PWA `start_url` 착지점 |
 | `/hymn` | `HymnPage` | 찬송 피드 (구 `/` 홈 피드) |
 | `/playlist/:id` | `PlaylistPage` | 서버 플레이리스트 상세 |
+| `/festival/:year` | `FestivalPage` | 연도별 시편찬양제 팀 영상 그리드 + 연도 칩. 찬송 탭 하이라이트(`Layout` `isActive('/hymn')`) |
 | `/player/:id` | `PlayerPage` | 영상/오디오 플레이어 전체화면. 히스토리 없이 직접 진입 시 뒤로가기는 `/hymn`(찬송) / `/sermon/player/:id`는 `/sermon` |
 | `/my-playlists` | `MyPlaylistsPage` | 내 재생목록 목록 |
 | `/my-playlists/:id` | `MyPlaylistDetailPage` | 내 재생목록 상세 |

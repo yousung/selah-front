@@ -14,6 +14,7 @@
 | `home/HomeHymnTile.tsx` | 홈 찬송 타일 — `GET /videos?tag=AR&sort=newest&limit=20`(page 생략 → createdAt DESC, queryKey `['home-hymns','AR-newest-20',onlyOurChurch]`) 중 재생 가능 영상 랜덤 4곡(마운트당 1회 셔플) 모자이크(폰 2열, 768+ 4열)를 `.hb` 블록으로 + "더보기 →" `/hymn`. 재생은 `usePlayHymn`(큐 = 보이는 4곡). 썸네일 `Thumb startQuality="maxresdefault"` |
 | `home/homeBento.ts` | 홈 레이아웃 CSS 문자열 `HOME_CSS`(HomePage가 `<style>` 주입) + `clamp()` 헬퍼. 공통 블록 면 `.hb`(`--surface-1`, radius 16, 그림자·그라데이션 없음). 컬럼 수 = 화면 폭 × `.home[data-fs]`(글자 크기) |
 | `VideoCard.tsx` | 영상 카드 UI (썸네일, 제목, 태그, 시간) |
+| `FestivalYearChips.tsx` | 시편찬양제 연도 칩(pill, 활성 `--primary-700`). 연도 2개 미만이면 미렌더. HymnPage 시편찬양제 섹션·`FestivalPage` 헤더 공유 |
 | `Thumb.tsx` | ytimg 썸네일: 설정 기반 시작 화질 + 404/120px placeholder 다운그레이드 체인(`lib/thumb.ts` `THUMB_ORDER`). 선택 prop `startQuality`로 시작 등급 강제(홈=maxres). maxres/sd가 120px 대체 이미지면 실패 대신 다음 등급 |
 | `TagBadge.tsx` | 태그 표시 뱃지 |
 | `PlaylistBottomSheet.tsx` | 영상을 재생목록에 추가하는 바텀시트 (playlistStore) |

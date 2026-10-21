@@ -5,8 +5,12 @@ import { isSearchable } from '@/lib/searchable'
 import { api } from '@/lib/api'
 import { useSettingsStore } from '@/store/settingsStore'
 import VideoCard from '@/components/VideoCard'
+import FestivalYearChips from '@/components/FestivalYearChips'
 import {
   useGridLimit,
+  useFestivals,
+  useFestival,
+  toFestivalPlaylist,
   usePlaylists,
   useRecentPlaylist,
   usePlayHymn,
@@ -39,7 +43,7 @@ function hasVideoToday(playlists?: Playlist[]): boolean {
   )
 }
 
-function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: Playlist; subtitle?: string }) {
+function PlaylistSection({ playlist, subtitle }: { playlist: Playlist; subtitle?: string }) {
   const navigate = useNavigate()
   const playHymn = usePlayHymn()
 
@@ -49,15 +53,12 @@ function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: P
 
   if (!visibleVideos.length) return null
 
-  const today = new Date()
-  const subtitle = subtitleOverride ?? `${today.getMonth() + 1}월 ${today.getDate()}일 최근 찬양`
-
   return (
     <section className="mb-8 animate-fade-up">
       <div className="px-4 mb-3 flex items-start justify-between">
         <div>
           <h2 className="text-base font-semibold" style={{ color: 'var(--ink-0)', fontFamily: 'var(--font-serif)' }}>{playlist.title}</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{subtitle}</p>
+          {subtitle && <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{subtitle}</p>}
         </div>
         <button
           className="text-sm mt-0.5"
@@ -72,6 +73,47 @@ function PlaylistSection({ playlist, subtitle: subtitleOverride }: { playlist: P
           <VideoCard key={v.id} video={v} onClick={() => handlePlay(v)} layout="card" />
         ))}
       </div>
+    </section>
+  )
+}
+
+/** 시편 찬송 모임 — 최신 연도 기본, 연도 칩으로 전환. 그리드는 limit개만, 큐는 그해 전체. 목록이 비었거나 에러면 섹션 숨김 */
+function FestivalSection({ limit }: { limit: number }) {
+  const navigate = useNavigate()
+  const playHymn = usePlayHymn()
+  const { data: festivals } = useFestivals()
+  const [selectedYear, setSelectedYear] = useState<number>()
+  const year = selectedYear ?? festivals?.[0]?.year
+  const { data: festival } = useFestival(year)
+
+  if (!festivals?.length || year == null) return null
+  const playlist = festival ? toFestivalPlaylist(festival) : null
+
+  return (
+    <section className="mb-8 animate-fade-up">
+      <div className="px-4 mb-3 flex items-start justify-between">
+        <div>
+          <h2 className="text-base font-semibold" style={{ color: 'var(--ink-0)', fontFamily: 'var(--font-serif)' }}>시편 찬송 모임</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--ink-2)' }}>{year} 시편 찬송 모임 팀별 찬양</p>
+        </div>
+        <button
+          className="text-sm mt-0.5"
+          style={{ color: 'var(--ink-2)', flexShrink: 0 }}
+          onClick={() => navigate(`/festival/${year}`)}
+        >
+          더보기 &gt;
+        </button>
+      </div>
+      <div className="px-4 mb-3">
+        <FestivalYearChips festivals={festivals} year={year} onChange={setSelectedYear} />
+      </div>
+      {playlist && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-4">
+          {playlist.videos.slice(0, limit).map((v) => (
+            <VideoCard key={v.id} video={v} onClick={() => playHymn(v, playlist)} layout="card" />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
@@ -259,6 +301,7 @@ export default function HymnPage() {
                   <PlaylistSection playlist={recentPlaylist} subtitle="최근 7일 내 등록된 찬양" />
                 )}
                 {playlists.map((pl) => <PlaylistSection key={pl.id} playlist={pl} />)}
+                <FestivalSection limit={limit} />
               </>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 px-8 text-center">

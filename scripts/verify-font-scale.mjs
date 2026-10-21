@@ -19,6 +19,32 @@ const videos = Array.from({ length: 8 }, (_, i) => ({
   isLive: false,
 }))
 
+const festivals = [
+  { id: 'festival-2026', year: 2026, title: '2026 시편 찬송 모임', videoCount: 6 },
+  { id: 'festival-2025', year: 2025, title: '2025 시편 찬송 모임', videoCount: 5 },
+]
+
+const festivalTeams = ['남성팀', '여성팀', '청년부 연합 찬양팀 아주 긴 팀 이름도 줄바꿈 없이 잘려야 합니다', '어린이부', '장년부', '중고등부']
+
+function festivalDetail(year) {
+  return {
+    id: `festival-${year}`,
+    year,
+    title: `${year} 시편 찬송 모임`,
+    videos: festivalTeams.map((team, i) => ({
+      ...videos[i],
+      id: `festival-${year}-${i + 1}`,
+      title: `[시편찬양제-${year}] - ${team}`,
+      tag: 'AR',
+      type: 'MUSIC',
+      chapter: null,
+      hymnTitle: null,
+      festivalTeam: team,
+      festivalOrder: i + 1,
+    })),
+  }
+}
+
 const confessions = [{
   id: 'confession-1',
   code: 'wsc',
@@ -142,6 +168,15 @@ async function fulfillApi(route) {
   }
   if (path.endsWith('/api/playlists/playlist-1/videos')) {
     return route.fulfill({ json: { videos, total: videos.length, page: 1, limit: 100, hasMore: false, playlists: videos } })
+  }
+  if (path.endsWith('/api/festivals')) {
+    return route.fulfill({ json: festivals })
+  }
+  const festivalMatch = path.match(/\/api\/festivals\/(\d+)$/)
+  if (festivalMatch) {
+    const year = Number(festivalMatch[1])
+    if (!festivals.some((f) => f.year === year)) return route.fulfill({ status: 404, json: { message: 'Festival not found' } })
+    return route.fulfill({ json: festivalDetail(year) })
   }
   const previewMatch = path.match(/\/api\/videos\/([^/]+)\/preview$/)
   if (previewMatch) {
@@ -346,7 +381,18 @@ try {
       await checkPage(page, '/search?q=긴%20제목', `${width}px/${scale}x search`)
       await assert.equal(await page.getByText(/편 검색됨|총 \d+편/).first().isVisible(), true, `${width}px/${scale}x search fixture rendered`)
 
+      await checkPage(page, '/hymn', `${width}px/${scale}x hymn festival`)
+      await page.getByRole('heading', { name: '시편 찬송 모임', exact: true }).waitFor({ state: 'visible', timeout: 5000 })
+      await page.getByText('[AR] 남성팀').first().waitFor({ state: 'visible', timeout: 5000 })
+      await page.getByRole('button', { name: '2025', exact: true }).click()
+      await waitSettled(page)
+      await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x hymn festival 2025`)
+
       await checkPage(page, '/playlist/playlist-1', `${width}px/${scale}x playlist`)
+      await checkPage(page, '/festival/2026', `${width}px/${scale}x festival`)
+      await page.getByText('[AR] 남성팀').first().waitFor({ state: 'visible', timeout: 5000 })
+      await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x festival rendered`)
+      await assertVisibleButtonsReadable(page, `${width}px/${scale}x festival rendered`)
       await checkPage(page, '/sermon', `${width}px/${scale}x sermon`)
       await page.getByPlaceholder('시리즈 검색').fill('요한')
       await waitSettled(page)
