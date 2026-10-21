@@ -23,7 +23,7 @@ export const HOME_CSS = `
 .home-read>*{display:flex;flex-direction:column}
 @media (min-width:1024px){
   .home-read{gap:12px}
-  .home[data-fs="1"] .home-read,.home[data-fs="1.5"] .home-read{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
+  .home[data-fs="1"] .home-read,.home[data-fs="1.5"] .home-read{grid-template-columns:repeat(2,minmax(0,1fr))}
   .home-read>:only-child{grid-column:1/-1}
 }
 .hp-body{-webkit-line-clamp:3}
