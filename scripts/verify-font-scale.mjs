@@ -462,11 +462,11 @@ try {
 
       await checkPage(page, '/', `${width}px/${scale}x home reading`)
       if (readingEmpty) {
-        assert.equal(await page.getByRole('heading', { name: '오늘의 독서' }).count(), 0, `${width}px/${scale}x home reading tile hidden when empty`)
+        assert.equal(await page.getByRole('heading', { name: '오늘의 책 듣기' }).count(), 0, `${width}px/${scale}x home reading tile hidden when empty`)
         await checkPage(page, '/reading', `${width}px/${scale}x reading empty`)
         await page.getByText('준비 중이에요').first().waitFor({ state: 'visible', timeout: 5000 })
       } else {
-        await page.getByRole('heading', { name: '오늘의 독서' }).waitFor({ state: 'visible', timeout: 5000 })
+        await page.getByRole('heading', { name: '오늘의 책 듣기' }).waitFor({ state: 'visible', timeout: 5000 })
         await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x home reading rendered`)
         await checkPage(page, '/menu', `${width}px/${scale}x menu reading`)
         await page.getByText('디모데전서 4:13').waitFor({ state: 'visible', timeout: 5000 })

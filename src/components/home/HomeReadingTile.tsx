@@ -7,7 +7,7 @@ import { HomeLabel, HomeMoreLink } from '@/components/home/HomeTypography'
 
 const SERIF = 'var(--font-serif)'
 
-/** 홈 "오늘의 독서" — 최근 7일 안 가장 새 회차 1편을 대표 카드로. 없음/오류(백엔드 미배포 포함)면 null */
+/** 홈 "오늘의 책 듣기" — 최근 7일 안 가장 새 회차 1편을 대표 카드로. 없음/오류(백엔드 미배포 포함)면 null */
 export default function HomeReadingTile() {
   const navigate = useNavigate()
   const playReading = usePlayReading()
@@ -28,9 +28,9 @@ export default function HomeReadingTile() {
   }
 
   return (
-    <section aria-label="오늘의 독서" style={{ minWidth: 0 }}>
+    <section aria-label="오늘의 책 듣기" style={{ minWidth: 0 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 16, marginBottom: 8 }}>
-        <HomeLabel>오늘의 독서</HomeLabel>
+        <HomeLabel>오늘의 책 듣기</HomeLabel>
         <HomeMoreLink onClick={() => navigate(`/reading/${cat.id}`)}>도서 목록 보기</HomeMoreLink>
       </div>
       <div className="hb" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>

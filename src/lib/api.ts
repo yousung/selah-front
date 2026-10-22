@@ -258,7 +258,7 @@ export async function getReadingCategory(id: string): Promise<ReadingCategoryDet
   return data
 }
 
-/** 독서 — 최근 올라온 회차 (홈 "오늘의 독서") */
+/** 독서 — 최근 올라온 회차 (홈 "오늘의 책 듣기") */
 export async function getReadingLatest(params: { limit?: number; days?: number } = {}): Promise<ReadingLatestVideo[]> {
   const { data } = await api.get<ReadingLatestVideo[]>('/reading/latest', { params })
   return data
