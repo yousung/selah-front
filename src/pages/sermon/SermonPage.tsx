@@ -385,7 +385,7 @@ export default function SermonPage() {
   const handleResume = () => {
     if (!resumeData) return
     setResumeData(null)
-    navigate(`/sermon/player/${resumeData.videoId}`, {
+    navigate(resumeData.playerPath ?? `/sermon/player/${resumeData.videoId}`, {
       state: {
         categoryId: resumeData.categoryId,
         categoryTitle: resumeData.categoryTitle,

@@ -45,6 +45,29 @@ function festivalDetail(year) {
   }
 }
 
+// 독서(Reading) — READING_EMPTY=1 이면 빈 응답(홈 타일 숨김·목록 "준비 중" 검증)
+const readingEmpty = process.env.READING_EMPTY === '1'
+const readingBooks = [
+  { id: 'book-1', title: '마음을 다루면 자녀의 미래가 달라진다', author: '테드 트립', description: '책 소개 문단입니다. 큰 글자에서도 넘치지 않아야 합니다.', thumbnail: '/books/mind-child-future.jpg', ordering: 1, isCompleted: true, videoCount: 6, latestPublishedAt: '2026-08-30T00:00:00.000Z' },
+  { id: 'book-2', title: '짧은 책', author: null, description: null, thumbnail: null, ordering: 2, isCompleted: false, videoCount: 2, latestPublishedAt: null },
+]
+const readingVideos = Array.from({ length: 6 }, (_, i) => ({
+  id: `reading-${i + 1}`,
+  youtubeId: `ryt-${i + 1}`,
+  title: `${i + 1}회 ${longTitle}`,
+  description: `요약본 ${i + 1}\n\n${longTitle} 요약본 본문입니다.`,
+  thumbnail: null,
+  duration: 1245 + i * 600,
+  publishedAt: '2026-08-30T00:00:00.000Z',
+  createdAt: '2026-08-30T00:00:00.000Z',
+  readingOrder: i + 1,
+  type: 'READING',
+  tag: null,
+  isSecret: false,
+  isTemp: false,
+  isLive: false,
+}))
+
 const confessions = [{
   id: 'confession-1',
   code: 'wsc',
@@ -177,6 +200,18 @@ async function fulfillApi(route) {
     const year = Number(festivalMatch[1])
     if (!festivals.some((f) => f.year === year)) return route.fulfill({ status: 404, json: { message: 'Festival not found' } })
     return route.fulfill({ json: festivalDetail(year) })
+  }
+  if (path.endsWith('/api/reading/categories')) {
+    return route.fulfill({ json: readingEmpty ? [] : readingBooks })
+  }
+  const readingBookMatch = path.match(/\/api\/reading\/categories\/([^/]+)$/)
+  if (readingBookMatch) {
+    const book = readingBooks.find((b) => b.id === readingBookMatch[1])
+    if (readingEmpty || !book) return route.fulfill({ status: 404, json: { message: 'Not found' } })
+    return route.fulfill({ json: { ...book, videos: readingVideos } })
+  }
+  if (path.endsWith('/api/reading/latest')) {
+    return route.fulfill({ json: readingEmpty ? [] : readingVideos.slice(0, 1).map((v) => ({ ...v, readingCategory: { id: 'book-1', title: readingBooks[0].title } })) })
   }
   const previewMatch = path.match(/\/api\/videos\/([^/]+)\/preview$/)
   if (previewMatch) {
@@ -424,6 +459,24 @@ try {
       await checkPage(page, '/player/video-1', `${width}px/${scale}x player`)
       await checkPage(page, '/menu', `${width}px/${scale}x menu`)
       await checkPage(page, '/news', `${width}px/${scale}x news`)
+
+      await checkPage(page, '/', `${width}px/${scale}x home reading`)
+      if (readingEmpty) {
+        assert.equal(await page.getByRole('heading', { name: '오늘의 독서' }).count(), 0, `${width}px/${scale}x home reading tile hidden when empty`)
+        await checkPage(page, '/reading', `${width}px/${scale}x reading empty`)
+        await page.getByText('준비 중이에요').first().waitFor({ state: 'visible', timeout: 5000 })
+      } else {
+        await page.getByRole('heading', { name: '오늘의 독서' }).waitFor({ state: 'visible', timeout: 5000 })
+        await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x home reading rendered`)
+        await checkPage(page, '/menu', `${width}px/${scale}x menu reading`)
+        await page.getByText('디모데전서 4:13').waitFor({ state: 'visible', timeout: 5000 })
+        await checkPage(page, '/reading', `${width}px/${scale}x reading`)
+        await page.getByText('짧은 책').waitFor({ state: 'visible', timeout: 5000 })
+        await checkPage(page, '/reading/book-1', `${width}px/${scale}x reading book`)
+        await page.getByText('1회', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
+        await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x reading book rendered`)
+        await checkPage(page, '/reading/player/reading-1', `${width}px/${scale}x reading player`)
+      }
       await checkPage(page, '/settings', `${width}px/${scale}x settings`)
 
       const optionFontSize = await page.locator('[data-tour="setting-font"] button').first()

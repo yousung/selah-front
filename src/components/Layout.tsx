@@ -198,7 +198,9 @@ export default function Layout() {
     location.pathname.startsWith("/player/") ||
     location.pathname.startsWith("/hymn/player/");
   const isPlayerPage =
-    isHymnPlayerPage || location.pathname.startsWith("/sermon/player/");
+    isHymnPlayerPage ||
+    location.pathname.startsWith("/sermon/player/") ||
+    location.pathname.startsWith("/reading/player/");
   const [miniDismissed, setMiniDismissed] = useState(false);
   const queueOpen = useQueueStore((s) => s.isOpen);
   const toggleQueue = useQueueStore((s) => s.toggleQueue);
@@ -283,6 +285,7 @@ export default function Layout() {
         p === "/menu" ||
         p.startsWith("/catechism") ||
         p.startsWith("/news") ||
+        p.startsWith("/reading") ||
         p.startsWith("/my") ||
         p === "/recent" ||
         p === "/settings" ||

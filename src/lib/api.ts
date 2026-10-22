@@ -208,3 +208,58 @@ export async function getFestival(year: number): Promise<FestivalDetail> {
   const { data } = await api.get<FestivalDetail>(`/festivals/${year}`)
   return data
 }
+
+export interface ReadingCategorySummary {
+  id: string
+  title: string
+  author: string | null
+  description: string | null
+  thumbnail: string | null
+  ordering: number
+  isCompleted: boolean
+  videoCount: number
+  latestPublishedAt: string | null
+}
+
+export interface ReadingVideo {
+  id: string
+  youtubeId?: string | null
+  title: string
+  description?: string | null
+  thumbnail: string | null
+  duration?: number | null
+  publishedAt?: string | null
+  createdAt?: string | null
+  readingOrder: number | null
+  type?: string | null
+  tag: string | null
+  isSecret?: boolean | null
+  isTemp?: boolean | null
+  isLive?: boolean | null
+}
+
+export interface ReadingCategoryDetail extends ReadingCategorySummary {
+  videos: ReadingVideo[]
+}
+
+export interface ReadingLatestVideo extends ReadingVideo {
+  readingCategory: { id: string; title: string }
+}
+
+/** 독서 — 책(카테고리) 목록 */
+export async function getReadingCategories(): Promise<ReadingCategorySummary[]> {
+  const { data } = await api.get<ReadingCategorySummary[]>('/reading/categories')
+  return data
+}
+
+/** 독서 — 책 상세. videos는 readingOrder 순 */
+export async function getReadingCategory(id: string): Promise<ReadingCategoryDetail> {
+  const { data } = await api.get<ReadingCategoryDetail>(`/reading/categories/${id}`)
+  return data
+}
+
+/** 독서 — 최근 올라온 회차 (홈 "오늘의 독서") */
+export async function getReadingLatest(params: { limit?: number; days?: number } = {}): Promise<ReadingLatestVideo[]> {
+  const { data } = await api.get<ReadingLatestVideo[]>('/reading/latest', { params })
+  return data
+}

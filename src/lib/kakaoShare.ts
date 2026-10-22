@@ -62,6 +62,8 @@ export function shareSermonToKakao(opts: {
   title: string
   thumbnail?: string | null
   description?: string
+  /** 플레이어 경로 접두(기본 /sermon/player, 독서는 /reading/player) */
+  playerBase?: string
 }): void {
   const k = ensureInit()
   if (!k) {
@@ -70,7 +72,7 @@ export function shareSermonToKakao(opts: {
   }
   const ytid = ytIdFromUrl(opts.thumbnail)
   const imageUrl = ytid ? buildThumb(ytid, 'hqdefault', '') : `${SHARE_ORIGIN}/image.png`
-  const link = `${SHARE_ORIGIN}/#/sermon/player/${opts.id}`
+  const link = `${SHARE_ORIGIN}/#${opts.playerBase ?? '/sermon/player'}/${opts.id}`
   k.Share.sendDefault({
     objectType: 'feed',
     content: {

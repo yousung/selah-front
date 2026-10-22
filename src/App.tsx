@@ -10,6 +10,8 @@ import HomePage from '@/pages/HomePage'
 import HymnPage from '@/pages/HymnPage'
 import PlaylistPage from '@/pages/PlaylistPage'
 import FestivalPage from '@/pages/FestivalPage'
+import ReadingPage from '@/pages/ReadingPage'
+import ReadingBookPage from '@/pages/ReadingBookPage'
 import PlayerPage from '@/pages/PlayerPage'
 import MyPlaylistsPage from '@/pages/MyPlaylistsPage'
 import MyPlaylistDetailPage from '@/pages/MyPlaylistDetailPage'
@@ -93,6 +95,9 @@ export default function App() {
             <Route path="player/:id" element={<PlayerPage />} />
             <Route path="hymn/player/:id" element={<PlayerPage />} />
             <Route path="sermon/player/:id" element={<PlayerPage />} />
+            <Route path="reading" element={<ReadingPage />} />
+            <Route path="reading/:id" element={<ReadingBookPage />} />
+            <Route path="reading/player/:id" element={<PlayerPage />} />
             <Route path="my-playlists" element={<MyPlaylistsPage />} />
             <Route path="my-playlists/:id" element={<MyPlaylistDetailPage />} />
             <Route path="search" element={<SearchPage />} />

@@ -187,7 +187,7 @@ function DescriptionSection({ description }: { description?: string | null }) {
   )
 }
 
-function LyricsDescriptionTabs({ lyric, description }: { lyric?: Lyric | null; description?: string | null }) {
+function LyricsDescriptionTabs({ lyric, description, heading = '해설' }: { lyric?: Lyric | null; description?: string | null; heading?: string }) {
   const hasLyrics = lyric && [
     lyric.verse1, lyric.verse2, lyric.verse3, lyric.verse4,
     lyric.verse5, lyric.verse6, lyric.verse7, lyric.verse8,
@@ -211,7 +211,7 @@ function LyricsDescriptionTabs({ lyric, description }: { lyric?: Lyric | null; d
     return (
       <section className="mt-8 pt-5" style={{ borderTop: '1px solid var(--divider)' }}>
         <div className="mx-auto" style={{ maxWidth: '640px' }}>
-          <p className="text-sm font-semibold mb-4 text-center" style={{ color: 'var(--ink-1)' }}>해설</p>
+          <p className="text-sm font-semibold mb-4 text-center" style={{ color: 'var(--ink-1)' }}>{heading}</p>
           <DescriptionSection description={description} />
         </div>
       </section>
@@ -343,14 +343,16 @@ export default function PlayerPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
-  const playerBase = location.pathname.startsWith('/sermon/player/') ? '/sermon/player' : '/player'
-  const isSermonPlayer = playerBase === '/sermon/player'
+  // /reading/player 는 설교와 같은 장문 오디오 동작(이어듣기·배속·seek 제한)을 쓰되 경로·큐 복원 출처만 독서(책)로 분리한다.
+  const isReadingPlayer = location.pathname.startsWith('/reading/player/')
+  const playerBase = isReadingPlayer ? '/reading/player' : location.pathname.startsWith('/sermon/player/') ? '/sermon/player' : '/player'
+  const isSermonPlayer = playerBase !== '/player'
   const handleBack = () => {
     clearSelahMenu()
     // 히스토리에 돌아갈 곳이 있으면 이전 페이지로(카테고리 등), 없으면(직접 진입/공유링크) 소속 목록(설교/찬송)으로.
     const canGoBack = (window.history.state?.idx ?? 0) > 0
     if (canGoBack) navigate(-1)
-    else navigate(isSermonPlayer ? '/sermon' : '/hymn')
+    else navigate(isReadingPlayer ? '/reading' : isSermonPlayer ? '/sermon' : '/hymn')
   }
   const [searchParams] = useSearchParams()
   const isInAnyPlaylist = usePlaylistStore((s) => s.isInAnyPlaylist)
@@ -558,7 +560,7 @@ export default function PlayerPage() {
         hymnTitle: isSermonPlayer ? target.title : target.hymnTitle,
         duration: target.duration,
         chapter: target.chapter,
-        playerPath: isSermonPlayer ? `/sermon/player/${target.id}` : undefined,
+        playerPath: isSermonPlayer ? `${playerBase}/${target.id}` : undefined,
         isSecret: target.isSecret,
         isLive: target.isLive,
         categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
@@ -606,7 +608,7 @@ export default function PlayerPage() {
         hymnTitle: isSermonPlayer ? video.title : video.lyric?.hymnTitle,
         duration: video.duration,
         chapter: video.chapter,
-        playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
+        playerPath: isSermonPlayer ? `${playerBase}/${video.id}` : undefined,
         isSecret: video.isSecret,
         isLive: video.isLive,
         categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
@@ -616,7 +618,7 @@ export default function PlayerPage() {
       // 분기가 seekTo를 버리지 않는다(위 handleSermonResumeContinue와 같은 이유).
       { autoPlay: autoPlayOnDetail, seekTo: sermonSeek, resume: sermonSeek != null },
     )
-  }, [autoPlayOnDetail, currentVideo?.id, isSermonPlayer, playVideo, video, sermonSeek, sermonStateCategoryId, sermonStateCategoryTitle])
+  }, [autoPlayOnDetail, currentVideo?.id, isSermonPlayer, playerBase, playVideo, video, sermonSeek, sermonStateCategoryId, sermonStateCategoryTitle])
 
   const handleSermonResumeContinue = useCallback(() => {
     if (!video || !sermonResumeChoice) return
@@ -628,7 +630,7 @@ export default function PlayerPage() {
         id: video.id, youtubeId: video.youtubeId ?? null, title: video.title, thumbnail: video.thumbnail, tag: video.tag,
         type: 'SERMON', hymnTitle: video.title,
         duration: video.duration, chapter: video.chapter,
-        playerPath: `/sermon/player/${video.id}`, isSecret: video.isSecret, isLive: video.isLive,
+        playerPath: `${playerBase}/${video.id}`, isSecret: video.isSecret, isLive: video.isLive,
         categoryId: sermonResumeChoice.categoryId ?? sermonStateCategoryId,
         categoryTitle: sermonResumeChoice.categoryTitle ?? sermonStateCategoryTitle,
       },
@@ -639,7 +641,7 @@ export default function PlayerPage() {
       { autoPlay: true, seekTo: sermonResumeChoice.position, resume: true },
     )
     setSermonResumeChoice(null)
-  }, [video, sermonResumeChoice, sermonStateCategoryId, sermonStateCategoryTitle, playVideo])
+  }, [video, sermonResumeChoice, sermonStateCategoryId, sermonStateCategoryTitle, playVideo, playerBase])
 
   const handleSermonResumeRestart = useCallback(() => {
     if (!video) return
@@ -652,21 +654,21 @@ export default function PlayerPage() {
         id: video.id, youtubeId: video.youtubeId ?? null, title: video.title, thumbnail: video.thumbnail, tag: video.tag,
         type: 'SERMON', hymnTitle: video.title,
         duration: video.duration, chapter: video.chapter,
-        playerPath: `/sermon/player/${video.id}`, isSecret: video.isSecret, isLive: video.isLive,
+        playerPath: `${playerBase}/${video.id}`, isSecret: video.isSecret, isLive: video.isLive,
         categoryId: sermonResumeChoice?.categoryId ?? sermonStateCategoryId,
         categoryTitle: sermonResumeChoice?.categoryTitle ?? sermonStateCategoryTitle,
       },
       { autoPlay: true, seekTo: 0 },
     )
     setSermonResumeChoice(null)
-  }, [video, sermonResumeChoice, sermonStateCategoryId, sermonStateCategoryTitle, playVideo])
+  }, [video, sermonResumeChoice, sermonStateCategoryId, sermonStateCategoryTitle, playVideo, playerBase])
 
   // ── sermon resume: 큐 복원 ───────────────────────────────────
   useEffect(() => {
     if (recentMode || !id || !sermonStateCategoryId) return
     if (queueIds.includes(id)) return
     api.get<{ videos: { id: string; youtubeId?: string | null; title: string; thumbnail: string | null; tag: string | null; duration?: number | null; isSecret?: boolean | string | null; isLive?: boolean | string | null }[] }>(
-      `/sermon-categories/${sermonStateCategoryId}/videos?page=1&limit=500`,
+      isReadingPlayer ? `/reading/categories/${sermonStateCategoryId}` : `/sermon-categories/${sermonStateCategoryId}/videos?page=1&limit=500`,
     ).then(({ data }) => {
       if (data.videos.length > 0) {
         const playable = data.videos.filter(isPlayableInQueue)
@@ -678,7 +680,7 @@ export default function PlayerPage() {
           duration: v.duration ?? null,
           isSecret: v.isSecret ?? null,
           isLive: v.isLive ?? null,
-          playerPath: `/sermon/player/${v.id}`,
+          playerPath: `${playerBase}/${v.id}`,
           categoryId: sermonStateCategoryId,
           categoryTitle: sermonStateCategoryTitle,
         }))
@@ -787,14 +789,14 @@ export default function PlayerPage() {
         hymnTitle: isSermonPlayer ? video.title : video.lyric?.hymnTitle,
         duration: video.duration,
         chapter: video.chapter,
-        playerPath: isSermonPlayer ? `/sermon/player/${video.id}` : undefined,
+        playerPath: isSermonPlayer ? `${playerBase}/${video.id}` : undefined,
         isSecret: video.isSecret,
         isLive: video.isLive,
         categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
         categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
       })
     }
-  }, [isSermonPlayer, playVideo, video, sermonStateCategoryId, sermonStateCategoryTitle])
+  }, [isSermonPlayer, playerBase, playVideo, video, sermonStateCategoryId, sermonStateCategoryTitle])
 
   // 저장 파일 손상 감지(캐시 재생 후 3초 무진행). AudioContext가 손상 파일을 삭제한 뒤
   // MEDIA_CORRUPT_EVENT를 쏜다 → 메시지 표시 + 재다운로드. 완료 시 AudioContext가 자동 재생,
@@ -1120,7 +1122,7 @@ export default function PlayerPage() {
           {id && video && (
             <button
               onClick={() => isSermonPlayer
-                ? shareSermonToKakao({ id, title: video.title, thumbnail: video.thumbnail, description: video.description ?? undefined })
+                ? shareSermonToKakao({ id, title: video.title, thumbnail: video.thumbnail, description: video.description ?? undefined, playerBase })
                 : shareSongToKakao({ id, title: video.title, thumbnail: video.thumbnail, description: video.description ?? undefined })}
               className="p-2 transition-transform hover:scale-110"
               style={{ color: 'var(--ink-3)' }}
@@ -1181,7 +1183,7 @@ export default function PlayerPage() {
           <div className="w-full lg:flex-1 mb-8 lg:mb-0">{Artwork}</div>
           <div className="w-full lg:flex-1">{Controls}</div>
         </div>
-        <LyricsDescriptionTabs lyric={lyric} description={video?.description} />
+        <LyricsDescriptionTabs lyric={lyric} description={video?.description} heading={isReadingPlayer ? '요약본' : '해설'} />
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
       </div>
       {playlistSheetOpen && id && (

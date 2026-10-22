@@ -31,6 +31,9 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 | `/catechism` | `CatechismPage` | 교리서 (준비 중 placeholder) |
 | `/menu` | `MenuPage` | 메뉴 허브 — 바로가기(찬송/설교/양식/교리서/우리들 소식/설정) + 내 콘텐츠(내 재생목록/최근 재생) + 정보(개인정보 처리방침) |
 | `/news` | `NewsPage` | 우리들 소식 (준비 중 placeholder) |
+| `/reading` | `ReadingPage` | 독서 책 목록(표지 5:7·제목·저자·N편·완료 배지). 빈/404면 "준비 중이에요". 메뉴 탭 하이라이트 |
+| `/reading/:id` | `ReadingBookPage` | 책 헤더 + 회차 목록(readingOrder순). 탭 시 `usePlayReading`으로 그 책 재생 가능 회차를 큐로 재생 |
+| `/reading/player/:id` | `PlayerPage` | 독서 플레이어. 설교형 동작(type 'SERMON' 메타: 이어듣기·배속·seek 제한)을 재사용하되 경로/뒤로가기(`/reading`)/큐 복원(`GET /reading/categories/:id`, router state `categoryId`)/공유 링크/설명 제목("요약본")만 독서용. `Layout`의 isPlayerPage 대상 |
 | `/my` | redirect | `/menu`로 이동 (구 MY 탭 북마크 호환) |
 
 기도문 이전 보기(`PrayerContent`)는 해당 `/memorize/prayer/<category>` 안에서 주제별 버튼 → 제목 목록 → 선택 기간 상세로 전환된다. 이전 목록/선택 기간은 URL에 포함하지 않는다. 주제를 바꾸면 날짜 선택과 이전 보기 상태를 초기화한다. 탭은 URL에서 결정되며 새로고침·뒤로/앞으로 가기로 복원된다. 잘못된 기도 분류 경로는 일상기도로 대체한다. DB/API는 기존 분류별 archive 조회를 재사용한다.

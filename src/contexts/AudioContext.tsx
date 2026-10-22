@@ -240,6 +240,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         videoTitle: vid.title,
         categoryId: vid.categoryId,
         categoryTitle: vid.categoryTitle,
+        playerPath: vid.playerPath,
         position: pos,
         downloaded,
       })

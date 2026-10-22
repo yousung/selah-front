@@ -88,3 +88,7 @@
 `src/components/PrayerTopicsBody.tsx`: 기도제목의 연속 번호를 목록으로 구분하고 하위 줄을 들여쓴다. 현재·이전 기도제목에 동일하게 적용하며 번호가 비연속이거나 서문이 있는 등 구조가 불명확하면 원문을 그대로 표시한다. DB 원문과 날짜는 변경하지 않는다.
 
 `src/components/DailyPrayerBody.tsx`: 일상기도의 연속 번호 제목과 빈 줄을 기준으로 본문을 나누어 기본 접힘 아코디언을 표시한다. 여러 항목을 동시에 열 수 있고, 구조가 맞지 않는 원문은 일반 본문으로 보존한다. `PrayerContent`의 현재·이전 상세에서 사용한다. 버튼 ARIA와 CSS grid 높이 전환을 사용하며, 동작 줄이기 설정을 지원한다. URL `?open=<섹션번호>`가 있으면 해당 `PrayerSection`을 `defaultOpen`(최초 마운트 한정)으로 펼치고 `scrollIntoView`(`scroll-margin-top` 80px)한다.
+
+## 독서 (Reading)
+- `components/home/HomeReadingTile.tsx` — 홈 "오늘의 독서": 최근 7일 최신 1편 대표 카드(표지 5:7·책 제목·N회·제목·"듣기 →" 텍스트 링크), 헤더 우측 "도서 목록 보기 →"(/reading/:id). 빈/오류면 null. `HomePage`에서 `HomeSermonTiles` 다음.
+- `lib/reading.ts` — 훅(`useReading*`), `usePlayReading`(큐 구성 + `/reading/player/:id` 이동), `readingCover`(BASE_URL 기준 표지 경로, 없으면 첫 회차 썸네일), `fmtReadingDuration`.

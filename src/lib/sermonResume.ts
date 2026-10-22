@@ -5,6 +5,8 @@ export interface SermonResumeData {
   videoTitle: string
   categoryId?: string
   categoryTitle?: string
+  /** 재생 경로(독서는 /reading/player/:id). 없으면 설교 플레이어 */
+  playerPath?: string
   position: number
   /**
    * **"저장 파일이 있다"가 아니라 "그 위치로 되돌아갈 수 있다"는 뜻이다.**

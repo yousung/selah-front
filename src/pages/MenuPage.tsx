@@ -76,6 +76,19 @@ export default function MenuPage() {
           ),
         },
         {
+          label: '독서',
+          sub: '…읽는 것과 권하는 것과 가르치는 것에 전념하라',
+          ref: '디모데전서 4:13',
+          to: '/reading',
+          icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-700)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="5" height="16" rx="1" />
+              <rect x="10" y="4" width="5" height="16" rx="1" />
+              <path d="M16.5 6.5l4-1 3 13.5-4 1z" transform="translate(-2 0)" />
+            </svg>
+          ),
+        },
+        {
           label: '우리들 소식',
           sub: '보라 형제가 연합하여 동거함이 어찌 그리 선하고 아름다운고',
           ref: '시편 133:1',

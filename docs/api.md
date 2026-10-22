@@ -49,6 +49,9 @@ export const adminApi = axios.create({
 |-----------|------|--------|
 | `GET /festivals` (`getFestivals`) | `FestivalSummary[]` (year DESC) | `useFestivals` → HymnPage 시편찬양제 섹션, `FestivalPage` 연도 칩 |
 | `GET /festivals/:year` (`getFestival`) | `FestivalDetail` (`videos[]`에 `festivalTeam`/`festivalOrder`, 미존재 연도 404) | `useFestival` → HymnPage 섹션, `FestivalPage` |
+| `GET /reading/categories` (`getReadingCategories`) | `ReadingCategorySummary[]` | `useReadingCategories` (`['reading','categories']`, `web/src/lib/reading.ts`) |
+| `GET /reading/categories/:id` (`getReadingCategory`) | `ReadingCategoryDetail` (`videos[]` readingOrder순, secret/temp 포함 → `isPlayableInQueue`로 필터) | `useReadingCategory` (`['reading','category',id]`) |
+| `GET /reading/latest?limit&days` (`getReadingLatest`) | `ReadingLatestVideo[]` (`readingCategory:{id,title}`) | `useReadingLatest` (`['reading','latest']`, limit 1·days 7) |
 
 시편찬양제 영상은 `GET /videos` 기본 응답에서 제외되므로 이 엔드포인트로만 노출된다.
 

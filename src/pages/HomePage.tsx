@@ -3,6 +3,7 @@ import { fs } from '@/lib/fontScale'
 import HomeTodayWord from '@/components/home/HomeTodayWord'
 import HomeNowPrayer from '@/components/home/HomeNowPrayer'
 import HomeSermonTiles from '@/components/home/HomeSermonTiles'
+import HomeReadingTile from '@/components/home/HomeReadingTile'
 import HomeHymnTile from '@/components/home/HomeHymnTile'
 import { HOME_CSS } from '@/components/home/homeBento'
 
@@ -33,6 +34,7 @@ export default function HomePage() {
           <HomeNowPrayer />
         </div>
         <HomeSermonTiles />
+        <HomeReadingTile />
         <HomeHymnTile />
       </div>
     </div>
