@@ -87,6 +87,7 @@ DASH 실패로 progressive로 떨어지면 `video.type !== 'SERMON' || options?.
   error: string | null
   volume: number
   streamSeekable: boolean   // 저장 파일 없이도 구간 이동이 되는가(= DASH/MSE로 재생 중인가)
+  isStreamFallback: boolean // 백엔드 `fallback: true`(latest_version) 스트림인가 — 다운로드 안 함 + seek 개방
   
   // refs (video 모드용 DOM 연결)
   reactPlayerRef: RefObject<HTMLVideoElement | null>
@@ -150,6 +151,10 @@ DASH 실패로 progressive로 떨어지면 `video.type !== 'SERMON' || options?.
   비디오 모드는 실제로 오디오 스트림 폴백이라 seek이 안 되는데 버튼만 켜져 있었고,
   Safari 오디오는 DASH라 seek이 되는데 버튼이 꺼져 있었다.
   `streamSeekable`은 `playVideo` 진입 시 false로 리셋하고 DASH 로드 성공 분기에서만 켠다.
+- **폴백 스트림(`isStreamFallback`)**: `/audios/:id/stream`이 `fallback: true`(또는 url에 `/latest_version`)를
+  주면 PlayerPage는 자동/8초 복구/수동 다운로드를 전부 건너뛰고(다운로드 버튼 숨김, 어차피 백엔드가 503)
+  스트리밍만 한다. `isSeekBlocked()`와 `canSeek`도 이 값이면 열어 seek/±15초/스크럽이 된다.
+  `playVideo` 진입·`stop`에서 false로 리셋. 비디오 모드(DASH)는 대상 아님.
 - 설교 progressive 스트림은 `resume` 없이는 `seekTo`를 버린다("구간 이동 불가" 규칙).
   `resume: true`는 내부 재진입(다운로드 완료 후 로컬 전환, 캐시 실패 후 스트림 폴백)과
   **이어듣기 팝업**이 붙인다 — 아래 "이어듣기 팝업은 `resume: true`를 넘겨야 한다" 참조.

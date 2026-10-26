@@ -62,6 +62,11 @@ interface AudioContextValue {
    * 설교 seek UI의 활성 조건은 이 값을 써야 `isSeekBlocked()`의 실동작과 어긋나지 않는다.
    */
   streamSeekable: boolean
+  /**
+   * 백엔드가 Invidious JSON 실패로 `latest_version` 폴백 URL을 준 스트림인가(`fallback: true`).
+   * 이때는 저장/다운로드를 시도하지 않고 스트리밍만 하며(어차피 다운로드 불가), seek은 개방한다.
+   */
+  isStreamFallback: boolean
   /** 실제 재생이 `<video>`(DASH)에서 일어나는가. 비디오 모드 + DASH 폴백 아님. 전체화면 버튼 노출 조건. */
   isVideoPlayback: () => boolean
   reactPlayerRef: RefObject<HTMLVideoElement | null>
@@ -234,7 +239,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       // downloaded는 원래 "구간 이동이 가능한가"(=로컬 파일이 있는가)를 뜻했고, 이어듣기 팝업의
       // 조건으로 쓰인다. DASH(비디오 모드 + Safari 오디오)는 저장 파일이 없어도 seek이 되므로
       // 같은 뜻으로 true다 — 판정은 seek 가능 여부를 직접 들고 있는 streamSeekableRef로 한다.
-      const downloaded = streamSeekableRef.current || useCachedMediaStore.getState().cachedIds.has(`${vid.id}-${mode}`)
+      const downloaded = streamSeekableRef.current || streamFallbackRef.current || useCachedMediaStore.getState().cachedIds.has(`${vid.id}-${mode}`)
       saveSermonResume({
         videoId: vid.id,
         videoTitle: vid.title,
@@ -450,6 +455,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const setStreamSeekable = useCallback((v: boolean) => {
     streamSeekableRef.current = v
     setStreamSeekableState(v)
+  }, [])
+
+  // 폴백 스트림 여부. ref는 isSeekBlocked 등 콜백용, state는 UI 반응용 — 항상 같이 갱신한다.
+  const streamFallbackRef = useRef(false)
+  const [isStreamFallback, setIsStreamFallbackState] = useState(false)
+  const setIsStreamFallback = useCallback((v: boolean) => {
+    streamFallbackRef.current = v
+    setIsStreamFallbackState(v)
   }, [])
 
   /**
@@ -747,6 +760,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       reactPlayerRef.current?.pause()
       dashOnAudioRef.current = false
       setStreamSeekable(false)
+      setIsStreamFallback(false)
       // <audio>에 붙어 있었으면 detach까지(destroy) 해야 다음 progressive 재생이 src를 쓸 수 있다.
       // <video>는 어차피 DASH 전용이라 attach를 유지하는 unload가 싸다.
       if (isDashAttached(audioEl)) void destroyDash()
@@ -828,6 +842,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // 성공한 분기에서만 다시 켠다. 여기서 안 지우면 이전 곡의 DASH 상태가 남아
     // seek 버튼이 켜진 채 눌러도 안 되는 상태가 된다.
     setStreamSeekable(false)
+    setIsStreamFallback(false)
     // 곡 전환 시 옛 미디어를 즉시 멈춘다. 안 그러면 아래 async(getCachedMediaPlaybackUrl 등)
     // 동안 옛 트랙의 timeupdate가 계속 발화해 positionRef를 옛 위치로 되돌리고, 새 트랙의
     // 빠른 재다운로드 재생(seekTo: positionRef.current)이 옛 위치로 점프하는 버그가 생긴다.
@@ -1072,7 +1087,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // 오디오 모드. 여기 도달 = 위 캐시 히트 블록의 미스(미저장/미지원/force-stream) → 스트림 직행.
     // 스트림 URL은 Invidious/CDN이 직접 반환하고 <audio>가 그 URL로 바로 재생한다(백엔드 미경유).
     try {
-      const { data } = await api.get<{ url: string; bitrate: number; encoding?: string; duration?: number | null }>(
+      const { data } = await api.get<{ url: string; bitrate: number; encoding?: string; duration?: number | null; fallback?: boolean }>(
         `/audios/${video.id}/stream`,
         { params: { quality: qualityRef.current } },
       )
@@ -1084,6 +1099,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         hasAuthoritativeDurationRef.current = true
         setDuration(streamDurationVal)
       }
+      // 폴백(latest_version)이면 저장 없이 스트리밍만 하고 seek을 연다. 백엔드 플래그가 기본이고,
+      // 플래그가 빠진 구버전 응답도 URL로 한 번 더 잡는다.
+      const isFallback = data.fallback === true || data.url.includes('/latest_version')
+      setIsStreamFallback(isFallback)
       setLastPlayback({ id: video.id, type: 'audio', source: 'stream', src: data.url })
       localPlaybackRef.current = null
       const audio = audioRef.current
@@ -1100,7 +1119,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       // 단 resume이 붙으면 위치를 존중한다 — 내부 재진입(다운로드 완료/캐시 실패 폴백)뿐
       // 아니라 **이어듣기 팝업에서 사용자가 그 위치를 고른 경우**도 포함이다.
       // 안 그러면 그 재생이 progressive로 떨어질 때 0초로 되감기고 seek도 막혀 갇힌다.
-      if ((video.type !== 'SERMON' || options?.resume) && options?.seekTo != null) pendingSeekRef.current = options.seekTo
+      if ((video.type !== 'SERMON' || options?.resume || isFallback) && options?.seekTo != null) pendingSeekRef.current = options.seekTo
       if (!autoPlay) {
         audio.load()
         setIsLoading(false)
@@ -1121,7 +1140,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setError('스트림을 불러올 수 없습니다.')
       setIsLoading(false)
     }
-  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog, handleDashError, isVideoPlayback, releaseAudioFromDash, setStreamSeekable])
+  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog, handleDashError, isVideoPlayback, releaseAudioFromDash, setStreamSeekable, setIsStreamFallback])
 
   useEffect(() => {
     playVideoRef.current = playVideo
@@ -1173,6 +1192,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     corruptHandlingRef.current = false
     pendingAutoPlayRef.current = false
     setStreamSeekable(false)
+    setIsStreamFallback(false)
     // 정지했으니 "DASH로 간다"는 의도도 내린다. attach 여부와 무관하게 무조건 내려야
     // isSecret/모드전환과 불변식이 같아진다(매니페스트 fetch 도중 stop이 오면 아직 attach
     // 전이라, attach된 경우에만 내리면 플래그가 true로 남는다).
@@ -1205,7 +1225,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setPosition(0)
     setDuration(0)
     setError(null)
-  }, [cancelAutoNext, clearCacheWatchdog, isVideoPlayback, setStreamSeekable])
+  }, [cancelAutoNext, clearCacheWatchdog, isVideoPlayback, setStreamSeekable, setIsStreamFallback])
 
   const togglePlay = useCallback(() => {
     if (isVideoPlayback()) {
@@ -1229,7 +1249,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // 예전 판정은 이 두 경우를 모두 틀리게 답했다(PlayerPage의 버튼 활성 조건과도 어긋났다).
   const isSeekBlocked = useCallback(() => {
     if (currentVideoDataRef.current?.type !== 'SERMON') return false
-    if (streamSeekableRef.current) return false
+    if (streamSeekableRef.current || streamFallbackRef.current) return false
     return !localPlaybackRef.current
   }, [])
 
@@ -1516,13 +1536,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // AudioCtx 소비자(13개 컴포넌트)가 초당 수회 리렌더되지 않는다. position은 별도 PositionCtx로 공급.
   const value = useMemo<AudioContextValue>(() => ({
     currentVideo, isPlaying, isLoading, isEnded, duration: effectiveDuration, autoNextProgress, error, volume,
-    streamSeekable, isVideoPlayback, reactPlayerRef, videoSlotRef,
+    streamSeekable, isStreamFallback, isVideoPlayback, reactPlayerRef, videoSlotRef,
     playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, setVolume: handleSetVolume,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
     onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
   }), [
     currentVideo, isPlaying, isLoading, isEnded, effectiveDuration, autoNextProgress, error, volume,
-    streamSeekable, isVideoPlayback, reactPlayerRef, videoSlotRef,
+    streamSeekable, isStreamFallback, isVideoPlayback, reactPlayerRef, videoSlotRef,
     playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, handleSetVolume,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
     onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,

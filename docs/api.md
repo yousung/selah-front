@@ -39,7 +39,7 @@ export const adminApi = axios.create({
 
 | 엔드포인트 | 응답 | 소비처 |
 |-----------|------|--------|
-| `GET /audios/:id/stream?quality=` | `{ url, bitrate, encoding?, duration? }` | `AudioContext` → `<audio>.src` |
+| `GET /audios/:id/stream?quality=` | `{ url, bitrate, encoding?, duration?, fallback? }` (`fallback: true` = Invidious JSON 실패로 `latest_version` URL — 저장·다운로드 없이 스트리밍만, seek 개방) | `AudioContext` → `<audio>.src` |
 | `GET /audios/:id/download?quality=high` | `{ url, bitrate?, duration?, mimeType? }` | `PlayerPage.handleDownload` → `downloadMedia()` |
 | `GET /videos/:id/manifest` | `{ manifest, duration, mimeType }` | `AudioContext` → `dashPlayer.loadDash()` |
 

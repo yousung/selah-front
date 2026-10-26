@@ -367,7 +367,7 @@ export default function PlayerPage() {
   const mediaCacheKey = id ? `${id}-${mediaType}` : null
   const isCachedInStore = useCachedMediaStore((s) => !!mediaCacheKey && s.cachedIds.has(mediaCacheKey))
   const {
-    currentVideo, isPlaying, isLoading, duration, autoNextProgress, error, streamSeekable,
+    currentVideo, isPlaying, isLoading, duration, autoNextProgress, error, streamSeekable, isStreamFallback,
     playVideo, togglePlay, seekBy, seekFraction, cancelAutoNext, videoSlotRef,
   } = useAudio()
   const position = usePosition()
@@ -383,7 +383,9 @@ export default function PlayerPage() {
   // 판정을 `mediaMode === 'video'`로 하면 안 된다 — MSE 미지원 기기는 비디오 모드에서도 실제로는
   // 오디오 스트림으로 폴백해 seek이 안 되는데 버튼만 활성돼 "눌러도 반응 없음"이 됐다.
   // AudioContext의 streamSeekable이 실동작(isSeekBlocked)과 같은 값이라 어긋날 수 없다.
-  const canSeek = !isSermonPlayer || isDownloaded || streamSeekable
+  // Invidious 폴백 스트림(latest_version)은 다운로드가 불가능하므로 저장 없이 스트리밍만 하고 seek은 개방한다.
+  const streamOnly = isStreamFallback && !!id && currentVideo?.id === id
+  const canSeek = !isSermonPlayer || isDownloaded || streamSeekable || streamOnly
   // 비디오 모드는 DASH 스트림 전용이다 — 저장할 단일 파일이 없으므로 오프라인 저장을 하지 않는다.
   // (다운로드 버튼·자동 다운로드·캐시 조회가 전부 이 플래그 하나로 꺼진다.)
   const offlineMediaOk = isOfflineMediaSupported() && mediaMode !== 'video'
@@ -694,6 +696,7 @@ export default function PlayerPage() {
     if (!id || !video) return
     if (video.isSecret) return
     if (!offlineMediaOk) return
+    if (streamOnly) return
     // 재생은 스트림으로 즉시 시작하고, playing 이벤트 확인 후 다운로드를 진행한다.
     // 다운로드가 끝나면 AudioContext가 현재 위치를 유지한 채 로컬 파일로 전환한다.
     // 동기 in-flight 가드: autoDownload가 video ref 변경(React Query 백그라운드 refetch)으로
@@ -740,7 +743,7 @@ export default function PlayerPage() {
     } finally {
       downloadingRef.current = false
     }
-  }, [id, video, offlineMediaOk, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
+  }, [id, video, offlineMediaOk, streamOnly, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
 
   useEffect(() => {
     // 스트림이 실제 재생된 뒤 다운로드를 시작한다. 같은 Invidious 호스트에 스트림과
@@ -750,7 +753,7 @@ export default function PlayerPage() {
     // 절약(thrift)은 autoDownload 토글과 무관하게 재생 직후 다운로드(2곡 보관).
     // 그 외 모드는 autoDownload 켜진 경우에만 자동 다운로드.
     if (offlineStorageMode !== 'thrift' && !autoDownload) return
-    if (!video || !offlineMediaOk) return
+    if (!video || !offlineMediaOk || streamOnly) return
     if (video.isSecret) return
     handleDownload()
   // video?.id로 의존: 백그라운드 refetch(같은 id, 새 ref)로 재발화하지 않도록
@@ -760,12 +763,12 @@ export default function PlayerPage() {
   useEffect(() => {
     // 스트림이 브라우저 미디어 초기화 단계에서 멈춰도 다운로드 복구 경로는 유지한다.
     // 정상 스트림은 위 effect가 즉시 처리하고, 8초 안에 재생되지 않은 경우에만 다운로드 시작.
-    if (!video || video.isSecret || !offlineMediaOk) return
+    if (!video || video.isSecret || !offlineMediaOk || streamOnly) return
     if (offlineStorageMode !== 'thrift' && !autoDownload) return
     if (isPlaying || currentVideo?.id !== video.id) return
     const timer = window.setTimeout(() => { void handleDownload() }, 8000)
     return () => window.clearTimeout(timer)
-  }, [video, offlineMediaOk, offlineStorageMode, autoDownload, isPlaying, currentVideo?.id, handleDownload])
+  }, [video, offlineMediaOk, streamOnly, offlineStorageMode, autoDownload, isPlaying, currentVideo?.id, handleDownload])
 
   // 영상에서 벗어날 때(id 변경/언마운트) 진행 중이던 다운로드 취소.
   // 특히 비공개 영상으로 넘어갈 때, 이전 곡 다운로드가 완료되면 그 완료 이벤트로
@@ -1106,7 +1109,7 @@ export default function PlayerPage() {
             </span>
           )}
           {/* 수동 다운로드 트리거 — 미저장(idle) 상태에서만. 진행은 하단 가로 바로 표시 */}
-          {id && offlineMediaOk && offlineStorageMode !== 'thrift' && !isDownloaded && dlStatus === 'idle' && !video?.isSecret && (
+          {id && offlineMediaOk && !streamOnly && offlineStorageMode !== 'thrift' && !isDownloaded && dlStatus === 'idle' && !video?.isSecret && (
             <button
               onClick={handleDownload}
               className="transition-opacity active:opacity-60 flex items-center p-2"
