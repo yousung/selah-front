@@ -727,7 +727,9 @@ export default function PlayerPage() {
           })
           break
         } catch (error) {
-          if ((error as DOMException)?.name === 'AbortError' || retries >= MAX_DOWNLOAD_RETRIES) throw error
+          // 503 = 백엔드가 Invidious 스트림 정보를 못 받음(latest_version 폴백) — 지금 재시도해도 같은 결과라 바로 포기
+          const status = (error as { response?: { status?: number } })?.response?.status
+          if ((error as DOMException)?.name === 'AbortError' || status === 503 || retries >= MAX_DOWNLOAD_RETRIES) throw error
           retries += 1
           setDlProgress(0)
         }
