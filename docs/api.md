@@ -42,6 +42,7 @@ export const adminApi = axios.create({
 | `GET /audios/:id/stream?quality=` | `{ url, bitrate, encoding?, duration?, fallback? }` (`fallback: true` = Invidious JSON 실패로 `latest_version` URL — 저장·다운로드 없이 스트리밍만, seek 개방) | `AudioContext` → `<audio>.src` |
 | `GET /audios/:id/download?quality=high` | `{ url, bitrate?, duration?, mimeType? }` | `PlayerPage.handleDownload` → `downloadMedia()` |
 | `GET /videos/:id/manifest` | `{ manifest, duration, mimeType }` | `AudioContext` → `dashPlayer.loadDash()` |
+| `GET /videos/:id/download?quality=360p\|720p` | `{ video, audio, duration }` 각 트랙 `{ url, itag, mimeType, init, index, bitrate, clen, width?, height? }` | `PlayerPage.handleDownload`·`useBulkDownload`(비디오 모드) → `downloadVideoWithAudio()` |
 
 ## 시편찬양제 엔드포인트 소비
 
@@ -75,8 +76,31 @@ export const adminApi = axios.create({
 치환돼 있으므로 **프론트에서 추가 치환하지 않는다.** blob URL로 만들어 shaka에 넘긴다.
 
 `/videos/:id/stream`(단일 progressive URL)은 더 이상 재생에 쓰지 않는다 — YouTube가 muxed
-포맷 제공을 끊어 오디오 폴백만 오기 때문(화면이 회색). `/videos/:id/download`도 비디오
-오프라인 저장 제거와 함께 소비처가 없다.
+포맷 제공을 끊어 오디오 폴백만 오기 때문(화면이 회색). `/videos/:id/download`는 비디오 모드
+저장용 두 트랙 JSON이다(아래 mediaStore 절).
+
+## mediaStore.ts — 비디오 모드 저장/재생 (로컬 DASH)
+
+```ts
+downloadVideoWithAudio(id, info: VideoDownloadInfo, { onProgress? }): Promise<void> // 짝 오디오 → 영상 순
+buildLocalDashManifest(id): Promise<{ manifest, duration } | null>                  // 두 파일 다 있을 때만
+getMediaFile(cacheKey): Promise<File | null>                                        // OPFS 저장 파일
+deleteMedia(id, type?, { purge? })                                                  // 소유권 기반 삭제
+isMediaCached(id, 'video')                                                          // -video + 짝 -audio 모두 있어야 true
+LOCAL_MEDIA_SCHEME = 'selah-file'                                                   // BaseURL selah-file://media/<cacheKey>
+```
+
+- 저장: `/videos/:id/download` 응답으로 짝 오디오(`<id>-audio`, `ownedBy:['video']`)를 받고 영상(`<id>-video`)을 받는다.
+  오디오 모드가 이미 저장한 `audio/mp4`가 있으면 재다운로드하지 않고 `'video'` 소유와 `track`만 더한다
+  (크기가 `clen`과 다르면 파일의 ftyp/moov/sidx 박스를 읽어 범위를 구한다). 실패·취소 시 `deleteMedia(id,'video')`.
+  `cancelDownload(id,'video')`는 짝 오디오 단계까지 취소한다. MEDIA_DOWNLOADED(type `video`)는 영상(마지막)이 끝나야 나간다.
+- 재생: `AudioContext` 비디오 분기가 `buildLocalDashManifest`로 정적 MPD(오디오/비디오 AdaptationSet, `SegmentBase indexRange` +
+  `Initialization range`, BaseURL `selah-file://media/<cacheKey>`)를 만들어 `loadDash()`에 넘긴다. `dashPlayer`가 `loadShaka()` 때
+  `shaka.net.NetworkingEngine.registerScheme('selah-file', …)`로 등록한 플러그인이 shaka의 `Range` 헤더(`bytes=a-b`, b 포함)대로
+  `File.slice()`해 돌려준다 → 네트워크·SW 없이 `<video>` 하나로 소리·화면·seek. 로컬 로드가 실패하면 이번 세션은 그 영상을 스트림으로 튼다(파일은 보존).
+- 삭제 소유권: `deleteMedia(id,'video')` = 영상 삭제 + 짝 오디오의 `'video'` 소유 해제(남은 소유자 없으면 파일 삭제).
+  `deleteMedia(id,'audio')` = `'audio'` 소유 해제. 손상 파일(캐시 watchdog/DECODE 에러)은 `{ purge: true }`로 소유와 무관하게 지운다.
+- 용량 정책(`enforceStoragePolicy`)은 비디오 저장(영상 + 비디오 전용 짝 오디오)을 한 단위로 지우고, `excludeKey`의 영상 id 전체를 보호한다.
 
 `/videos/:id/manifest`는 **비디오 모드 전용이 아니다.** Safari 계열은 오디오 모드에서도 이걸
 받아 `<audio>`에 DASH로 로드한다(fragmented MP4를 progressive로 못 읽는 문제 — `audio.md`).

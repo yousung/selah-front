@@ -17,7 +17,13 @@
  *   Layout의 `<video>`에는 `src`를 넘기지 않고, `<audio>`도 `isDashAttached()`로 걸러야 한다.
  * - `reactPlayerRef`에 의존하지 않는다: 모드 전환 시 React가 ref를 먼저 null로 만들기 때문에
  *   이 모듈이 attach한 엘리먼트를 자체 보관해 정리(detach/destroy)한다.
+ * - 비디오 모드 저장분(오프라인)도 같은 경로로 튼다: `mediaStore.buildLocalDashManifest`가 BaseURL을
+ *   `selah-file://media/<cacheKey>`로 만든 MPD를 주고, 여기서 등록한 스킴 플러그인이 shaka의
+ *   Range 요청(`request.headers['Range']`, `lib/net/networking_utils.js` createSegmentRequest)마다
+ *   OPFS 파일을 slice해 돌려준다.
  */
+
+import { LOCAL_MEDIA_SCHEME, cacheKeyFromLocalMediaUri, getMediaFile } from '@/lib/mediaStore'
 
 // clutz가 생성한 shaka 타입 선언(dist/shaka-player.compiled.d.ts)은 클래스 본문이 비어 있어
 // (메서드가 노출되지 않음) 그대로는 쓸 수 없다. 실제로 쓰는 API만 최소 인터페이스로 선언한다.
@@ -31,9 +37,29 @@ interface ShakaPlayer {
   addEventListener(type: string, listener: (event: Event) => void): void
 }
 
+interface ShakaRequest {
+  headers: Record<string, string>
+}
+
+interface ShakaResponse {
+  uri: string
+  originalUri: string
+  data: ArrayBuffer
+  headers: Record<string, string>
+  status?: number
+  originalRequest: ShakaRequest
+}
+
+type ShakaSchemePlugin = (uri: string, request: ShakaRequest) => unknown
+
 interface ShakaNamespace {
   Player: { new (): ShakaPlayer; isBrowserSupported(): boolean }
   polyfill: { installAll(): void }
+  net: { NetworkingEngine: { registerScheme(scheme: string, plugin: ShakaSchemePlugin): void } }
+  util: {
+    AbortableOperation: new (promise: Promise<ShakaResponse>, onAbort: () => Promise<void>) => unknown
+    Error: new (severity: number, category: number, code: number, ...data: unknown[]) => Error
+  }
 }
 
 /** 새 load()가 이전 load()를 대체할 때 나는 코드 — 에러 UX로 올리면 안 된다. */
@@ -48,6 +74,9 @@ const OPERATION_ABORTED = 7001
  */
 const SEVERITY_RECOVERABLE = 1
 const SEVERITY_CRITICAL = 2
+/** `shaka.util.Error.Category.NETWORK` / `Code.HTTP_ERROR` (`lib/util/error.js`) */
+const CATEGORY_NETWORK = 1
+const CODE_HTTP_ERROR = 1002
 
 let shakaNs: ShakaNamespace | null = null
 let shakaLoadPromise: Promise<ShakaNamespace> | null = null
@@ -76,6 +105,7 @@ async function loadShaka(): Promise<ShakaNamespace> {
           (mod as unknown as ShakaNamespace))
         // ManagedMediaSource(iOS 17.1+) 등 브라우저별 폴리필. 최초 1회만.
         ns.polyfill.installAll()
+        ns.net.NetworkingEngine.registerScheme(LOCAL_MEDIA_SCHEME, localMediaPlugin(ns))
         shakaNs = ns
         return ns
       })
@@ -85,6 +115,33 @@ async function loadShaka(): Promise<ShakaNamespace> {
       })
   }
   return shakaLoadPromise
+}
+
+/**
+ * `selah-file://media/<cacheKey>` → 저장 파일(OPFS)의 요청 범위. Range는 `bytes=a-b`(b 포함) 또는
+ * `bytes=a-`, 없으면 파일 전체. 파일이 없으면(삭제됨) 네트워크 오류로 돌려 shaka의 기존 에러 경로를 탄다.
+ */
+function localMediaPlugin(ns: ShakaNamespace): ShakaSchemePlugin {
+  return (uri, request) => {
+    const promise = (async (): Promise<ShakaResponse> => {
+      const key = cacheKeyFromLocalMediaUri(uri)
+      const file = key ? await getMediaFile(key) : null
+      if (!file) throw new ns.util.Error(SEVERITY_CRITICAL, CATEGORY_NETWORK, CODE_HTTP_ERROR, uri)
+      const range = /bytes=(\d+)-(\d*)/.exec(request.headers['Range'] ?? '')
+      const start = range ? parseInt(range[1], 10) : 0
+      const end = range?.[2] ? parseInt(range[2], 10) + 1 : file.size
+      const data = await file.slice(start, end).arrayBuffer()
+      return {
+        uri,
+        originalUri: uri,
+        data,
+        headers: { 'content-type': file.type || 'application/octet-stream' },
+        status: range ? 206 : 200,
+        originalRequest: request,
+      }
+    })()
+    return new ns.util.AbortableOperation(promise, () => Promise.resolve())
+  }
 }
 
 /**

@@ -16,6 +16,48 @@ export interface FileEntry {
   formatVersion?: number
   /** 저장 목록(설정 → 저장된 컨텐츠) 표시용 메타. 오프라인에서도 제목을 보이려고 목록 첫 조회 때 채운다. */
   meta?: SavedMediaMeta
+  /** 비디오 모드 저장분(`-video`와 그 짝 `-audio`)의 SegmentBase 정보 — 로컬 DASH 매니페스트 재료. */
+  track?: DashTrack
+  /**
+   * `-audio` 파일을 저장한 주체. 비디오 저장은 짝 오디오가 필요해서 같은 `-audio` 파일을 공유한다.
+   * 없으면 `['audio']`(오디오 모드 저장분 — 이 필드 도입 전 엔트리 포함). `-video` 엔트리엔 없다.
+   */
+  ownedBy?: MediaOwner[]
+}
+
+export type MediaOwner = 'audio' | 'video'
+
+export interface DashTrack {
+  /** codecs 포함 (`video/mp4; codecs="avc1.4D401E"`) */
+  mimeType: string
+  /** SegmentBase Initialization 범위 ("0-740") */
+  init: string
+  /** SegmentBase indexRange (sidx, "741-4708") */
+  index: string
+  bitrate: number
+  width?: number
+  height?: number
+  /** 초(소수). 매니페스트 mediaPresentationDuration */
+  duration?: number
+}
+
+/** 백엔드 `GET /videos/:id/download` 응답 (backend/docs/routes.md) */
+export interface VideoDownloadTrackInfo {
+  url: string
+  itag: string
+  mimeType: string
+  init: string
+  index: string
+  bitrate: number
+  clen: number
+  width?: number
+  height?: number
+}
+
+export interface VideoDownloadInfo {
+  video: VideoDownloadTrackInfo
+  audio: VideoDownloadTrackInfo
+  duration: number | null
 }
 
 export interface SavedMediaMeta {
@@ -123,6 +165,7 @@ async function getMediaDir(create = false): Promise<FileSystemDirectoryHandle> {
 }
 
 async function removeMediaCacheKey(cacheKey: string): Promise<void> {
+  _fileCache.delete(cacheKey)
   await idbDelete('files', cacheKey)
   try {
     const mediaDir = await getMediaDir(false)
@@ -132,6 +175,26 @@ async function removeMediaCacheKey(cacheKey: string): Promise<void> {
 
 function mediaTypeFromCacheKey(cacheKey: string): 'audio' | 'video' {
   return cacheKey.endsWith('-video') ? 'video' : 'audio'
+}
+
+function idFromCacheKey(cacheKey: string): string {
+  return cacheKey.slice(0, -(mediaTypeFromCacheKey(cacheKey).length + 1))
+}
+
+/** `-audio` 엔트리의 소유자. 필드가 없으면 오디오 모드 저장분이다. */
+export function audioOwnersOf(entry: FileEntry): MediaOwner[] {
+  return entry.ownedBy ?? ['audio']
+}
+
+/** 비디오 저장의 짝으로만 존재하는 `-audio`(오디오 모드에선 저장한 적 없음) — 저장 목록·저장됨 표시에서 숨긴다. */
+export function isVideoOnlyCompanion(entry: FileEntry): boolean {
+  if (mediaTypeFromCacheKey(entry.id) !== 'audio') return false
+  const owners = audioOwnersOf(entry)
+  return !owners.includes('audio')
+}
+
+function withOwner(owners: MediaOwner[], owner: MediaOwner): MediaOwner[] {
+  return owners.includes(owner) ? owners : [...owners, owner]
 }
 
 function isLegacyAudioCache(entry: FileEntry, type: 'audio' | 'video'): boolean {
@@ -302,9 +365,94 @@ export async function isMediaCached(id: string, type: 'audio' | 'video'): Promis
   if (!isOpfsSupported()) return false
   try {
     const entry = await getUsableCompleteEntry(id, type)
-    return entry != null
+    if (type === 'audio') return entry != null && audioOwnersOf(entry).includes('audio')
+    // 비디오는 짝 오디오까지 있어야 재생된다(두 파일을 로컬 DASH로 합친다).
+    return (await getLocalVideoPair(id)) != null
   } catch {
     return false
+  }
+}
+
+async function getLocalVideoPair(id: string): Promise<{ video: FileEntry & { track: DashTrack }; audio: FileEntry & { track: DashTrack } } | null> {
+  const video = await getUsableCompleteEntry(id, 'video')
+  const audio = await getUsableCompleteEntry(id, 'audio')
+  if (!video?.track || !audio?.track || !audioOwnersOf(audio).includes('video')) return null
+  return { video: video as FileEntry & { track: DashTrack }, audio: audio as FileEntry & { track: DashTrack } }
+}
+
+// ── 로컬 DASH (비디오 모드 저장분 재생) ──────────────────────────────────────────
+// 저장된 video-only + audio-only 두 파일을 정적 MPD 하나로 묶어 shaka에 먹인다. 미디어 엘리먼트 하나로
+// 소리·화면·seek이 같이 돈다. BaseURL은 커스텀 스킴이고 dashPlayer가 등록한 스킴 플러그인이
+// Range 요청마다 OPFS 파일을 slice해 돌려준다(네트워크·SW 불필요).
+
+export const LOCAL_MEDIA_SCHEME = 'selah-file'
+const LOCAL_MEDIA_PREFIX = `${LOCAL_MEDIA_SCHEME}://media/`
+
+export function localMediaUri(cacheKey: string): string {
+  return `${LOCAL_MEDIA_PREFIX}${encodeURIComponent(cacheKey)}`
+}
+
+export function cacheKeyFromLocalMediaUri(uri: string): string | null {
+  return uri.startsWith(LOCAL_MEDIA_PREFIX) ? decodeURIComponent(uri.slice(LOCAL_MEDIA_PREFIX.length)) : null
+}
+
+// 재생 중 Range 요청마다 IDB/OPFS 핸들을 다시 여는 비용을 피한다. 삭제 시 removeMediaCacheKey가 비운다.
+const _fileCache = new Map<string, File>()
+
+/** 완료된 저장 파일(OPFS)을 File로 연다. 없으면 null. */
+export async function getMediaFile(cacheKey: string): Promise<File | null> {
+  const cached = _fileCache.get(cacheKey)
+  if (cached) return cached
+  try {
+    const entry = await idbGet<FileEntry>('files', cacheKey)
+    if (!entry || entry.status !== 'complete') return null
+    const mediaDir = await getMediaDir(false)
+    const file = await (await mediaDir.getFileHandle(entry.filename)).getFile()
+    _fileCache.set(cacheKey, file)
+    return file
+  } catch {
+    return null
+  }
+}
+
+function xmlAttr(value: string | number): string {
+  return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+}
+
+function dashRepresentation(cacheKey: string, track: DashTrack, kind: 'video' | 'audio'): string {
+  const mime = track.mimeType.split(';')[0].trim() || `${kind}/mp4`
+  const codecs = /codecs="?([^";]+)"?/i.exec(track.mimeType)?.[1]
+  const size = kind === 'video' && track.width && track.height ? ` width="${track.width}" height="${track.height}"` : ''
+  return (
+    `<AdaptationSet id="${kind === 'video' ? 1 : 0}" mimeType="${xmlAttr(mime)}" contentType="${kind}" startWithSAP="1" subsegmentAlignment="true">` +
+    `<Representation id="${kind}" bandwidth="${Math.max(1, Math.round(track.bitrate))}"${codecs ? ` codecs="${xmlAttr(codecs)}"` : ''}${size}>` +
+    `<BaseURL>${xmlAttr(localMediaUri(cacheKey))}</BaseURL>` +
+    `<SegmentBase indexRange="${xmlAttr(track.index)}"><Initialization range="${xmlAttr(track.init)}"/></SegmentBase>` +
+    `</Representation></AdaptationSet>`
+  )
+}
+
+/**
+ * 비디오 모드 저장분(`-video` + 짝 `-audio`)이 둘 다 있으면 로컬 DASH 매니페스트를 만든다. 없으면 null.
+ * 형태는 Invidious `/api/manifest/dash`(셀라가 스트림 재생에 쓰는 것)를 따른다.
+ */
+export async function buildLocalDashManifest(id: string): Promise<{ manifest: string; duration: number | null } | null> {
+  if (!isOpfsSupported()) return null
+  try {
+    const pair = await getLocalVideoPair(id)
+    if (!pair) return null
+    const duration = pair.video.track.duration ?? pair.audio.track.duration ?? null
+    const manifest =
+      '<?xml version="1.0" encoding="utf-8"?>' +
+      '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT1.500S" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" type="static"' +
+      (duration ? ` mediaPresentationDuration="PT${duration}S"` : '') + '>' +
+      '<Period>' +
+      dashRepresentation(pair.audio.id, pair.audio.track, 'audio') +
+      dashRepresentation(pair.video.id, pair.video.track, 'video') +
+      '</Period></MPD>'
+    return { manifest, duration }
+  } catch {
+    return null
   }
 }
 
@@ -412,11 +560,36 @@ export async function resolveSrc(id: string, cdnUrl: string, type: 'audio' | 'vi
   return cachedUrl ?? cdnUrl
 }
 
-export async function deleteMedia(id: string, type?: 'audio' | 'video'): Promise<void> {
-  const keys = type ? [`${id}-${type}`] : [`${id}-audio`, `${id}-video`]
-  for (const key of keys) {
-    await removeMediaCacheKey(key)
+/**
+ * 저장 항목 삭제. 비디오 저장은 짝 `-audio`를 오디오 모드와 공유할 수 있어 소유권을 따른다:
+ * - `video`: `-video` 삭제 + 짝 오디오에서 'video' 소유 해제(오디오 모드도 저장했으면 파일은 남는다)
+ * - `audio`: 'audio' 소유 해제(비디오 저장이 쓰고 있으면 파일은 남는다)
+ * - type 생략 또는 `purge`(손상 파일): 소유와 무관하게 파일을 지운다. 짝 오디오가 사라진 비디오는
+ *   재생할 수 없으므로 같이 지운다.
+ */
+export async function deleteMedia(id: string, type?: 'audio' | 'video', opts: { purge?: boolean } = {}): Promise<void> {
+  if (!type || (opts.purge && type === 'audio')) {
+    await removeMediaCacheKey(`${id}-audio`)
+    await removeMediaCacheKey(`${id}-video`)
+    return
   }
+  if (type === 'video') {
+    await removeMediaCacheKey(`${id}-video`)
+    await releaseAudioOwner(id, 'video')
+    return
+  }
+  await releaseAudioOwner(id, 'audio')
+}
+
+async function releaseAudioOwner(id: string, owner: MediaOwner): Promise<void> {
+  const key = `${id}-audio`
+  const entry = await idbGet<FileEntry>('files', key)
+  if (!entry) return
+  const owners = audioOwnersOf(entry)
+  if (!owners.includes(owner)) return
+  const rest = owners.filter((o) => o !== owner)
+  if (rest.length === 0) await removeMediaCacheKey(key)
+  else await idbPut('files', { ...entry, ownedBy: rest })
 }
 
 /** 저장 항목에 표시용 메타를 기록한다(완료된 항목만, 없으면 무시). */
@@ -424,10 +597,6 @@ export async function setMediaMeta(cacheKey: string, meta: SavedMediaMeta): Prom
   const entry = await idbGet<FileEntry>('files', cacheKey)
   if (!entry || entry.status !== 'complete') return
   await idbPut('files', { ...entry, meta })
-}
-
-async function evictByCacheKey(cacheKey: string): Promise<void> {
-  await removeMediaCacheKey(cacheKey)
 }
 
 /**
@@ -448,16 +617,35 @@ export async function enforceStoragePolicy(excludeKey?: string): Promise<void> {
   if (offlineStorageMode === 'custom') return
 
   const all = await idbGetAll<FileEntry>('files')
-  const complete = all
-    .filter((f) => f.status === 'complete' && f.id !== excludeKey)
-    .sort((a, b) => a.lastPlayedAt - b.lastPlayedAt)
+  const byKey = new Map(all.filter((f) => f.status === 'complete').map((f) => [f.id, f]))
+  // 삭제 단위: 오디오 저장 1건, 또는 비디오 저장 1건(= `-video` + 비디오만 쓰는 짝 `-audio`).
+  // 키 단위로 지우면 짝 오디오만 사라져 비디오가 재생 불가가 된다. excludeKey는 같은 영상 id 전체를 보호한다.
+  const excludeId = excludeKey ? idFromCacheKey(excludeKey) : null
+  const units: { id: string; type: 'audio' | 'video'; size: number; lastPlayedAt: number }[] = []
+  for (const f of byKey.values()) {
+    const id = idFromCacheKey(f.id)
+    if (id === excludeId) continue
+    const type = mediaTypeFromCacheKey(f.id)
+    if (type === 'video') {
+      const companion = byKey.get(`${id}-audio`)
+      const ownsCompanion = companion != null && isVideoOnlyCompanion(companion)
+      units.push({
+        id, type,
+        size: f.size + (ownsCompanion ? companion.size : 0),
+        lastPlayedAt: Math.max(f.lastPlayedAt, companion?.lastPlayedAt ?? 0),
+      })
+    } else if (audioOwnersOf(f).includes('audio')) {
+      units.push({ id, type, size: f.size, lastPlayedAt: f.lastPlayedAt })
+    }
+  }
+  units.sort((a, b) => a.lastPlayedAt - b.lastPlayedAt)
 
   if (offlineStorageMode === 'thrift') {
     // 절약 모드: 현재 곡(excludeKey) + 최근 1곡 = 총 2곡 보관, 나머지 제거.
-    // complete는 excludeKey 제외 + lastPlayedAt 오름차순(오래된 것 먼저)이므로
+    // units는 excludeKey 제외 + lastPlayedAt 오름차순(오래된 것 먼저)이므로
     // 가장 최근 1개만 남기고 앞쪽(오래된 것)을 제거한다.
-    const toEvict = complete.slice(0, Math.max(0, complete.length - 1))
-    for (const f of toEvict) await evictByCacheKey(f.id)
+    const toEvict = units.slice(0, Math.max(0, units.length - 1))
+    for (const u of toEvict) await deleteMedia(u.id, u.type)
     return
   }
 
@@ -466,36 +654,58 @@ export async function enforceStoragePolicy(excludeKey?: string): Promise<void> {
       ? 1 * 1024 * 1024 * 1024
       : 500 * 1024 * 1024
 
-  let totalUsed = complete.reduce((sum, f) => sum + f.size, 0)
-  for (const f of complete) {
+  let totalUsed = units.reduce((sum, u) => sum + u.size, 0)
+  for (const u of units) {
     if (totalUsed <= limitBytes) break
-    await evictByCacheKey(f.id)
-    totalUsed -= f.size
+    await deleteMedia(u.id, u.type)
+    totalUsed -= u.size
   }
 }
 
 // 진행 중인 다운로드 취소용 레지스트리 (cacheKey → AbortController)
 const _activeDownloads = new Map<string, AbortController>()
+// 진행 중인 비디오 저장(짝 오디오 → 영상 2단계) 흐름. 단계 사이에 취소돼도 다음 단계로 넘어가지 않게 한다.
+const _videoFlows = new Map<string, AbortController>()
 
-/** 진행 중인 다운로드 취소 (미니 플레이어 닫기 등). 없으면 no-op. */
+/** 진행 중인 다운로드 취소 (미니 플레이어 닫기 등). 없으면 no-op. 비디오는 짝 오디오 단계까지 취소한다. */
 export function cancelDownload(id: string, type: 'audio' | 'video'): void {
+  if (type === 'video') _videoFlows.get(id)?.abort()
   _activeDownloads.get(`${id}-${type}`)?.abort()
 }
 
 export async function downloadMedia(
   id: string,
   cdnUrl: string,
-  opts: { onProgress?: (pct: number) => void; type?: 'audio' | 'video'; estimatedSize?: number; mimeType?: string } = {},
+  opts: {
+    onProgress?: (pct: number) => void
+    type?: 'audio' | 'video'
+    estimatedSize?: number
+    mimeType?: string
+    /** `-audio`를 저장하는 주체(기본 'audio'). 이미 저장돼 있으면 소유자만 추가한다. */
+    owner?: MediaOwner
+    track?: DashTrack
+    signal?: AbortSignal
+  } = {},
 ): Promise<void> {
   if (!isOfflineMediaSupported()) throw new Error('Offline media is not supported on this device')
+  if (opts.signal?.aborted) throw new DOMException('Download aborted', 'AbortError')
 
   // 절약 모드도 2곡까지 저장한다(다운로드 후 enforceStoragePolicy가 현재+최근 1곡만 남김).
   const mediaType = opts.type ?? 'audio'
   const cacheKey = `${id}-${mediaType}`
+  const owner: MediaOwner = opts.owner ?? 'audio'
+  const ownership = mediaType === 'audio' ? { ownedBy: [owner] } : {}
 
   const existing = await idbGet<FileEntry>('files', cacheKey)
   if (existing?.status === 'complete') {
-    if (!isLegacyAudioCache(existing, mediaType)) return
+    if (!isLegacyAudioCache(existing, mediaType)) {
+      // 비디오 저장이 받아 둔 짝 오디오를 오디오 모드가 "저장"하면 파일은 그대로 두고 소유자만 늘린다.
+      if (mediaType === 'audio' && !audioOwnersOf(existing).includes(owner)) {
+        // 재생은 이미 이 파일로 되고 있었으므로(소유자와 무관) MEDIA_DOWNLOADED는 쏘지 않는다.
+        await idbPut('files', { ...existing, ownedBy: withOwner(audioOwnersOf(existing), owner) })
+      }
+      return
+    }
     await removeMediaCacheKey(cacheKey)
   }
 
@@ -525,11 +735,13 @@ export async function downloadMedia(
     lastPlayedAt: now,
     status: 'downloading',
     formatVersion: CACHE_FORMAT_VERSION,
+    ...ownership,
   } as FileEntry)
 
   // 취소 가능하도록 컨트롤러 등록 (cancelDownload로 중단)
   const abortController = new AbortController()
   _activeDownloads.set(cacheKey, abortController)
+  opts.signal?.addEventListener('abort', () => abortController.abort(), { once: true })
 
   let writable: FileSystemWritableFileStream | null = null
   try {
@@ -577,6 +789,8 @@ export async function downloadMedia(
       throw new Error(`Corrupt download: OPFS file ${writtenFile.size}B != received ${received}B`)
     }
 
+    // 같은 파일명에 새 바이트를 썼다 — 이전 File 스냅샷을 버린다.
+    _fileCache.delete(cacheKey)
     await idbPut('files', {
       id: cacheKey,
       filename: cacheKey,
@@ -586,6 +800,8 @@ export async function downloadMedia(
       lastPlayedAt: now,
       status: 'complete',
       formatVersion: CACHE_FORMAT_VERSION,
+      ...ownership,
+      ...(opts.track ? { track: opts.track } : {}),
     } as FileEntry)
 
     opts.onProgress?.(1)
@@ -599,6 +815,121 @@ export async function downloadMedia(
     throw err
   } finally {
     _activeDownloads.delete(cacheKey)
+  }
+}
+
+function trackFromDownload(info: VideoDownloadTrackInfo, fallbackDuration: number | null): DashTrack {
+  // 프록시 URL의 `dur=`가 실제 길이(소수)다. DB duration은 정수 반올림이라 매니페스트 길이로는 덜 정확하다.
+  let duration: number | undefined
+  try {
+    const dur = parseFloat(new URL(info.url).searchParams.get('dur') ?? '')
+    if (Number.isFinite(dur) && dur > 0) duration = dur
+  } catch {}
+  return {
+    mimeType: info.mimeType,
+    init: info.init,
+    index: info.index,
+    bitrate: info.bitrate,
+    ...(info.width && info.height ? { width: info.width, height: info.height } : {}),
+    duration: duration ?? fallbackDuration ?? undefined,
+  }
+}
+
+/**
+ * 저장 파일의 최상위 MP4 박스를 읽어 SegmentBase 범위를 구한다(ftyp/moov = init, sidx = index).
+ * 오디오 모드가 받아 둔 파일이 이번 응답의 트랙과 크기가 달라 백엔드 범위를 그대로 쓸 수 없을 때만 쓴다.
+ */
+async function probeSegmentBase(file: File): Promise<{ init: string; index: string } | null> {
+  const head = new DataView(await file.slice(0, 256 * 1024).arrayBuffer())
+  let offset = 0
+  let moovEnd = -1
+  while (offset + 8 <= head.byteLength) {
+    let size = head.getUint32(offset)
+    const type = String.fromCharCode(head.getUint8(offset + 4), head.getUint8(offset + 5), head.getUint8(offset + 6), head.getUint8(offset + 7))
+    if (size === 1 && offset + 16 <= head.byteLength) size = Number(head.getBigUint64(offset + 8))
+    if (size < 8) return null
+    if (type === 'moov') moovEnd = offset + size
+    if (type === 'sidx') return moovEnd > 0 ? { init: `0-${moovEnd - 1}`, index: `${offset}-${offset + size - 1}` } : null
+    offset += size
+  }
+  return null
+}
+
+/**
+ * 비디오 모드 저장: 짝 오디오(audio-only) → 영상(video-only) 두 파일을 순서대로 받는다(합치지 않음).
+ * 재생은 `buildLocalDashManifest`가 두 파일을 DASH로 묶는다.
+ *
+ * - 오디오 모드로 이미 저장한 `-audio`(audio/mp4)가 있으면 다시 받지 않고 'video' 소유자와 트랙 정보만 더한다.
+ *   크기가 응답 트랙(clen)과 같으면 같은 파일이라 백엔드 범위를, 다르면 파일에서 직접 읽은 범위를 쓴다.
+ * - 영상이 마지막이라 MEDIA_DOWNLOADED(type 'video')는 짝이 다 갖춰진 뒤에만 나간다.
+ * - 실패/취소 시 `deleteMedia(id, 'video')`로 정리한다 — 오디오 모드가 소유한 오디오는 지우지 않는다.
+ */
+export async function downloadVideoWithAudio(
+  id: string,
+  info: VideoDownloadInfo,
+  opts: { onProgress?: (pct: number) => void } = {},
+): Promise<void> {
+  if (!isOfflineMediaSupported()) throw new Error('Offline media is not supported on this device')
+  if (await isMediaCached(id, 'video')) return
+  _videoFlows.get(id)?.abort()
+  const flow = new AbortController()
+  _videoFlows.set(id, flow)
+  const total = info.audio.clen + info.video.clen
+  const progress = (bytesBefore: number, size: number) => (p: number) =>
+    opts.onProgress?.(Math.min(0.999, (bytesBefore + p * size) / total))
+  const checkAborted = () => {
+    if (flow.signal.aborted) throw new DOMException('Download aborted', 'AbortError')
+  }
+
+  try {
+    const audioKey = `${id}-audio`
+    const existing = await idbGet<FileEntry>('files', audioKey)
+    if (existing?.status === 'complete' && existing.mimeType.toLowerCase().startsWith('audio/mp4')) {
+      let track = existing.track
+      if (!track) {
+        const base = trackFromDownload(info.audio, info.duration)
+        let ranges: { init: string; index: string } | null = { init: base.init, index: base.index }
+        if (existing.size !== info.audio.clen) {
+          const file = await getMediaFile(audioKey)
+          ranges = file ? await probeSegmentBase(file) : null
+        }
+        if (!ranges) throw new Error('Saved audio has no SegmentBase index')
+        track = { ...base, ...ranges, mimeType: existing.mimeType }
+      }
+      await idbPut('files', { ...existing, track, ownedBy: withOwner(audioOwnersOf(existing), 'video') })
+    } else {
+      await downloadMedia(id, info.audio.url, {
+        type: 'audio',
+        owner: 'video',
+        track: trackFromDownload(info.audio, info.duration),
+        mimeType: info.audio.mimeType,
+        estimatedSize: info.audio.clen,
+        signal: flow.signal,
+        onProgress: progress(0, info.audio.clen),
+      })
+      // 다른 탭/흐름이 같은 키를 받는 중이면 downloadMedia가 백오프로 그냥 돌아온다 → 완료 여부를 직접 확인.
+      const saved = await idbGet<FileEntry>('files', audioKey)
+      if (saved?.status !== 'complete' || !saved.track || !audioOwnersOf(saved).includes('video')) {
+        throw new Error('Companion audio was not saved')
+      }
+    }
+    checkAborted()
+
+    await downloadMedia(id, info.video.url, {
+      type: 'video',
+      track: trackFromDownload(info.video, info.duration),
+      mimeType: info.video.mimeType,
+      estimatedSize: info.video.clen,
+      signal: flow.signal,
+      onProgress: progress(info.audio.clen, info.video.clen),
+    })
+    if (!(await isMediaCached(id, 'video'))) throw new Error('Video was not saved')
+    opts.onProgress?.(1)
+  } catch (err) {
+    await deleteMedia(id, 'video').catch(() => {})
+    throw err
+  } finally {
+    if (_videoFlows.get(id) === flow) _videoFlows.delete(id)
   }
 }
 
@@ -673,8 +1004,8 @@ let _reconcilePromise: Promise<void> | null = null
  * - status='downloading' 고아 엔트리: 다운로드 도중 프로세스가 죽어 남은 잠금 →
  *   부분 OPFS 파일과 함께 제거 (다음 재생/다운로드가 깨끗하게 다시 받도록).
  * - status='complete'이지만 OPFS 파일이 없거나 크기가 기록과 다른 엔트리: 손상 → 제거.
- * - `-video` 엔트리: 비디오 모드가 DASH 스트림 전용이 되면서 더 이상 재생에 쓰이지 않는
- *   유물 → 제거(용량만 차지한다).
+ * - `track` 없는 `-video` 엔트리: 예전 muxed 단일 파일 저장의 유물(지금 재생 경로는 로컬 DASH뿐) → 제거.
+ * - 짝이 깨진 비디오 저장: 짝 오디오 없는 `-video`는 제거, `-video` 없는 비디오 전용 오디오는 소유 해제(=제거).
  */
 export function reconcileMediaStore(): Promise<void> {
   if (_reconcilePromise) return _reconcilePromise
@@ -688,9 +1019,9 @@ export function reconcileMediaStore(): Promise<void> {
     }
     for (const entry of entries) {
       try {
-        if (entry.id.endsWith('-video')) {
-          // 비디오 모드는 DASH 스트림 전용으로 바뀌어 저장 파일을 재생에 쓰지 않는다.
-          if (import.meta.env.DEV) console.warn('[mediaStore] reconcile evicting (video no longer cached):', entry.id)
+        if (entry.id.endsWith('-video') && !entry.track) {
+          // 로컬 DASH 재료(SegmentBase 범위)가 없는 옛 비디오 저장 파일은 재생할 방법이 없다.
+          if (import.meta.env.DEV) console.warn('[mediaStore] reconcile evicting (legacy video without track):', entry.id)
           await removeMediaCacheKey(entry.id)
           continue
         }
@@ -720,11 +1051,33 @@ export function reconcileMediaStore(): Promise<void> {
         }
       }
     }
+
+    // 짝 정리: 위에서 한쪽만 지워졌거나(손상/누락) 이전 세션이 중간에 죽은 비디오 저장.
+    try {
+      // 비디오 먼저 정리해야 그 결과(지워진 `-video`)가 아래 오디오 소유 해제 판정에 반영된다.
+      const remaining = new Map((await idbGetAll<FileEntry>('files')).map((f) => [f.id, f]))
+      for (const entry of [...remaining.values()]) {
+        if (mediaTypeFromCacheKey(entry.id) !== 'video') continue
+        const companion = remaining.get(`${idFromCacheKey(entry.id)}-audio`)
+        if (companion?.status !== 'complete' || !audioOwnersOf(companion).includes('video')) {
+          if (import.meta.env.DEV) console.warn('[mediaStore] reconcile evicting (video without companion audio):', entry.id)
+          await removeMediaCacheKey(entry.id)
+          remaining.delete(entry.id)
+        }
+      }
+      for (const entry of remaining.values()) {
+        const id = idFromCacheKey(entry.id)
+        if (mediaTypeFromCacheKey(entry.id) === 'audio' && audioOwnersOf(entry).includes('video') && !remaining.has(`${id}-video`)) {
+          await releaseAudioOwner(id, 'video')
+        }
+      }
+    } catch {}
   })()
   return _reconcilePromise
 }
 
 export async function clearAllMedia(): Promise<void> {
+  _fileCache.clear()
   const entries = await idbGetAll<FileEntry>('files')
   try {
     const root = await navigator.storage.getDirectory()

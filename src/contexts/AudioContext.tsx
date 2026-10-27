@@ -4,7 +4,7 @@ import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { api } from '@/lib/api'
-import { deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
+import { buildLocalDashManifest, deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
 import type { MediaDownloadedDetail } from '@/lib/mediaStore'
 import { checkDashSupport, destroyDash, ensureDashPlayer, isDashAbortError, isDashAttached, loadDash, reloadOnceForShakaChunk, unloadDash } from '@/lib/dashPlayer'
 import { isDesktopSafari, isIosWebKit } from '@/lib/mediaStore'
@@ -461,7 +461,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // 저장(다운로드) 파일을 자동재생으로 틀 때만 호출한다. 3초 내 실제 재생 진행(position>0)이
   // 없으면 파일 손상으로 간주: 파일 삭제 후 재다운로드(MEDIA_CORRUPT_EVENT)를 트리거하고,
   // 재다운로드 후에도 손상이면 무한루프 방지로 스트림 폴백한다.
-  // 비디오 모드는 DASH 스트림 전용(저장 파일이 없음)이라 오디오에만 설치된다.
+  // 오디오에만 설치된다. 비디오 저장분은 로컬 DASH(shaka)로 트는데, 손상이면 shaka error →
+  // 스트림 재시도 경로를 타므로 이 watchdog(=`<audio>` src 전제)이 필요 없다.
   const armCacheWatchdog = useCallback((id: string) => {
     clearCacheWatchdog()
     const type = 'audio' as const
@@ -502,7 +503,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         // 재다운로드한 파일도 손상 → 무한 재다운로드 방지: 이번 세션은 스트림으로 폴백.
         _forceStreamThisSession.add(key)
         pendingCorruptReplayRef.current = null
-        void deleteMedia(id, type).finally(() => {
+        // 손상 파일은 소유자(비디오 저장 공유 여부)와 무관하게 지운다.
+        void deleteMedia(id, type, { purge: true }).finally(() => {
           useCachedMediaStore.getState().refresh()
           if (activeVideo) {
             void playVideoRef.current?.(activeVideo, { autoPlay: true, skipRecentAdd: true, seekTo: 0 })
@@ -515,7 +517,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       // 다운로드 완료 시 MEDIA_DOWNLOADED 핸들러가 pendingCorruptReplay로 재생을 재개한다.
       _corruptRetriedThisSession.add(key)
       pendingCorruptReplayRef.current = { id, type }
-      void deleteMedia(id, type)
+      void deleteMedia(id, type, { purge: true })
         .finally(() => useCachedMediaStore.getState().refresh())
         .finally(() => window.dispatchEvent(new CustomEvent(MEDIA_CORRUPT_EVENT, { detail: { id, type } })))
     }, 3000)
@@ -639,7 +641,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           // 조건 안이고, 그 경로는 releaseAudioFromDash()로 shaka를 떼고 들어온다.
           audio.src = ''
           const cleanup = shouldDelete
-            ? deleteMedia(localPlayback.id, localPlayback.type)
+            ? deleteMedia(localPlayback.id, localPlayback.type, { purge: true })
                 .finally(() => useCachedMediaStore.getState().refresh())
             : Promise.resolve()
           if (!shouldDelete) {
@@ -819,7 +821,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
     const mediaType = isVideoMode ? 'video' : 'audio'
     const cacheKey = `${video.id}-audio`
-    // 저장 파일 재생은 오디오 전용이다. 비디오 모드는 DASH 스트림 전용(저장 기능 없음).
+    // 이 블록(`<audio src>` 저장 파일 재생)은 오디오 전용이다. 비디오 저장분은 아래 비디오 분기가 로컬 DASH로 튼다.
     if (!isVideoMode && isOpfsSupported() && !_forceStreamThisSession.has(cacheKey)) {
       try {
         const localUrl = await getCachedMediaPlaybackUrl(video.id, 'audio')
@@ -989,10 +991,20 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       // 재생 주체가 <video>다 — <audio>에 남아 있던 DASH 의도는 여기서 내린다
       // (ensureDashPlayer가 싱글턴을 <audio>에서 detach하고 <video>에 재부착한다).
       dashOnAudioRef.current = false
+      // 비디오 모드 저장분(video-only + audio-only 두 파일)이 있으면 로컬 DASH 매니페스트로 튼다 —
+      // 네트워크 없이 같은 shaka 경로로 소리·화면·seek이 모두 된다. 로컬 로드가 실패하면 이번 세션은
+      // 스트림으로 돌린다(아래 catch). 파일은 지우지 않는다(재다운로드 루프 방지, 오디오의 force-stream과 같은 정책).
+      const localKey = `${video.id}-video`
+      const local = isOpfsSupported() && !_forceStreamThisSession.has(localKey)
+        ? await buildLocalDashManifest(video.id)
+        : null
+      if (currentVideoIdRef.current !== video.id) return
       try {
-        const { data } = await api.get<{ manifest: string; duration: number | null; mimeType: string }>(
-          `/videos/${video.id}/manifest`,
-        )
+        const data = local
+          ? { ...local, mimeType: 'application/dash+xml' }
+          : (await api.get<{ manifest: string; duration: number | null; mimeType: string }>(
+              `/videos/${video.id}/manifest`,
+            )).data
         // 네트워크 대기 중 트랙이 바뀌었으면(다른 곡 재생/정지) 이 결과는 폐기한다.
         if (currentVideoIdRef.current !== video.id) return
         const streamDuration = normalizeDbDuration(data.duration)
@@ -1000,7 +1012,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           hasAuthoritativeDurationRef.current = true
           setDuration(streamDuration)
         }
-        setLastPlayback({ id: video.id, type: mediaType, source: 'stream', src: `dash:${video.id}` })
+        setLastPlayback({ id: video.id, type: mediaType, source: local ? 'local-dash' : 'stream', src: `dash:${video.id}` })
         localPlaybackRef.current = null
         pendingAutoPlayRef.current = autoPlay
         // shaka가 startTime을 처리하므로 element 기반 pending seek은 쓰지 않는다.
@@ -1035,6 +1047,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         // 새 load가 이전 load를 대체하며 나는 취소는 사용자 에러가 아니다.
         if (isDashAbortError(e)) return
+        if (local && currentVideoIdRef.current === video.id) {
+          _forceStreamThisSession.add(localKey)
+          void playVideoRef.current?.(video, { ...options, autoPlay, skipRecentAdd: true, resume: true })
+          return
+        }
         setError('스트림을 불러올 수 없습니다.')
         setIsLoading(false)
       }
@@ -1120,11 +1137,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       // (즉시 시작 + seek 가능). 반대로 갈아타려면 shaka를 내리고 <audio src>를 새로 물려야
       // 해서 그 순간 소리가 끊기고 위치가 흔들린다 — 얻는 것 없이 잃기만 한다.
       // 다운로드는 3초쯤에 끝나므로 이 재진입은 **재생 도중 한복판에서** 발생한다
-      // (비디오 모드는 다운로드 기능 자체가 없어 이 경로를 피해 갔지만 오디오는 정면으로 맞는다).
+      // (비디오도 같은 상황이라 바로 아래에서 같은 이유로 건너뛴다).
       // 파일은 저장돼 있으니 손해는 없다 — 다음 재생부터 캐시 경로(131ms)로 들어간다.
       // 손상 복구 재생(isCorruptReplay)은 저장 파일 재생에서만 발생하므로 여기 걸리지 않지만,
       // 만약 걸린다면 재생을 살리는 쪽이 맞으니 예외로 통과시킨다.
       if (dashOnAudioRef.current && !isCorruptReplay) return
+      // 비디오도 같다: 다운로드 중에도 재생은 DASH 스트림(<video>)이었다. 다음 재생부터 로컬 DASH로 들어간다.
+      if (detail.type === 'video' && !isCorruptReplay) return
 
       if (isCorruptReplay) pendingCorruptReplayRef.current = null
       void playVideo(activeVideo, {
@@ -1311,9 +1330,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (v?.type === 'SERMON') clearSermonResume(v.id)
   }, [])
 
-  // 비디오 모드엔 저장 파일 재생 경로가 없다(오프라인 비디오 저장 제거 + DASH 브랜치가
-  // localPlaybackRef를 명시적으로 null로 둔다). 그래서 여기엔 <audio> 쪽 같은 로컬 파일
-  // 폴백/삭제 분기가 존재할 수 없다 — 있던 블록은 죽은 코드라 제거했다.
+  // 비디오 저장분도 shaka(로컬 DASH)로 재생하고 DASH 브랜치가 localPlaybackRef를 명시적으로
+  // null로 둔다. 그래서 여기엔 <audio> 쪽 같은 로컬 파일 폴백/삭제 분기가 없다 — 로컬 DASH 실패는
+  // load() catch(스트림 재시도)와 handleDashError가 맡는다.
   const onVideoError = useCallback(() => {
     if (cacheWatchdogRef.current) { clearTimeout(cacheWatchdogRef.current); cacheWatchdogRef.current = null }
     if (corruptHandlingRef.current) { setIsLoading(false); return }

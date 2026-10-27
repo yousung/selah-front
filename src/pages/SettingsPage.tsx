@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSettingsStore, OCCUPATION_LABELS } from '@/store/settingsStore'
-import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale, Occupation } from '@/store/settingsStore'
+import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale, Occupation, VideoDownloadQuality } from '@/store/settingsStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
@@ -127,6 +127,11 @@ const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string }[] = [
   { value: 'video', label: '비디오' },
 ]
 
+const VIDEO_DOWNLOAD_QUALITY_OPTIONS: { value: VideoDownloadQuality; label: string }[] = [
+  { value: '360p', label: '360p' },
+  { value: '720p', label: '720p' },
+]
+
 const OFFLINE_MODE_OPTIONS: { value: OfflineStorageMode; label: string; desc: string }[] = [
   { value: 'thrift', label: '절약', desc: '저장하지 않음 · 항상 스트리밍 · 멀티 다운로드 미지원' },
   { value: 'normal', label: '보통', desc: '최대 500MB까지 저장 · Wi-Fi에서 받아 두면 밖에서 데이터 없이 재생됩니다' },
@@ -192,10 +197,10 @@ export default function SettingsPage() {
   const {
     theme, quality, mediaMode, playbackRate,
     showCatechismHeadings, showCatechismToc,
-    offlineStorageMode, fontScale, onlyOurChurch, occupation,
+    offlineStorageMode, videoDownloadQuality, fontScale, onlyOurChurch, occupation,
     setTheme, setQuality, setMediaMode,
     setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
-    setOfflineStorageMode, setFontScale, setOnlyOurChurch, setOccupation,
+    setOfflineStorageMode, setVideoDownloadQuality, setFontScale, setOnlyOurChurch, setOccupation,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
   const navigate = useNavigate()
@@ -286,7 +291,7 @@ export default function SettingsPage() {
         {/* ════════════ 재생 ════════════ */}
         <SectionBox title="재생">
           <div data-tour="setting-media">
-            <Field title="미디어 모드" description="오디오는 영상 없이 소리만 재생해 데이터 사용량을 크게 줄일 수 있습니다. 비디오는 영상과 함께 재생되며, 스트리밍으로만 재생돼 오프라인 저장은 되지 않습니다. 데이터 절약과 오프라인 저장을 원하시면 오디오를 권장합니다.">
+            <Field title="미디어 모드" description="오디오는 영상 없이 소리만 재생해 데이터 사용량을 크게 줄일 수 있습니다. 비디오는 영상과 함께 재생되며, 저장하면 영상과 소리 파일을 함께 받아 오프라인에서도 볼 수 있습니다(오디오보다 용량이 큽니다). 데이터를 아끼려면 오디오를 권장합니다.">
               <Segmented value={mediaMode} onChange={setMediaMode} options={MEDIA_MODE_OPTIONS} />
             </Field>
           </div>
@@ -374,6 +379,13 @@ export default function SettingsPage() {
                 <Segmented value={offlineStorageMode} onChange={handleStorageModeChange} options={OFFLINE_MODE_OPTIONS} />
               </Field>
             </div>
+
+            <Field
+              title="비디오 저장 화질"
+              description="비디오 모드에서 저장할 때의 최대 화질입니다. 720p는 더 선명하지만 360p보다 용량이 2배 가까이 큽니다. 이미 저장한 영상에는 적용되지 않습니다."
+            >
+              <Segmented value={videoDownloadQuality} onChange={setVideoDownloadQuality} options={VIDEO_DOWNLOAD_QUALITY_OPTIONS} />
+            </Field>
 
             <Field
               title="저장된 컨텐츠"

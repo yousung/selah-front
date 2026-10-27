@@ -15,7 +15,7 @@ import {
 // fresh probe만으론 부족 — 실제 재생이 어떤 src로 갔고, 무엇이 터졌는지 기록한다.
 // 오버레이가 이 값을 구독해 보여줄 수 있도록 zustand로 둔다(기존 스토어 패턴과 동일).
 
-export type PlaybackSource = 'sw' | 'blob' | 'stream'
+export type PlaybackSource = 'sw' | 'blob' | 'stream' | 'local-dash'
 
 export interface LastPlayback {
   id: string | null

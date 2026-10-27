@@ -152,9 +152,10 @@ DASH로 재생 중이면 로컬 파일로 **갈아타지 않는다**(`dashOnAudi
   `playVideo` 진입·`stop`에서 false로 리셋.
 - 모바일 동적 오디오: `src` 설정 후 `load()`, `canplay`에서 보류된 자동재생 재시도
 - 모바일 오디오 엘리먼트: `new Audio()` 분리 객체 대신 Provider DOM에 숨김 마운트
-- **비디오 모드는 오프라인 저장을 하지 않는다**(DASH는 저장할 단일 파일이 없음).
-  다운로드 버튼은 `offlineMediaOk`(= `isOfflineMediaSupported() && mediaMode !== 'video'`)
-  하나로 꺼진다. 오디오 모드 다운로드는 그대로 유지.
+- **비디오 모드 저장 = 두 파일**(video-only `-video` + audio-only 짝 `-audio`, 합치지 않음). 재생은
+  `buildLocalDashManifest()` → `loadDash()`로 같은 shaka `<video>` 경로를 타고, 바이트는 `selah-file://`
+  스킴 플러그인이 OPFS에서 Range대로 읽는다(오프라인 OK). 로컬 DASH 로드 실패 시 이번 세션은 스트림으로 폴백.
+  비디오에는 캐시 watchdog이 없다(`<audio src>` 전제 장치). 상세·소유권 규칙: `api.md` mediaStore 절.
 - shaka `error` 이벤트는 `handleDashError`로 기존 에러 UX(`error` state → PlayerPage 배너)에
   연결된다. 로드 취소 코드(7000 LOAD_INTERRUPTED / 7001 OPERATION_ABORTED)는 정상 흐름이라 걸러낸다.
 - **비디오 모드에서 `<audio>`의 error는 무시한다.** 재생은 shaka가 `<video>`에서 하므로

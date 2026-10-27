@@ -488,20 +488,36 @@ try {
         })
         await new Promise((resolve, reject) => {
           const tx = db.transaction('files', 'readwrite')
+          const track = (mimeType) => ({ mimeType, init: '0-740', index: '741-4708', bitrate: 100000, duration: 245 })
           for (let i = 1; i <= 3; i++) {
             tx.objectStore('files').put({
               id: `saved-${i}-audio`, filename: `saved-${i}-audio`, mimeType: 'audio/mp4',
               size: 5_000_000 * i, downloadedAt: Date.now() - i * 86400000, lastPlayedAt: Date.now(),
               status: 'complete', formatVersion: 2,
+              // saved-1 오디오는 오디오 모드 저장 + 비디오 저장의 짝(공유)
+              ...(i === 1 ? { ownedBy: ['audio', 'video'], track: track('audio/mp4; codecs="mp4a.40.2"') } : {}),
               meta: { title: `${title} ${i}`, thumbnail: null, type: ['MUSIC', 'SERMON', 'READING'][i - 1] },
             })
           }
           // 같은 id의 비디오 항목(가장 최근 저장 → 첫 행): 오디오와 별개 행·삭제 대상이어야 한다.
           tx.objectStore('files').put({
-            id: 'saved-1-video', filename: 'saved-1-video', mimeType: 'video/mp4',
+            id: 'saved-1-video', filename: 'saved-1-video', mimeType: 'video/mp4; codecs="avc1.4D401E"',
             size: 40_000_000, downloadedAt: Date.now() - 3600000, lastPlayedAt: Date.now(),
-            status: 'complete', formatVersion: 2,
+            status: 'complete', formatVersion: 2, track: track('video/mp4; codecs="avc1.4D401E"'),
             meta: { title: `${title} 1`, thumbnail: null, type: 'MUSIC' },
+          })
+          // 비디오 모드로만 저장한 항목: 짝 오디오(ownedBy video)는 행이 따로 없고 비디오 행 크기에 합산된다.
+          tx.objectStore('files').put({
+            id: 'saved-4-video', filename: 'saved-4-video', mimeType: 'video/mp4; codecs="avc1.4D401E"',
+            size: 40_000_000, downloadedAt: Date.now() - 5400000, lastPlayedAt: Date.now(),
+            status: 'complete', formatVersion: 2, track: track('video/mp4; codecs="avc1.4D401E"'),
+            meta: { title: `${title} 4`, thumbnail: null, type: 'SERMON' },
+          })
+          tx.objectStore('files').put({
+            id: 'saved-4-audio', filename: 'saved-4-audio', mimeType: 'audio/mp4; codecs="mp4a.40.2"',
+            size: 5_000_000, downloadedAt: Date.now() - 5400000, lastPlayedAt: Date.now(),
+            status: 'complete', formatVersion: 2, ownedBy: ['video'], track: track('audio/mp4; codecs="mp4a.40.2"'),
+            meta: { title: `${title} 4`, thumbnail: null, type: 'SERMON' },
           })
           tx.oncomplete = resolve
           tx.onerror = () => reject(tx.error)
@@ -512,20 +528,31 @@ try {
       await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x saved content rendered`)
       assert.deepEqual(
         await page.getByTestId('saved-media-badge').allTextContents(),
-        ['비디오', '오디오', '오디오', '오디오'],
+        ['비디오', '비디오', '오디오', '오디오', '오디오'],
         'saved media badges',
       )
+      assert.match(await page.getByTestId('saved-row').nth(1).innerText(), /42\.9MB/, 'video row size = video + companion audio')
+      assert.match(await page.getByTestId('saved-total').innerText(), /총 5개 \(오디오 3 · 비디오 2\)/, 'saved header counts')
       await page.getByTestId('saved-delete').first().click()
       await page.getByTestId('saved-confirm').waitFor({ state: 'visible', timeout: 5000 })
       await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x saved content confirm`)
       await assertVisibleButtonsReadable(page, `${width}px/${scale}x saved content confirm`)
       await page.getByTestId('saved-confirm-ok').click()
-      await page.waitForFunction(() => document.querySelectorAll('[data-testid="saved-row"]').length === 3)
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="saved-row"]').length === 4)
       assert.deepEqual(
         await page.getByTestId('saved-media-badge').allTextContents(),
-        ['오디오', '오디오', '오디오'],
+        ['비디오', '오디오', '오디오', '오디오'],
         'only the video row deleted',
       )
+      // 공유 오디오는 남고 'video' 소유만 풀린다.
+      const shared = await page.evaluate(() => new Promise((resolve) => {
+        const req = indexedDB.open('selah-media', 1)
+        req.onsuccess = () => {
+          const get = req.result.transaction('files').objectStore('files').get('saved-1-audio')
+          get.onsuccess = () => resolve(get.result?.ownedBy ?? null)
+        }
+      }))
+      assert.deepEqual(shared, ['audio'], 'independently saved audio survives video delete')
       await page.evaluate(() => new Promise((resolve) => {
         const req = indexedDB.open('selah-media', 1)
         req.onsuccess = () => {

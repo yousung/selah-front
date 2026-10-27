@@ -8,6 +8,8 @@ export type AutoNextDelay = 'immediate' | '3s' | '5s' | 'off'
 export type PlayMode = 'single' | 'playlist' | 'repeat' | 'loop'
 export type MediaMode = 'audio' | 'video'
 export type OfflineStorageMode = 'thrift' | 'normal' | 'generous' | 'custom'
+/** 비디오 모드 저장 화질 상한. 480p는 av01 전용이라(iOS 불가) 없다 — backend `getDownloadUrl` 참고 */
+export type VideoDownloadQuality = '360p' | '720p'
 export type FontScale = 1 | 1.5 | 2
 export type Occupation = 'worker' | 'homemaker' | 'student' | 'pastor'
 
@@ -30,6 +32,7 @@ interface SettingsState {
   showCatechismToc: boolean
   offlineStorageMode: OfflineStorageMode
   offlineStorageCustomMB: number
+  videoDownloadQuality: VideoDownloadQuality
   fontScale: FontScale
   onlyOurChurch: boolean
   /** 지금의 기도 일과 기도 맞춤용 (null = 미설정 → 직장인으로 취급) */
@@ -45,6 +48,7 @@ interface SettingsState {
   setShowCatechismToc: (enabled: boolean) => void
   setOfflineStorageMode: (m: OfflineStorageMode) => void
   setOfflineStorageCustomMB: (mb: number) => void
+  setVideoDownloadQuality: (q: VideoDownloadQuality) => void
   setFontScale: (v: FontScale) => void
   setOnlyOurChurch: (enabled: boolean) => void
   setOccupation: (v: Occupation | null) => void
@@ -64,6 +68,7 @@ export const useSettingsStore = create<SettingsState>()(
       showCatechismToc: true,
       offlineStorageMode: 'normal',
       offlineStorageCustomMB: 1024,
+      videoDownloadQuality: '360p',
       fontScale: 1,
       onlyOurChurch: true,
       occupation: null,
@@ -82,6 +87,7 @@ export const useSettingsStore = create<SettingsState>()(
       setShowCatechismToc: (showCatechismToc) => set({ showCatechismToc }),
       setOfflineStorageMode: (offlineStorageMode) => set({ offlineStorageMode }),
       setOfflineStorageCustomMB: (mb) => set({ offlineStorageCustomMB: Math.min(2048, Math.max(1, mb)) }),
+      setVideoDownloadQuality: (videoDownloadQuality) => set({ videoDownloadQuality }),
       setFontScale: (fontScale) => set({ fontScale }),
       setOnlyOurChurch: (onlyOurChurch) => set({ onlyOurChurch }),
       setOccupation: (occupation) => set({ occupation }),
@@ -91,6 +97,7 @@ export const useSettingsStore = create<SettingsState>()(
       storage: createJSONStorage(() => localStorage),
       // v1: occupation 추가 — 기존 설정은 그대로 두고 occupation만 null로 채운다
       // v2: autoDownload 제거(자동 다운로드 폐지) — 옛 저장값은 버린다
+      // videoDownloadQuality는 버전 올림 없이 추가: persist가 저장값을 기본값 위에 얕게 병합해 없으면 '360p'가 된다
       version: 2,
       migrate: (persisted) => {
         const { autoDownload: _removed, ...rest } = (persisted ?? {}) as Record<string, unknown>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueries } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { deleteMedia, setMediaMeta, storageInfo } from '@/lib/mediaStore'
+import { audioOwnersOf, deleteMedia, isVideoOnlyCompanion, setMediaMeta, storageInfo } from '@/lib/mediaStore'
 import type { FileEntry, SavedMediaMeta } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
@@ -46,15 +46,20 @@ function playerPathFor(id: string, type?: string | null): string {
 export default function SavedContentPage() {
   const navigate = useNavigate()
   const { currentVideo } = useAudio()
+  // 저장 목록 행(비디오 저장의 짝으로만 있는 `-audio`는 비디오 행에 포함돼 따로 안 보인다)
   const [entries, setEntries] = useState<FileEntry[] | null>(null)
+  // 실제 파일 전체(사용 용량 합계용). 오디오를 두 모드가 공유하면 행은 둘이어도 파일은 하나다.
+  const [allFiles, setAllFiles] = useState<FileEntry[]>([])
   const [pendingDelete, setPendingDelete] = useState<FileEntry | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const info = await storageInfo()
-      setEntries([...info.entries].sort((a, b) => b.downloadedAt - a.downloadedAt))
+      setAllFiles(info.entries)
+      setEntries(info.entries.filter((e) => !isVideoOnlyCompanion(e)).sort((a, b) => b.downloadedAt - a.downloadedAt))
     } catch {
+      setAllFiles([])
       setEntries([])
     }
   }, [])
@@ -93,13 +98,18 @@ export default function SavedContentPage() {
       (entries ?? []).map((e, i) => {
         const v = fetched[i]
         const meta: SavedMediaMeta | null = e.meta ?? (v ? { title: v.title, thumbnail: v.thumbnail ?? null, type: v.type ?? null } : null)
-        return { entry: e, meta, ...splitKey(e.id) }
+        const key = splitKey(e.id)
+        // 비디오 행 크기 = 영상 + 짝 소리 파일(재생에 둘 다 필요하고, 삭제하면 비디오만 쓰던 소리도 같이 지워진다).
+        const companion = key.kind === 'video'
+          ? allFiles.find((f) => f.id === `${key.id}-audio` && audioOwnersOf(f).includes('video'))
+          : undefined
+        return { entry: e, meta, size: e.size + (companion?.size ?? 0), ...key }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entries, fetchedKey],
+    [entries, allFiles, fetchedKey],
   )
 
-  const totalBytes = rows.reduce((sum, r) => sum + r.entry.size, 0)
+  const totalBytes = allFiles.reduce((sum, f) => sum + f.size, 0)
   const videoCount = rows.filter((r) => r.kind === 'video').length
   const audioCount = rows.length - videoCount
 
@@ -152,7 +162,7 @@ export default function SavedContentPage() {
           )}
 
           <ul style={{ display: 'flex', flexDirection: 'column', gap: 8, listStyle: 'none', padding: 0, margin: 0 }}>
-            {rows.map(({ entry, meta, id, kind }) => {
+            {rows.map(({ entry, meta, id, kind, size }) => {
               const playing = currentVideo?.id === id
               const thumb = thumbUrl(meta?.thumbnail, 'mqdefault')
               return (
@@ -180,7 +190,7 @@ export default function SavedContentPage() {
                         >
                           {kind === 'video' ? '비디오' : '오디오'}
                         </span>
-                        {kindLabel(meta?.type)} · {formatSize(entry.size)} · {formatDate(entry.downloadedAt)}
+                        {kindLabel(meta?.type)} · {formatSize(size)} · {formatDate(entry.downloadedAt)}
                         {playing ? ' · 재생 중' : ''}
                       </p>
                     </div>

@@ -14,7 +14,8 @@ import TagBadge from '@/components/TagBadge'
 import Thumb from '@/components/Thumb'
 import SecretThumbPlaceholder from '@/components/SecretThumbPlaceholder'
 import { getSermonResume, clearSermonResume, type SermonResumeData } from '@/lib/sermonResume'
-import { downloadMedia, isMediaCached, isOfflineMediaSupported, cancelDownload, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
+import { downloadMedia, downloadVideoWithAudio, isMediaCached, isOfflineMediaSupported, cancelDownload, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
+import type { VideoDownloadInfo } from '@/lib/mediaStore'
 import type { MediaCorruptDetail } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { fs } from '@/lib/fontScale'
@@ -362,6 +363,7 @@ export default function PlayerPage() {
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
+  const videoDownloadQuality = useSettingsStore((s) => s.videoDownloadQuality)
   const mediaType = mediaMode === 'video' ? 'video' : 'audio'
   const mediaCacheKey = id ? `${id}-${mediaType}` : null
   const isCachedInStore = useCachedMediaStore((s) => !!mediaCacheKey && s.cachedIds.has(mediaCacheKey))
@@ -380,9 +382,8 @@ export default function PlayerPage() {
   const isDownloaded = isCachedInStore || dlStatus === 'done'
   // 폴백 스트림(latest_version)은 다운로드 엔드포인트가 503이라 수동 다운로드 버튼을 숨긴다.
   const streamOnly = isStreamFallback && !!id && currentVideo?.id === id
-  // 비디오 모드는 DASH 스트림 전용이다 — 저장할 단일 파일이 없으므로 오프라인 저장을 하지 않는다.
-  // (다운로드 버튼·자동 다운로드·캐시 조회가 전부 이 플래그 하나로 꺼진다.)
-  const offlineMediaOk = isOfflineMediaSupported() && mediaMode !== 'video'
+  // 비디오 모드도 저장한다: 영상(video-only) + 소리(audio-only) 두 파일 → 재생은 로컬 DASH.
+  const offlineMediaOk = isOfflineMediaSupported()
   const isDraggingRef = useRef(false)
   const dragValueRef = useRef<number | null>(null)
   const hasPlayedRef = useRef(false)
@@ -703,7 +704,14 @@ export default function PlayerPage() {
       let retries = 0
       while (true) {
         try {
-          // offlineMediaOk가 비디오 모드를 이미 배제하므로 여기는 항상 오디오 경로다.
+          if (mediaType === 'video') {
+            const { data } = await api.get<VideoDownloadInfo>(
+              `/videos/${id}/download`,
+              { params: { quality: videoDownloadQuality } },
+            )
+            await downloadVideoWithAudio(id, data, { onProgress: (p) => setDlProgress(p) })
+            break
+          }
           const { data } = await api.get<{ url: string; bitrate?: number; duration?: number | null; mimeType?: string }>(
             `/audios/${id}/download`,
             { params: { quality: 'high' } },
@@ -732,7 +740,7 @@ export default function PlayerPage() {
     } finally {
       downloadingRef.current = false
     }
-  }, [id, video, offlineMediaOk, streamOnly, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
+  }, [id, video, offlineMediaOk, streamOnly, offlineStorageMode, mediaMode, mediaType, mediaCacheKey, videoDownloadQuality])
 
   // 영상에서 벗어날 때(id 변경/언마운트) 진행 중이던 다운로드 취소.
   // 특히 비공개 영상으로 넘어갈 때, 이전 곡 다운로드가 완료되면 그 완료 이벤트로

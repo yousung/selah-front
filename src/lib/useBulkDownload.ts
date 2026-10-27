@@ -3,7 +3,8 @@ import { api } from '@/lib/api'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { isPlayableInQueue } from '@/lib/liveVideo'
-import { downloadMedia, isOfflineMediaSupported, cancelDownload, deleteMedia } from '@/lib/mediaStore'
+import { downloadMedia, downloadVideoWithAudio, isOfflineMediaSupported, cancelDownload, deleteMedia } from '@/lib/mediaStore'
+import type { VideoDownloadInfo } from '@/lib/mediaStore'
 
 /**
  * 목록 화면(설교 카테고리·찬송·독서 책)의 "선택 → 일괄 다운로드" 공용 훅.
@@ -12,11 +13,12 @@ import { downloadMedia, isOfflineMediaSupported, cancelDownload, deleteMedia } f
 export function useBulkDownload() {
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
+  const videoDownloadQuality = useSettingsStore((s) => s.videoDownloadQuality)
   const { cachedIds, refresh } = useCachedMediaStore()
-  // 목록 다운로드는 오디오 파일만 저장한다. 비디오 모드는 DASH 스트림 전용(저장할 단일 파일 없음)이라
-  // 오디오가 받아지면 헷갈리므로 숨긴다. 절약 모드·미지원 환경에서도 다운로드 UI 자체를 숨긴다.
-  const enabled = isOfflineMediaSupported() && mediaMode !== 'video' && offlineStorageMode !== 'thrift'
-  const dlType = 'audio' as const
+  // 오디오 모드는 오디오 파일, 비디오 모드는 영상+소리 두 파일(`downloadVideoWithAudio`)을 저장한다.
+  // 절약 모드·미지원 환경에서는 다운로드 UI 자체를 숨긴다.
+  const enabled = isOfflineMediaSupported() && offlineStorageMode !== 'thrift'
+  const dlType = mediaMode === 'video' ? 'video' as const : 'audio' as const
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set())
@@ -71,11 +73,19 @@ export function useBulkDownload() {
         let success = false
         for (let attempt = 0; attempt < 3 && !success && !bulkCancelledRef.current; attempt++) {
           try {
-            const { data } = await api.get<{ url: string; mimeType?: string }>(
-              `/audios/${videoId}/download`,
-              { params: { quality: 'high' } },
-            )
-            await downloadMedia(videoId, data.url, { type: dlType, mimeType: data.mimeType })
+            if (dlType === 'video') {
+              const { data } = await api.get<VideoDownloadInfo>(
+                `/videos/${videoId}/download`,
+                { params: { quality: videoDownloadQuality } },
+              )
+              await downloadVideoWithAudio(videoId, data)
+            } else {
+              const { data } = await api.get<{ url: string; mimeType?: string }>(
+                `/audios/${videoId}/download`,
+                { params: { quality: 'high' } },
+              )
+              await downloadMedia(videoId, data.url, { type: dlType, mimeType: data.mimeType })
+            }
             refresh()
             success = true
           } catch {
@@ -94,13 +104,14 @@ export function useBulkDownload() {
 
     if (!bulkCancelledRef.current) setBulkState(null)
     refresh()
-  }, [selected, dlType, enabled, cachedIds, refresh])
+  }, [selected, dlType, enabled, cachedIds, refresh, videoDownloadQuality])
 
   const handleBulkCancel = useCallback(async () => {
     bulkCancelledRef.current = true
     // 진행 중 다운로드 즉시 중단
     for (const videoId of bulkIdsRef.current) cancelDownload(videoId, dlType)
-    // 이번 배치에서 받은 것(완료분 포함) 모두 삭제
+    // 이번 배치에서 받은 것(완료분 포함) 모두 삭제. 소유권 기반이라 비디오 배치를 취소해도
+    // 오디오 모드로 따로 저장해 둔 오디오는 남는다(mediaStore `deleteMedia`).
     await Promise.all(
       bulkIdsRef.current.map((videoId) => deleteMedia(videoId, dlType).catch(() => {})),
     )
