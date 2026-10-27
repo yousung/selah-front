@@ -2,6 +2,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { fs } from '@/lib/fontScale'
 import { fmtReadingDuration, readingCover, useReadingCategory, usePlayReading } from '@/lib/reading'
 import { isLiveVideo, isSecretVideo } from '@/lib/liveVideo'
+import { useBulkDownload } from '@/lib/useBulkDownload'
+import { BulkDownloadToggle, BulkSelectMark, BulkDownloadOverlay } from '@/components/BulkDownload'
 
 /** 독서 — 책 상세: 책 정보 + 회차 목록(readingOrder 순). 탭하면 이 책의 재생 가능 회차를 큐로 재생 */
 export default function ReadingBookPage() {
@@ -10,9 +12,11 @@ export default function ReadingBookPage() {
   const playReading = usePlayReading()
   const { data: book, isLoading } = useReadingCategory(id)
   const videos = book?.videos ?? []
+  const bulk = useBulkDownload()
+  const selectableIds = videos.filter(bulk.pickable).map((v) => v.id)
 
   return (
-    <div className="animate-fade-in" style={{ background: 'var(--surface-0)', paddingBottom: 16 }}>
+    <div className="animate-fade-in" style={{ background: 'var(--surface-0)', paddingBottom: bulk.selectMode ? 80 : 16 }}>
       <header
         className="sticky top-0 z-10 safe-top"
         style={{ background: 'var(--surface-0)', borderBottom: '1px solid var(--divider)' }}
@@ -24,6 +28,7 @@ export default function ReadingBookPage() {
             </svg>
           </button>
           <h1 className="flex-1 min-w-0 text-base font-medium truncate" style={{ color: 'var(--ink-0)' }}>{book?.title ?? '독서'}</h1>
+          <div className="flex-shrink-0 pr-1"><BulkDownloadToggle bulk={bulk} show={videos.length > 0} /></div>
         </div>
       </header>
 
@@ -73,16 +78,20 @@ export default function ReadingBookPage() {
               videos.map((v, i) => {
                 const dur = fmtReadingDuration(v.duration)
                 const locked = isSecretVideo(v.isSecret)
+                const pick = bulk.pickable(v)
+                const cached = bulk.cachedIds.has(`${v.id}-${bulk.dlType}`)
                 return (
                   <button
                     key={v.id}
-                    onClick={() => playReading(videos, v, { id: book.id, title: book.title })}
+                    onClick={bulk.selectMode ? () => { if (pick) bulk.toggleSelect(v.id) } : () => playReading(videos, v, { id: book.id, title: book.title })}
                     style={{
                       width: '100%',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 12,
                       padding: '14px 16px',
+                      paddingRight: bulk.selectMode && pick ? 48 : 16,
+                      position: 'relative',
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
@@ -111,11 +120,18 @@ export default function ReadingBookPage() {
                     ) : dur ? (
                       <span style={{ flexShrink: 0, fontSize: fs(12), color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{dur}</span>
                     ) : null}
+                    {cached ? (
+                      <span style={{ flexShrink: 0, fontSize: fs(11), fontWeight: 600, color: 'var(--primary-700)', whiteSpace: 'nowrap' }}>저장됨</span>
+                    ) : bulk.downloadingIds.has(v.id) ? (
+                      <span style={{ flexShrink: 0, fontSize: fs(11), fontWeight: 600, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>받는 중</span>
+                    ) : null}
+                    {bulk.selectMode && pick && <BulkSelectMark selected={bulk.selected.has(v.id)} />}
                   </button>
                 )
               })
             )}
           </div>
+          <BulkDownloadOverlay bulk={bulk} selectableIds={selectableIds} />
         </>
       )}
     </div>

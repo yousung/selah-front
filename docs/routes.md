@@ -7,7 +7,7 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 | 경로 | 컴포넌트 | 설명 |
 |------|----------|------|
 | `/` | `HomePage` | 홈 — 머리말(SELAH·날짜·인사) 아래 섹션 4개(`src/pages/HomePage.tsx` 기준) 위→아래: `HomeTodayWord`(오늘의 암송=이번 주 암송 구절) · `HomeNowPrayer`(지금의 기도) — 카드 없는 타이포, 1024+·2x 미만에서 두 단 → `HomeSermonTiles`(이번 주 설교 타일) → `HomeHymnTile`(찬송 타일). 데이터 없는 섹션은 숨김. PWA `start_url` 착지점 |
-| `/hymn` | `HymnPage` | 찬송 피드 (구 `/` 홈 피드) |
+| `/hymn` | `HymnPage` | 찬송 피드 (구 `/` 홈 피드). 헤더 다운로드 아이콘 → 선택 모드 → 일괄 다운로드(`useBulkDownload`) |
 | `/playlist/:id` | `PlaylistPage` | 서버 플레이리스트 상세 |
 | `/festival/:year` | `FestivalPage` | 연도별 시편찬양제 팀 영상 그리드 + 연도 칩. 찬송 탭 하이라이트(`Layout` `isActive('/hymn')`) |
 | `/player/:id` | `PlayerPage` | 영상/오디오 플레이어 전체화면. 히스토리 없이 직접 진입 시 뒤로가기는 `/hymn`(찬송) / `/sermon/player/:id`는 `/sermon` |
@@ -32,7 +32,7 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 | `/menu` | `MenuPage` | 메뉴 허브 — 바로가기(찬송/설교/양식/교리서/우리들 소식/설정) + 내 콘텐츠(내 재생목록/최근 재생) + 정보(개인정보 처리방침) |
 | `/news` | `NewsPage` | 우리들 소식 (준비 중 placeholder) |
 | `/reading` | `ReadingPage` | 독서 책 목록(표지 5:7·제목·저자·N편·완료 배지). 빈/404면 "준비 중이에요". 메뉴 탭 하이라이트 |
-| `/reading/:id` | `ReadingBookPage` | 책 헤더 + 회차 목록(readingOrder순). 탭 시 `usePlayReading`으로 그 책 재생 가능 회차를 큐로 재생 |
+| `/reading/:id` | `ReadingBookPage` | 책 헤더 + 회차 목록(readingOrder순, 헤더 다운로드 아이콘으로 회차 선택 다운로드·"저장됨" 표시; 폴백 스트림 회차는 503이라 조용히 실패). 탭 시 `usePlayReading`으로 그 책 재생 가능 회차를 큐로 재생 |
 | `/reading/player/:id` | `PlayerPage` | 독서 플레이어. 설교형 동작(type 'SERMON' 메타: 이어듣기·배속·seek 제한)을 재사용하되 경로/뒤로가기(`/reading`)/큐 복원(`GET /reading/categories/:id`, router state `categoryId`)/공유 링크/설명 제목("요약본")만 독서용. `Layout`의 isPlayerPage 대상 |
 | `/my` | redirect | `/menu`로 이동 (구 MY 탭 북마크 호환) |
 

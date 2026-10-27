@@ -281,7 +281,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
               />
               {video.chapter != null && <ChapterBadge chapter={video.chapter} type={video.type} />}
               {isNew ? <NewBadge /> : null}
-              {isCached && <CachedBadge />}
+              {isCached ? <CachedBadge /> : isDownloading ? <DownloadingBadge /> : null}
               {dur && (
                 <span className="absolute bottom-1.5 right-1.5 text-white font-semibold rounded"
                   style={{ fontSize: fs(11), background: 'rgba(0,0,0,0.78)', padding: '1px 5px', lineHeight: fs(18) }}>{dur}</span>
