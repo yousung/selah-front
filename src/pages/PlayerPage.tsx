@@ -362,12 +362,11 @@ export default function PlayerPage() {
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
-  const autoDownload = useSettingsStore((s) => s.autoDownload)
   const mediaType = mediaMode === 'video' ? 'video' : 'audio'
   const mediaCacheKey = id ? `${id}-${mediaType}` : null
   const isCachedInStore = useCachedMediaStore((s) => !!mediaCacheKey && s.cachedIds.has(mediaCacheKey))
   const {
-    currentVideo, isPlaying, isLoading, duration, autoNextProgress, error, streamSeekable, isStreamFallback,
+    currentVideo, isPlaying, isLoading, duration, autoNextProgress, error, isStreamFallback,
     playVideo, togglePlay, seekBy, seekFraction, cancelAutoNext, videoSlotRef,
   } = useAudio()
   const position = usePosition()
@@ -379,13 +378,8 @@ export default function PlayerPage() {
   const downloadingRef = useRef(false)
   const dlStatus = dlState.key === mediaCacheKey ? dlState.status : 'idle'
   const isDownloaded = isCachedInStore || dlStatus === 'done'
-  // 설교는 저장 파일이 있어야 구간 이동을 허용한다. 단 DASH(MSE)로 재생 중이면 스트림에서도 된다.
-  // 판정을 `mediaMode === 'video'`로 하면 안 된다 — MSE 미지원 기기는 비디오 모드에서도 실제로는
-  // 오디오 스트림으로 폴백해 seek이 안 되는데 버튼만 활성돼 "눌러도 반응 없음"이 됐다.
-  // AudioContext의 streamSeekable이 실동작(isSeekBlocked)과 같은 값이라 어긋날 수 없다.
-  // Invidious 폴백 스트림(latest_version)은 다운로드가 불가능하므로 저장 없이 스트리밍만 하고 seek은 개방한다.
+  // 폴백 스트림(latest_version)은 다운로드 엔드포인트가 503이라 수동 다운로드 버튼을 숨긴다.
   const streamOnly = isStreamFallback && !!id && currentVideo?.id === id
-  const canSeek = !isSermonPlayer || isDownloaded || streamSeekable || streamOnly
   // 비디오 모드는 DASH 스트림 전용이다 — 저장할 단일 파일이 없으므로 오프라인 저장을 하지 않는다.
   // (다운로드 버튼·자동 다운로드·캐시 조회가 전부 이 플래그 하나로 꺼진다.)
   const offlineMediaOk = isOfflineMediaSupported() && mediaMode !== 'video'
@@ -582,7 +576,7 @@ export default function PlayerPage() {
     if (!isSermonPlayer || !video || video.isSecret || sermonSeek != null) return
     if (currentVideo?.id === video.id) return
     const saved = getSermonResume(video.id)
-    if (saved && saved.position > 0 && saved.downloaded) {
+    if (saved && saved.position > 0) {
       sermonResumePendingRef.current = true
       setSermonResumeChoice(saved)
     }
@@ -636,10 +630,6 @@ export default function PlayerPage() {
         categoryId: sermonResumeChoice.categoryId ?? sermonStateCategoryId,
         categoryTitle: sermonResumeChoice.categoryTitle ?? sermonStateCategoryTitle,
       },
-      // resume: true 필수. 이게 없으면 progressive 오디오 분기가 "설교 스트림은 구간 이동
-      // 불가"라며 seekTo를 버려 **0초로 되감기고 seek도 막힌다**(돌아갈 방법이 없어진다).
-      // 이어듣기 팝업은 저장 파일뿐 아니라 DASH 재생에서도 뜨는데(streamSeekable),
-      // 그 재생이 DASH 실패로 progressive로 떨어지면 정확히 그 상황이 된다.
       { autoPlay: true, seekTo: sermonResumeChoice.position, resume: true },
     )
     setSermonResumeChoice(null)
@@ -697,10 +687,9 @@ export default function PlayerPage() {
     if (video.isSecret) return
     if (!offlineMediaOk) return
     if (streamOnly) return
-    // 재생은 스트림으로 즉시 시작하고, playing 이벤트 확인 후 다운로드를 진행한다.
+    // 사용자가 버튼을 눌렀을 때만 호출된다(자동 다운로드 없음). 재생은 스트림으로 계속되고,
     // 다운로드가 끝나면 AudioContext가 현재 위치를 유지한 채 로컬 파일로 전환한다.
-    // 동기 in-flight 가드: autoDownload가 video ref 변경(React Query 백그라운드 refetch)으로
-    // 중복 발화해도 두 번째 호출을 즉시 차단. dlStatus(상태)는 비동기 지연이 있어 가드로 부적합.
+    // 동기 in-flight 가드: 연타 시 두 번째 호출을 즉시 차단. dlStatus(상태)는 비동기 지연이 있어 가드로 부적합.
     if (downloadingRef.current) return
     downloadingRef.current = true
     try {
@@ -744,31 +733,6 @@ export default function PlayerPage() {
       downloadingRef.current = false
     }
   }, [id, video, offlineMediaOk, streamOnly, offlineStorageMode, mediaMode, mediaType, mediaCacheKey])
-
-  useEffect(() => {
-    // 스트림이 실제 재생된 뒤 다운로드를 시작한다. 같은 Invidious 호스트에 스트림과
-    // 전체 다운로드를 동시에 열면 모바일 브라우저에서 다운로드가 연결/대역폭을 선점해
-    // 재생이 무한 로딩되는 문제가 있다.
-    if (!isPlaying || currentVideo?.id !== video?.id) return
-    // 절약(thrift)은 autoDownload 토글과 무관하게 재생 직후 다운로드(2곡 보관).
-    // 그 외 모드는 autoDownload 켜진 경우에만 자동 다운로드.
-    if (offlineStorageMode !== 'thrift' && !autoDownload) return
-    if (!video || !offlineMediaOk || streamOnly) return
-    if (video.isSecret) return
-    handleDownload()
-  // video?.id로 의존: 백그라운드 refetch(같은 id, 새 ref)로 재발화하지 않도록
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [video?.id, autoDownload, offlineStorageMode, isPlaying, currentVideo?.id])
-
-  useEffect(() => {
-    // 스트림이 브라우저 미디어 초기화 단계에서 멈춰도 다운로드 복구 경로는 유지한다.
-    // 정상 스트림은 위 effect가 즉시 처리하고, 8초 안에 재생되지 않은 경우에만 다운로드 시작.
-    if (!video || video.isSecret || !offlineMediaOk || streamOnly) return
-    if (offlineStorageMode !== 'thrift' && !autoDownload) return
-    if (isPlaying || currentVideo?.id !== video.id) return
-    const timer = window.setTimeout(() => { void handleDownload() }, 8000)
-    return () => window.clearTimeout(timer)
-  }, [video, offlineMediaOk, streamOnly, offlineStorageMode, autoDownload, isPlaying, currentVideo?.id, handleDownload])
 
   // 영상에서 벗어날 때(id 변경/언마운트) 진행 중이던 다운로드 취소.
   // 특히 비공개 영상으로 넘어갈 때, 이전 곡 다운로드가 완료되면 그 완료 이벤트로
@@ -923,14 +887,13 @@ export default function PlayerPage() {
       <div className="mb-2">
         <input
           type="range" min={0} max={1} step={0.001} value={progress}
-          disabled={!canSeek}
           onMouseDown={() => { isDraggingRef.current = true }}
           onTouchStart={() => { isDraggingRef.current = true }}
           onChange={(e) => { const v = Number(e.target.value); setDragValue(v); dragValueRef.current = v }}
           onMouseUp={(e) => { isDraggingRef.current = false; seekFraction(dragValueRef.current ?? (e.target as HTMLInputElement).valueAsNumber); dragValueRef.current = null; setTimeout(() => setDragValue(null), 300) }}
           onTouchEnd={(e) => { isDraggingRef.current = false; seekFraction(dragValueRef.current ?? (e.target as HTMLInputElement).valueAsNumber); dragValueRef.current = null; setTimeout(() => setDragValue(null), 300) }}
           className="w-full"
-          style={{ height: 3, accentColor: 'var(--primary-700)', cursor: canSeek ? 'pointer' : 'not-allowed', opacity: canSeek ? 1 : 0.45,
+          style={{ height: 3, accentColor: 'var(--primary-700)', cursor: 'pointer',
             background: `linear-gradient(to right, var(--primary-700) ${progress * 100}%, var(--divider) ${progress * 100}%)` }}
         />
         <div className="flex justify-between mt-1">
@@ -956,9 +919,7 @@ export default function PlayerPage() {
         {/* -15s */}
         <button
           onClick={() => seekBy(-15)}
-          disabled={!canSeek}
           className="transition-opacity hover:opacity-60 active:scale-95"
-          style={{ opacity: canSeek ? 1 : 0.35 }}
         >
           <div className="relative flex items-center justify-center" style={{ width: 40, height: 40 }}>
             <svg width="40" height="40" viewBox="0 0 44 44" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" style={{ color: 'var(--ink-1)' }}>
@@ -991,9 +952,7 @@ export default function PlayerPage() {
         {/* +15s */}
         <button
           onClick={() => seekBy(15)}
-          disabled={!canSeek}
           className="transition-opacity hover:opacity-60 active:scale-95"
-          style={{ opacity: canSeek ? 1 : 0.35 }}
         >
           <div className="relative flex items-center justify-center" style={{ width: 40, height: 40 }}>
             <svg width="40" height="40" viewBox="0 0 44 44" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" style={{ color: 'var(--ink-1)' }}>

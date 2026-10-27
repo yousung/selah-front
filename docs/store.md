@@ -21,7 +21,7 @@
 - `theme` 변경 시 `ThemeApplicator`(App.tsx)가 `document.documentElement` 에 `dark` class 토글
 - `fontScale`은 `Layout` 사용자 영역의 `--font-scale`로 전달되어 본문·내비게이션·하위 오버레이에 적용된다. 관리자 UI는 별도 영역이다.
 - `occupation`(설정 → 표시 → 직업, 라벨 맵 `OCCUPATION_LABELS`: 직장인/주부/학생/목사)은 로컬 전용이며 `lib/currentPrayer.ts`의 일과 기도 하위 기도 선택에만 쓴다. `null`(미설정)은 직장인으로 취급하고 설정 화면에서도 직장인이 선택된 것으로 보인다.
-- persist `version: 1` — v0 저장값은 `migrate`가 기존 필드를 그대로 두고 `occupation: null`만 채운다.
+- persist `version: 2` — `migrate`가 기존 필드를 그대로 두고 `occupation: null`을 채우며, v2에서 제거된 `autoDownload`(자동 다운로드 폐지, 다운로드는 사용자 요청 시에만)는 옛 저장값에서 버린다.
 
 ## queueStore (`selah-queue`)
 

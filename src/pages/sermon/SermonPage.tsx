@@ -379,7 +379,7 @@ export default function SermonPage() {
     if (currentVideo) return
     const data = getLastSermonResume()
     // 다운로드가 완료된 경우에만 이어듣기 팝업 표시
-    if (data && data.downloaded) setResumeData(data)
+    if (data) setResumeData(data)
   }, [])
 
   const handleResume = () => {

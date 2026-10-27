@@ -127,7 +127,7 @@ const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string }[] = [
 ]
 
 const OFFLINE_MODE_OPTIONS: { value: OfflineStorageMode; label: string; desc: string }[] = [
-  { value: 'thrift', label: '절약', desc: '최근 2곡만 저장 · 이어듣기 지원 · 멀티 다운로드 미지원' },
+  { value: 'thrift', label: '절약', desc: '저장하지 않음 · 항상 스트리밍 · 멀티 다운로드 미지원' },
   { value: 'normal', label: '보통', desc: '최대 500MB까지 저장 · Wi-Fi에서 받아 두면 밖에서 데이터 없이 재생됩니다' },
   { value: 'generous', label: '넉넉', desc: '최대 1GB까지 저장 · 더 많은 찬송·설교를 오래 보관합니다' },
   { value: 'custom', label: '최대', desc: '최대 2GB까지 저장 · 가장 많은 찬송·설교를 기기에 보관합니다' },

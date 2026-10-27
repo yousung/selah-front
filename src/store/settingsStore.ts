@@ -30,7 +30,6 @@ interface SettingsState {
   showCatechismToc: boolean
   offlineStorageMode: OfflineStorageMode
   offlineStorageCustomMB: number
-  autoDownload: boolean
   fontScale: FontScale
   onlyOurChurch: boolean
   /** 지금의 기도 일과 기도 맞춤용 (null = 미설정 → 직장인으로 취급) */
@@ -46,7 +45,6 @@ interface SettingsState {
   setShowCatechismToc: (enabled: boolean) => void
   setOfflineStorageMode: (m: OfflineStorageMode) => void
   setOfflineStorageCustomMB: (mb: number) => void
-  setAutoDownload: (v: boolean) => void
   setFontScale: (v: FontScale) => void
   setOnlyOurChurch: (enabled: boolean) => void
   setOccupation: (v: Occupation | null) => void
@@ -66,7 +64,6 @@ export const useSettingsStore = create<SettingsState>()(
       showCatechismToc: true,
       offlineStorageMode: 'normal',
       offlineStorageCustomMB: 1024,
-      autoDownload: true,
       fontScale: 1,
       onlyOurChurch: true,
       occupation: null,
@@ -85,7 +82,6 @@ export const useSettingsStore = create<SettingsState>()(
       setShowCatechismToc: (showCatechismToc) => set({ showCatechismToc }),
       setOfflineStorageMode: (offlineStorageMode) => set({ offlineStorageMode }),
       setOfflineStorageCustomMB: (mb) => set({ offlineStorageCustomMB: Math.min(2048, Math.max(1, mb)) }),
-      setAutoDownload: (autoDownload) => set({ autoDownload }),
       setFontScale: (fontScale) => set({ fontScale }),
       setOnlyOurChurch: (onlyOurChurch) => set({ onlyOurChurch }),
       setOccupation: (occupation) => set({ occupation }),
@@ -94,8 +90,12 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'selah-settings',
       storage: createJSONStorage(() => localStorage),
       // v1: occupation 추가 — 기존 설정은 그대로 두고 occupation만 null로 채운다
-      version: 1,
-      migrate: (persisted) => ({ occupation: null, ...(persisted as object) }) as SettingsState,
+      // v2: autoDownload 제거(자동 다운로드 폐지) — 옛 저장값은 버린다
+      version: 2,
+      migrate: (persisted) => {
+        const { autoDownload: _removed, ...rest } = (persisted ?? {}) as Record<string, unknown>
+        return { occupation: null, ...rest } as unknown as SettingsState
+      },
     },
   ),
 )

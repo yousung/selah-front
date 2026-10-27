@@ -46,9 +46,9 @@ Safari도 readyState가 25초간 0). MSE로 먹이면 shaka가 `sidx`로 필요�
   이때 **shaka 청크 로드 실패(`load-failed`)는 세션 래치하지 않는다** — 기기 능력이 아니라
   일시적 사유이므로 `dashLoadFailedRef`(재생마다 리셋)로만 이번 재생을 막는다.
   `isVideoPlayback()`도 이 값을 같이 봐야 그 재생 동안 재생 주체 판정이 일관된다.
-- **critical shaka 에러(`handleDashError`) 뒤에는 `dashOnAudioRef`/`streamSeekable`을 내린다.**
-  안 내리면 (a) 다운로드가 끝나도 `MEDIA_DOWNLOADED`가 "DASH로 잘 재생 중"으로 보고 로컬
-  전환을 건너뛰어 죽은 재생을 못 살리고, (b) 죽은 MediaSource 위에서 seek 버튼이 활성으로 남는다.
+- **critical shaka 에러(`handleDashError`) 뒤에는 `dashOnAudioRef`를 내린다.**
+  안 내리면 다운로드가 끝나도 `MEDIA_DOWNLOADED`가 "DASH로 잘 재생 중"으로 보고 로컬
+  전환을 건너뛰어 죽은 재생을 못 살린다.
 - 비디오 트랙은 shaka가 `<audio>`에 붙으면 `manifest.disableVideo`를 자동으로 켜서
   아예 파싱하지 않는다. **`restrictions.maxHeight = 0`을 쓰면 안 된다** — 이 매니페스트는
   audio×video 조합 variant만 있어서 전부 제한되면 `RESTRICTIONS_CANNOT_BE_MET`(4012)이 난다.
@@ -63,14 +63,12 @@ DASH로 재생 중이면 로컬 파일로 **갈아타지 않는다**(`dashOnAudi
 있고, 갈아타려면 shaka를 내리고 `<audio src>`를 새로 물려야 해서 그 순간 끊긴다.
 파일은 저장돼 있으므로 **다음 재생부터** 캐시 경로로 들어간다.
 
-### 이어듣기 팝업은 `resume: true`를 넘겨야 한다
+### 이어듣기 팝업
 
-`sermonResume`의 `downloaded`는 "저장 파일이 있다"가 아니라 **"그 위치로 되돌아갈 수 있다"**
-이다(DASH 재생 중에도 참). 그래서 저장 안 된 설교에도 팝업이 뜰 수 있는데, 그 재생이
-DASH 실패로 progressive로 떨어지면 `video.type !== 'SERMON' || options?.resume` 조건에 걸려
-**seekTo가 버려지고 0초로 되감긴다**(seek도 막혀 되돌아갈 방법이 없다).
-팝업이 거는 재생(`PlayerPage`의 `handleSermonResumeContinue`, 설교 탭에서 넘어온 `sermonSeek`)은
-반드시 `resume: true`를 같이 넘긴다.
+`sermonResume`은 위치만 저장한다(예전 `downloaded` 플래그는 seek 전면 개방으로 제거 — 옛 저장
+데이터에 남은 필드는 무시된다). 스트림도 seek이 되므로 저장 여부와 무관하게 팝업이 뜨고,
+`seekTo`는 `resume` 없이도 적용된다. 팝업이 거는 재생은 `resume: true`를 같이 넘긴다(샤카
+청크 리로드 가드 등에 쓰이는 "듣던 트랙 이어 열기" 표시).
 
 ## Context Value 인터페이스
 
@@ -86,8 +84,7 @@ DASH 실패로 progressive로 떨어지면 `video.type !== 'SERMON' || options?.
   autoNextProgress: number | null  // 자동다음 진행률 0~1
   error: string | null
   volume: number
-  streamSeekable: boolean   // 저장 파일 없이도 구간 이동이 되는가(= DASH/MSE로 재생 중인가)
-  isStreamFallback: boolean // 백엔드 `fallback: true`(latest_version) 스트림인가 — 다운로드 안 함 + seek 개방
+  isStreamFallback: boolean // 백엔드 `fallback: true`(latest_version) 스트림인가 — 수동 다운로드 버튼만 숨김
   
   // refs (video 모드용 DOM 연결)
   reactPlayerRef: RefObject<HTMLVideoElement | null>
@@ -96,7 +93,7 @@ DASH 실패로 progressive로 떨어지면 `video.type !== 'SERMON' || options?.
   // 액션
   playVideo(video, options?): Promise<void>
   //   options: { autoPlay?, skipRecentAdd?, seekTo?, resume? }
-  //   resume=true 는 "듣던 트랙을 그 위치에서 이어 연다"는 내부 재진입 표시
+  //   resume=true 는 "듣던 트랙을 그 위치에서 이어 연다"는 표시(seekTo는 항상 적용)
   stop(): void
   togglePlay(): void
   seek(seconds): void
@@ -143,26 +140,20 @@ DASH 실패로 progressive로 떨어지면 `video.type !== 'SERMON' || options?.
   YouTube가 muxed 포맷 제공을 끊어 `/videos/:id/stream`(단일 progressive URL)으로는
   화면이 안 나오고 오디오 폴백만 온다.
 - `autoNextProgress`: 자동 다음 곡 카운트다운 (0→1). null이면 비활성
-- 설교 캐시 미스: 스트림 즉시 재생, 실제 `playing` 상태 확인 후 다운로드 시작
-- 설교 `seek`/`seekBy`/`seekFraction`: 저장 파일로 재생 중이거나 **DASH/MSE로 재생 중**일 때만
-  동작한다. 판정은 `mediaMode`가 아니라 `streamSeekable`(ref+state 한 쌍) 하나로 한다 —
-  PlayerPage의 버튼 활성 조건(`canSeek`)과 `isSeekBlocked()`의 실동작이 **같은 값**을 봐야
-  어긋나지 않는다. 모드로 갈랐던 예전 판정은 두 경우를 틀리게 답했다: MSE 미지원 기기의
-  비디오 모드는 실제로 오디오 스트림 폴백이라 seek이 안 되는데 버튼만 켜져 있었고,
-  Safari 오디오는 DASH라 seek이 되는데 버튼이 꺼져 있었다.
-  `streamSeekable`은 `playVideo` 진입 시 false로 리셋하고 DASH 로드 성공 분기에서만 켠다.
+- **기본은 스트리밍이고 자동 다운로드는 없다**(`autoDownload`·재생 후 자동 저장·8초 복구 다운로드 제거).
+  저장은 사용자가 플레이어의 다운로드 버튼(또는 설교 카테고리 멀티선택)을 눌렀을 때만 일어나고,
+  저장된 파일이 있으면 재생은 그 로컬 파일을 쓴다. 절약(thrift) 모드는 아무것도 저장하지 않으며
+  다운로드 버튼도 숨긴다.
+- `seek`/`seekBy`/`seekFraction`: 설교·독서 포함 **모든 스트림에서 항상 동작**한다(예전
+  `isSeekBlocked()`/`streamSeekable`/`canSeek` 게이트 제거). progressive 스트림 seek은
+  Invidious 프록시의 Range 지원에 의존한다.
 - **폴백 스트림(`isStreamFallback`)**: `/audios/:id/stream`이 `fallback: true`(또는 url에 `/latest_version`)를
-  주면 PlayerPage는 자동/8초 복구/수동 다운로드를 전부 건너뛰고(다운로드 버튼 숨김, 어차피 백엔드가 503)
-  스트리밍만 한다. `isSeekBlocked()`와 `canSeek`도 이 값이면 열어 seek/±15초/스크럽이 된다.
-  `playVideo` 진입·`stop`에서 false로 리셋. 비디오 모드(DASH)는 대상 아님.
-- 설교 progressive 스트림은 `resume` 없이는 `seekTo`를 버린다("구간 이동 불가" 규칙).
-  `resume: true`는 내부 재진입(다운로드 완료 후 로컬 전환, 캐시 실패 후 스트림 폴백)과
-  **이어듣기 팝업**이 붙인다 — 아래 "이어듣기 팝업은 `resume: true`를 넘겨야 한다" 참조.
+  주면 PlayerPage는 수동 다운로드 버튼을 숨긴다(백엔드가 503). 재생·seek은 일반 스트림과 같다.
+  `playVideo` 진입·`stop`에서 false로 리셋.
 - 모바일 동적 오디오: `src` 설정 후 `load()`, `canplay`에서 보류된 자동재생 재시도
 - 모바일 오디오 엘리먼트: `new Audio()` 분리 객체 대신 Provider DOM에 숨김 마운트
-- 스트림이 8초 안에 시작되지 않으면 다운로드를 시작해 로컬 재생 복구 경로 유지
 - **비디오 모드는 오프라인 저장을 하지 않는다**(DASH는 저장할 단일 파일이 없음).
-  다운로드 버튼·자동 다운로드는 `offlineMediaOk`(= `isOfflineMediaSupported() && mediaMode !== 'video'`)
+  다운로드 버튼은 `offlineMediaOk`(= `isOfflineMediaSupported() && mediaMode !== 'video'`)
   하나로 꺼진다. 오디오 모드 다운로드는 그대로 유지.
 - shaka `error` 이벤트는 `handleDashError`로 기존 에러 UX(`error` state → PlayerPage 배너)에
   연결된다. 로드 취소 코드(7000 LOAD_INTERRUPTED / 7001 OPERATION_ABORTED)는 정상 흐름이라 걸러낸다.

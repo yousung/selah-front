@@ -58,13 +58,8 @@ interface AudioContextValue {
   error: string | null
   volume: number
   /**
-   * 저장 파일 없이(스트림 상태로) 구간 이동이 가능한가 = DASH(MSE)로 재생 중인가.
-   * 설교 seek UI의 활성 조건은 이 값을 써야 `isSeekBlocked()`의 실동작과 어긋나지 않는다.
-   */
-  streamSeekable: boolean
-  /**
    * 백엔드가 Invidious JSON 실패로 `latest_version` 폴백 URL을 준 스트림인가(`fallback: true`).
-   * 이때는 저장/다운로드를 시도하지 않고 스트리밍만 하며(어차피 다운로드 불가), seek은 개방한다.
+   * 다운로드 엔드포인트가 503이라 수동 다운로드 버튼을 숨기는 용도로만 쓴다(재생·seek은 동일).
    */
   isStreamFallback: boolean
   /** 실제 재생이 `<video>`(DASH)에서 일어나는가. 비디오 모드 + DASH 폴백 아님. 전체화면 버튼 노출 조건. */
@@ -74,8 +69,7 @@ interface AudioContextValue {
   // resume: "이 트랙을 그 위치에서 이어서 연다"는 뜻 = **seekTo를 존중하라는 표시**.
   // 두 경우에 쓴다: (1) 내부 재진입(다운로드 완료 후 전환, 캐시 실패 후 스트림 폴백),
   // (2) 사용자가 이어듣기 팝업에서 그 위치를 명시적으로 고른 경우(PlayerPage).
-  // 설교 progressive 스트림은 resume이 없으면 seekTo를 버리므로(구간 이동 불가 규칙),
-  // 위치를 지켜야 하는 재생은 반드시 이 플래그를 넘겨야 한다.
+  // (seek이 전면 개방되어 seekTo는 이 플래그 없이도 적용된다. 이 플래그는 샤카 청크 리로드 가드 등에 쓰인다.)
   playVideo: (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number; resume?: boolean }) => Promise<void>
   stop: () => void
   togglePlay: () => void
@@ -235,11 +229,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       const pos = positionRef.current
       if (pos >= dur - 30) { clearSermonResume(vid.id); return }
       if (pos <= 0) return
-      const mode = useSettingsStore.getState().mediaMode
-      // downloaded는 원래 "구간 이동이 가능한가"(=로컬 파일이 있는가)를 뜻했고, 이어듣기 팝업의
-      // 조건으로 쓰인다. DASH(비디오 모드 + Safari 오디오)는 저장 파일이 없어도 seek이 되므로
-      // 같은 뜻으로 true다 — 판정은 seek 가능 여부를 직접 들고 있는 streamSeekableRef로 한다.
-      const downloaded = streamSeekableRef.current || streamFallbackRef.current || useCachedMediaStore.getState().cachedIds.has(`${vid.id}-${mode}`)
       saveSermonResume({
         videoId: vid.id,
         videoTitle: vid.title,
@@ -247,7 +236,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         categoryTitle: vid.categoryTitle,
         playerPath: vid.playerPath,
         position: pos,
-        downloaded,
       })
     }, 5000)
     return () => clearInterval(interval)
@@ -441,29 +429,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
    */
   const dashOnAudioRef = useRef(false)
 
-  /**
-   * 지금 재생 소스가 **스트림인데도 seek이 되는가**(= DASH/MSE로 재생 중인가).
-   * 설교는 원래 "저장 파일이 있어야 구간 이동 허용"인데, DASH는 저장 없이도 된다.
-   *
-   * PlayerPage의 seek 버튼 활성 조건과 `isSeekBlocked()`의 실동작이 **같은 값 하나**를 보게
-   * 하려고 둔다. 예전엔 PlayerPage가 `mediaMode === 'video'`만 봐서, MSE 미지원 기기의
-   * DASH 폴백(비디오 모드지만 실제로는 오디오 스트림)에서 "버튼은 켜졌는데 눌러도 안 됨"이었다.
-   * ref는 콜백용, state는 UI 반응용 — 항상 같이 갱신한다.
-   */
-  const streamSeekableRef = useRef(false)
-  const [streamSeekable, setStreamSeekableState] = useState(false)
-  const setStreamSeekable = useCallback((v: boolean) => {
-    streamSeekableRef.current = v
-    setStreamSeekableState(v)
-  }, [])
-
-  // 폴백 스트림 여부. ref는 isSeekBlocked 등 콜백용, state는 UI 반응용 — 항상 같이 갱신한다.
-  const streamFallbackRef = useRef(false)
-  const [isStreamFallback, setIsStreamFallbackState] = useState(false)
-  const setIsStreamFallback = useCallback((v: boolean) => {
-    streamFallbackRef.current = v
-    setIsStreamFallbackState(v)
-  }, [])
+  // 폴백 스트림 여부(수동 다운로드 버튼 숨김용).
+  const [isStreamFallback, setIsStreamFallback] = useState(false)
 
   /**
    * `<audio>`를 shaka에서 완전히 떼어낸다. **`audio.src`를 쓰기 전에 반드시 거쳐야 한다** —
@@ -567,7 +534,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (!isDashAttached(audioRef.current)) audioRef.current.src = ''
     }
     dashOnAudioRef.current = false
-    setStreamSeekable(false)
     // 모드 전환 → Layout이 <video>를 언마운트/재마운트하므로 shaka Player를 완전히 파괴한다.
     // (destroyDash는 reactPlayerRef가 이미 null이어도 자체 보관한 엘리먼트에서 detach한다.)
     reactPlayerRef.current?.pause()
@@ -589,7 +555,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setPosition(0)
     setDuration(0)
     setError(null)
-  }, [cancelAutoNext, clearCacheWatchdog, mediaMode, setStreamSeekable])
+  }, [cancelAutoNext, clearCacheWatchdog, mediaMode])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -734,12 +700,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // 이 재생은 죽었다 → DASH 관련 상태를 내려놓는다(둘 다 안 내리면 이후가 망가진다):
     //  - dashOnAudioRef가 true로 남으면 MEDIA_DOWNLOADED 핸들러가 "DASH로 잘 재생 중"이라고
     //    보고 로컬 전환을 건너뛴다 → 다운로드가 끝나도 **저장 파일이 죽은 재생을 못 살린다.**
-    //  - streamSeekable이 true로 남으면 죽은 MediaSource 위에서 seek 버튼이 계속 활성이다.
     // 여기서 false로 내려도 shaka는 아직 <audio>에 attach된 상태라, 이어지는 캐시 재생은
     // releaseAudioFromDash()의 isDashAttached() 검사에 걸려 정상적으로 detach 후 진행된다.
     dashOnAudioRef.current = false
-    setStreamSeekable(false)
-  }, [setStreamSeekable])
+  }, [])
 
   const playVideo = useCallback(async (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number; resume?: boolean }) => {
     // 비공개 영상: 모든 미디어 요청 차단 + 현재 재생 중인 미디어를 즉시 멈춘다.
@@ -759,7 +723,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       }
       reactPlayerRef.current?.pause()
       dashOnAudioRef.current = false
-      setStreamSeekable(false)
       setIsStreamFallback(false)
       // <audio>에 붙어 있었으면 detach까지(destroy) 해야 다음 progressive 재생이 src를 쓸 수 있다.
       // <video>는 어차피 DASH 전용이라 attach를 유지하는 unload가 싸다.
@@ -841,7 +804,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // 어느 경로로 갈지 아직 모른다 → 일단 "스트림 seek 불가"로 리셋하고, DASH 로드에
     // 성공한 분기에서만 다시 켠다. 여기서 안 지우면 이전 곡의 DASH 상태가 남아
     // seek 버튼이 켜진 채 눌러도 안 되는 상태가 된다.
-    setStreamSeekable(false)
     setIsStreamFallback(false)
     // 곡 전환 시 옛 미디어를 즉시 멈춘다. 안 그러면 아래 async(getCachedMediaPlaybackUrl 등)
     // 동안 옛 트랙의 timeupdate가 계속 발화해 positionRef를 옛 위치로 되돌리고, 새 트랙의
@@ -983,12 +945,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         await ensureDashPlayer(audio, handleDashError)
         if (currentVideoIdRef.current !== video.id) return
         audio.volume = volume
-        // 설교 스트림의 "구간 이동 불가" 제한은 progressive일 때 얘기다. DASH는 실제로
-        // seek이 되므로 seekTo를 타입과 무관하게 존중한다(비디오 DASH 분기와 동일).
         await loadDash(data.manifest, data.mimeType, options?.seekTo ?? null)
         if (currentVideoIdRef.current !== video.id) return
         applyPlaybackRate(audio)
-        setStreamSeekable(true)
         // shaka는 load() resolve 시점에 startTime을 아직 element에 반영하지 않은 경우가 있다.
         const startPos = audio.currentTime > 0 ? audio.currentTime : (options?.seekTo ?? 0)
         positionRef.current = startPos
@@ -1013,7 +972,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         // 그 외 실패(매니페스트 404/파싱 실패 등)는 **기존 progressive 스트림 경로로 폴백**한다.
         // 느리더라도 소리가 나는 게 낫다. 아래에서 audio.src를 써야 하므로 attach를 반드시 푼다.
         await releaseAudioFromDash()
-        setStreamSeekable(false)
         if (currentVideoIdRef.current !== video.id) return
       }
     }
@@ -1053,7 +1011,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         await loadDash(data.manifest, data.mimeType, options?.seekTo ?? null)
         if (currentVideoIdRef.current !== video.id) return
         applyPlaybackRate(videoEl)
-        setStreamSeekable(true)
         // shaka는 load() resolve 시점에 startTime을 아직 element에 반영하지 않은 경우가 있다
         // (currentTime=0, readyState=0). 넘긴 seekTo가 있으면 그것을 시작 위치로 본다 —
         // 안 그러면 첫 timeupdate 전까지 진행바가 0으로 튄다.
@@ -1115,11 +1072,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       audio.volume = volume
       applyPlaybackRate(audio)
       pendingAutoPlayRef.current = autoPlay
-      // 설교 스트림은 "구간 이동 불가"라 위치를 임의로 복원하지 않는다(228a51d).
-      // 단 resume이 붙으면 위치를 존중한다 — 내부 재진입(다운로드 완료/캐시 실패 폴백)뿐
-      // 아니라 **이어듣기 팝업에서 사용자가 그 위치를 고른 경우**도 포함이다.
-      // 안 그러면 그 재생이 progressive로 떨어질 때 0초로 되감기고 seek도 막혀 갇힌다.
-      if ((video.type !== 'SERMON' || options?.resume || isFallback) && options?.seekTo != null) pendingSeekRef.current = options.seekTo
+      // 스트림도 seek이 열려 있으므로 타입과 무관하게 요청 위치(이어듣기 등)를 복원한다.
+      if (options?.seekTo != null) pendingSeekRef.current = options.seekTo
       if (!autoPlay) {
         audio.load()
         setIsLoading(false)
@@ -1140,7 +1094,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setError('스트림을 불러올 수 없습니다.')
       setIsLoading(false)
     }
-  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog, handleDashError, isVideoPlayback, releaseAudioFromDash, setStreamSeekable, setIsStreamFallback])
+  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog, handleDashError, isVideoPlayback, releaseAudioFromDash])
 
   useEffect(() => {
     playVideoRef.current = playVideo
@@ -1191,7 +1145,6 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     pendingCorruptReplayRef.current = null
     corruptHandlingRef.current = false
     pendingAutoPlayRef.current = false
-    setStreamSeekable(false)
     setIsStreamFallback(false)
     // 정지했으니 "DASH로 간다"는 의도도 내린다. attach 여부와 무관하게 무조건 내려야
     // isSecret/모드전환과 불변식이 같아진다(매니페스트 fetch 도중 stop이 오면 아직 attach
@@ -1225,7 +1178,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setPosition(0)
     setDuration(0)
     setError(null)
-  }, [cancelAutoNext, clearCacheWatchdog, isVideoPlayback, setStreamSeekable, setIsStreamFallback])
+  }, [cancelAutoNext, clearCacheWatchdog, isVideoPlayback])
 
   const togglePlay = useCallback(() => {
     if (isVideoPlayback()) {
@@ -1241,20 +1194,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, [isVideoPlayback])
 
-  // 설교 스트림은 즉시 재생만 허용한다(구간 이동 불가). 다운로드 완료 후 로컬 파일로 전환되면 허용.
-  //
-  // 판정은 "비디오 모드인가"가 아니라 **`streamSeekableRef`(= DASH/MSE로 재생 중인가)** 로 한다.
-  // 비디오 모드라도 MSE 미지원 기기에선 DASH 폴백으로 실제 재생이 오디오 스트림이라 seek이
-  // 안 되고, 반대로 오디오 모드라도 Safari에선 DASH로 재생하므로 seek이 된다. 모드로 갈랐던
-  // 예전 판정은 이 두 경우를 모두 틀리게 답했다(PlayerPage의 버튼 활성 조건과도 어긋났다).
-  const isSeekBlocked = useCallback(() => {
-    if (currentVideoDataRef.current?.type !== 'SERMON') return false
-    if (streamSeekableRef.current || streamFallbackRef.current) return false
-    return !localPlaybackRef.current
-  }, [])
-
   const seek = useCallback((seconds: number) => {
-    if (isSeekBlocked()) return
     const video = reactPlayerRef.current
     if (isVideoPlayback() && video) {
       applySeek(video, seconds)
@@ -1266,10 +1206,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (!audio) return
       applySeek(audio, seconds)
     }
-  }, [applySeek, isSeekBlocked, isVideoPlayback])
+  }, [applySeek, isVideoPlayback])
 
   const seekBy = useCallback((delta: number) => {
-    if (isSeekBlocked()) return
     const video = reactPlayerRef.current
     if (isVideoPlayback() && video) {
       applySeek(video, positionRef.current + delta)
@@ -1281,7 +1220,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (!audio) return
       applySeek(audio, audio.currentTime + delta)
     }
-  }, [applySeek, isSeekBlocked, isVideoPlayback])
+  }, [applySeek, isVideoPlayback])
 
   const seekFraction = useCallback((fraction: number) => {
     const media = isVideoPlayback() ? reactPlayerRef.current : audioRef.current
@@ -1536,13 +1475,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   // AudioCtx 소비자(13개 컴포넌트)가 초당 수회 리렌더되지 않는다. position은 별도 PositionCtx로 공급.
   const value = useMemo<AudioContextValue>(() => ({
     currentVideo, isPlaying, isLoading, isEnded, duration: effectiveDuration, autoNextProgress, error, volume,
-    streamSeekable, isStreamFallback, isVideoPlayback, reactPlayerRef, videoSlotRef,
+    isStreamFallback, isVideoPlayback, reactPlayerRef, videoSlotRef,
     playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, setVolume: handleSetVolume,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
     onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
   }), [
     currentVideo, isPlaying, isLoading, isEnded, effectiveDuration, autoNextProgress, error, volume,
-    streamSeekable, isStreamFallback, isVideoPlayback, reactPlayerRef, videoSlotRef,
+    isStreamFallback, isVideoPlayback, reactPlayerRef, videoSlotRef,
     playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, handleSetVolume,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
     onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
