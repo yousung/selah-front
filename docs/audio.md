@@ -140,10 +140,16 @@ DASH로 재생 중이면 로컬 파일로 **갈아타지 않는다**(`dashOnAudi
   YouTube가 muxed 포맷 제공을 끊어 `/videos/:id/stream`(단일 progressive URL)으로는
   화면이 안 나오고 오디오 폴백만 온다.
 - `autoNextProgress`: 자동 다음 곡 카운트다운 (0→1). null이면 비활성
-- **기본은 스트리밍이고 자동 다운로드는 없다**(`autoDownload`·재생 후 자동 저장·8초 복구 다운로드 제거).
-  저장은 사용자가 플레이어의 다운로드 버튼(또는 설교 카테고리 멀티선택)을 눌렀을 때만 일어나고,
-  저장된 파일이 있으면 재생은 그 로컬 파일을 쓴다. 절약(thrift) 모드는 아무것도 저장하지 않으며
-  다운로드 버튼도 숨긴다.
+- **재생은 스트리밍으로 즉시 시작하고, 실제 `playing`이 된 뒤 PlayerPage가 현재 모드 파일을 자동 저장한다**
+  (수동 다운로드 버튼과 같은 `handleDownload`). 오디오 모드 = `-audio`(`/audios/:id/download`),
+  비디오 모드 = `-video` + `-audio` 두 파일(`/videos/:id/download?quality=videoDownloadQuality` →
+  `downloadVideoWithAudio`, 이미 있는 오디오 재사용). 재생 요청 후 8초 넘게 로딩에 머물면 같은 다운로드를
+  복구 경로로 시작한다. 설정 토글은 없다(옛 `autoDownload`는 UI 없이 v2 migrate에서 제거된 상태 그대로).
+  건너뛰는 경우: 절약(thrift) 모드(아무것도 저장 안 함, 다운로드 버튼도 숨김), `isOfflineMediaSupported()` 미지원,
+  폴백 스트림(`isStreamFallback`), 비공개·방송중·임시 항목, 현재 모드로 이미 저장됨. 같은 id+모드는 화면당
+  한 번만 자동 시도하고(실패 후 재생/일시정지로 반복 시도 안 함), 실패는 배너 없이 조용히 대기 상태로 돌아간다.
+  자동 저장은 PlayerPage가 떠 있을 때만 일어난다. 저장된 파일이 있으면 재생은 그 로컬 파일을 쓴다.
+  저장 여부는 seek에 영향을 주지 않는다(아래).
 - `seek`/`seekBy`/`seekFraction`: 설교·독서 포함 **모든 스트림에서 항상 동작**한다(예전
   `isSeekBlocked()`/`streamSeekable`/`canSeek` 게이트 제거). progressive 스트림 seek은
   Invidious 프록시의 Range 지원에 의존한다.
