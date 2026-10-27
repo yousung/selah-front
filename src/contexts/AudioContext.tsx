@@ -9,6 +9,7 @@ import type { MediaDownloadedDetail } from '@/lib/mediaStore'
 import { checkDashSupport, destroyDash, ensureDashPlayer, isDashAbortError, isDashAttached, loadDash, reloadOnceForShakaChunk, unloadDash } from '@/lib/dashPlayer'
 import { isDesktopSafari, isIosWebKit } from '@/lib/mediaStore'
 import { primeMediaElement } from '@/lib/mediaUnlock'
+import { useBackgroundAudioHandoff } from '@/lib/useBackgroundAudioHandoff'
 import { isIOS } from '@/lib/platform'
 import { setLastDashSupport, setLastPlayback, setLastPlaybackError, setLastPlayAttempt } from '@/lib/mediaDiag'
 import { thumbUrl, thumbQualityFor } from '@/lib/thumb'
@@ -410,10 +411,26 @@ export function AudioProvider({ children }: { children: ReactNode }) {
    * 비디오 모드라도 DASH 폴백 중이면 재생 주체는 `<audio>`이므로 false다.
    * 재생 엘리먼트를 고르는 모든 분기는 `mediaModeRef.current === 'video'` 대신 이걸 써야 한다.
    */
+  // 비디오 모드 백그라운드 오디오 핸드오프 중인가(`useBackgroundAudioHandoff`). 켜져 있으면 재생 주체는 `<audio>`다.
+  const audioHandoffActiveRef = useRef(false)
   const isVideoPlayback = useCallback(
-    () => mediaModeRef.current === 'video' && !dashFallbackRef.current && !dashLoadFailedRef.current,
+    () => mediaModeRef.current === 'video' && !dashFallbackRef.current && !dashLoadFailedRef.current && !audioHandoffActiveRef.current,
     [],
   )
+  const audioHandoff = useBackgroundAudioHandoff({
+    audioRef,
+    videoRef: reactPlayerRef,
+    activeRef: audioHandoffActiveRef,
+    isVideoPlayback,
+    isPlayingRef,
+    currentIdRef: currentVideoIdRef,
+    positionRef,
+    qualityRef,
+    reloadVideoAt: (seekTo, autoPlay) => {
+      const v = currentVideoDataRef.current
+      if (v) void playVideoRef.current?.(v, { seekTo, autoPlay, skipRecentAdd: true, resume: true })
+    },
+  })
 
   /**
    * shaka가 `<audio>`를 몰고 있는가(= 이번 재생을 DASH 오디오 경로로 하기로 했는가).
@@ -529,6 +546,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     clearCacheWatchdog()
     pendingCorruptReplayRef.current = null
     corruptHandlingRef.current = false
+    audioHandoff.reset()
     // shaka가 <audio>를 몰고 있으면 src를 비우면 안 된다 — 아래 destroyDash()가 detach하면서
     // 정리한다. 순서상 여기가 destroyDash보다 먼저라 가드가 없으면 MediaSource를 깨뜨린다.
     if (audioRef.current) {
@@ -557,7 +575,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setPosition(0)
     setDuration(0)
     setError(null)
-  }, [cancelAutoNext, clearCacheWatchdog, mediaMode])
+  }, [audioHandoff, cancelAutoNext, clearCacheWatchdog, mediaMode])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -812,6 +830,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // 빠른 재다운로드 재생(seekTo: positionRef.current)이 옛 위치로 점프하는 버그가 생긴다.
     audioRef.current?.pause()
     reactPlayerRef.current?.pause()
+    audioHandoff.discardPrepared()
     positionRef.current = 0
     pendingSeekRef.current = null
     setPosition(0)
@@ -1029,6 +1048,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         const startPos = videoEl.currentTime > 0 ? videoEl.currentTime : (options?.seekTo ?? 0)
         positionRef.current = startPos
         setPosition(startPos)
+        // 백그라운드(핸드오프 중 자동다음 등)면 <video> 대신 오디오로 튼다. 아니면 핸드오프용 오디오를 미리 준비한다.
+        if (audioHandoff.onVideoLoaded(video.id, startPos, autoPlay)) {
+          setIsLoading(false)
+          return
+        }
         if (!autoPlay) {
           setIsLoading(false)
           return
@@ -1111,7 +1135,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setError('스트림을 불러올 수 없습니다.')
       setIsLoading(false)
     }
-  }, [cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog, handleDashError, isVideoPlayback, releaseAudioFromDash])
+  }, [audioHandoff, cancelAutoNext, volume, applyPlaybackRate, armCacheWatchdog, clearCacheWatchdog, handleDashError, isVideoPlayback, releaseAudioFromDash])
 
   useEffect(() => {
     playVideoRef.current = playVideo
@@ -1122,6 +1146,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       const detail = (event as CustomEvent<MediaDownloadedDetail>).detail
       const activeVideo = currentVideoDataRef.current
       if (!detail || !activeVideo) return
+      // 백그라운드 오디오 핸드오프 중엔 재생을 갈아끼우지 않는다(복귀 시 <video>로 돌아간다).
+      if (audioHandoffActiveRef.current) return
       const corrupt = pendingCorruptReplayRef.current
       const isCorruptReplay = !!corrupt && corrupt.id === detail.id && corrupt.type === detail.type
       // SERMON 자동 이어재생 외에, 손상→재다운로드 복구 시에도(찬송 포함) 재생을 재개한다.
@@ -1159,6 +1185,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [playVideo])
 
   const stop = useCallback(() => {
+    // 핸드오프 오디오를 멈추고 플래그를 내린다 → 아래 분기가 <video>(shaka)를 정리한다.
+    audioHandoff.reset()
     cancelAutoNext()
     clearCacheWatchdog()
     pendingCorruptReplayRef.current = null
@@ -1197,7 +1225,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setPosition(0)
     setDuration(0)
     setError(null)
-  }, [cancelAutoNext, clearCacheWatchdog, isVideoPlayback])
+  }, [audioHandoff, cancelAutoNext, clearCacheWatchdog, isVideoPlayback])
 
   const togglePlay = useCallback(() => {
     if (isVideoPlayback()) {

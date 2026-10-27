@@ -63,6 +63,32 @@ DASH로 재생 중이면 로컬 파일로 **갈아타지 않는다**(`dashOnAudi
 있고, 갈아타려면 shaka를 내리고 `<audio src>`를 새로 물려야 해서 그 순간 끊긴다.
 파일은 저장돼 있으므로 **다음 재생부터** 캐시 경로로 들어간다.
 
+### 비디오 모드 백그라운드 오디오 핸드오프
+
+파일: `src/lib/useBackgroundAudioHandoff.ts`. 모바일(iOS/iPadOS·Android UA)에서 비디오 모드 재생 중
+페이지가 숨겨지면(`visibilitychange` hidden / `pagehide`, 또는 숨겨진 뒤 시스템이 `<video>`를 pause)
+`<video>`를 멈추고 **같은 위치에서 `<audio>`로 오디오만** 이어 튼다. 다시 보이면(`visibilitychange`
+visible / `pageshow`) 오디오 위치로 `<video>`를 seek해 재개하고 오디오를 멈춘다. 데스크탑은 탭이
+숨겨져도 `<video>`가 계속 나오므로 대상이 아니다. PiP 중에도 넘기지 않는다.
+
+- **오디오 소스**: 저장된 `${id}-audio`(비디오 저장의 짝 포함, `getCachedMediaPlaybackUrl`) → 없으면
+  `/audios/:id/stream`이 JSON으로 준 URL(폴백 `latest_version` 포함)을 `<audio src>`에 직접 건다(백엔드 미경유).
+  `isStreamFallback`은 건드리지 않는다(현재 재생의 다운로드 버튼 게이트라서).
+- **미리 준비**: 비디오 분기의 `loadDash()` 성공 직후 `onVideoLoaded()`가 그 곡 오디오 src를 미리 물린다 —
+  숨겨지는 순간엔 await 없이 `play()`해야 하기 때문. iOS는 progressive fMP4를 다 받아야 재생하므로
+  iOS만 `preload="auto"`(나머지 `metadata`). 새 `playVideo()` 시작 시 `discardPrepared()`가 내려놓는다.
+- **재생 주체 전환**: 핸드오프 중 `audioHandoffActiveRef`가 true → `isVideoPlayback()`이 false →
+  togglePlay/seek/잠금화면 Media Session 핸들러가 `<audio>`를 조작한다. 위치·positionState·ended·
+  자동다음은 `<audio>`의 기존 리스너가 그대로 몬다. 메타데이터는 `playVideo()`가 갱신한다.
+- **백그라운드 자동다음**: `playVideo()`는 그대로 비디오 분기로 `<video>`에 새 곡 DASH를 로드하고,
+  `onVideoLoaded()`가 true를 돌려주면 `<video>`를 재생하지 않는다 — 훅이 새 곡을 오디오로 튼다.
+  복귀 시 `<video>`에 이미 그 곡이 물려 있으니 seek + play만 한다(다른 곡이면 `playVideo`로 재로드).
+- iOS 제스처: `playVideo()` 첫 await 이전의 `primeMediaElement(<audio>)`가 언락한다. 백그라운드
+  `play()`가 허용된다는 건 그 언락이 src 교체 후에도 유지된다는 전제다(**실기기 미검증**). 거절되면
+  상태는 유지돼 잠금화면 ▶로 다시 틀 수 있고, 복귀 시 재생 의도로 본다.
+- 핸드오프 중엔 `MEDIA_DOWNLOADED` 재진입을 건너뛴다. `stop()`·모드 전환은 `reset()`으로 플래그를 내린다.
+- 오디오 모드·DASH 폴백(`dashFallbackRef`/`dashLoadFailedRef`, 재생 주체가 이미 `<audio>`)에선 아무것도 안 한다.
+
 ### 이어듣기 팝업
 
 `sermonResume`은 위치만 저장한다(예전 `downloaded` 플래그는 seek 전면 개방으로 제거 — 옛 저장
