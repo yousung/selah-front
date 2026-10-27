@@ -100,6 +100,8 @@ export default function SavedContentPage() {
   )
 
   const totalBytes = rows.reduce((sum, r) => sum + r.entry.size, 0)
+  const videoCount = rows.filter((r) => r.kind === 'video').length
+  const audioCount = rows.length - videoCount
 
   const confirmDelete = async () => {
     if (!pendingDelete || deleting) return
@@ -139,7 +141,7 @@ export default function SavedContentPage() {
         <section style={{ maxWidth: 720, margin: '0 auto' }}>
           {entries && entries.length > 0 && (
             <p data-testid="saved-total" style={{ fontSize: fs(13), color: 'var(--ink-2)', marginBottom: 12 }}>
-              총 {rows.length}개 · {formatSize(totalBytes)} 사용 중
+              총 {rows.length}개 (오디오 {audioCount} · 비디오 {videoCount}) · {formatSize(totalBytes)} 사용 중
             </p>
           )}
 
@@ -150,7 +152,7 @@ export default function SavedContentPage() {
           )}
 
           <ul style={{ display: 'flex', flexDirection: 'column', gap: 8, listStyle: 'none', padding: 0, margin: 0 }}>
-            {rows.map(({ entry, meta, id }) => {
+            {rows.map(({ entry, meta, id, kind }) => {
               const playing = currentVideo?.id === id
               const thumb = thumbUrl(meta?.thumbnail, 'mqdefault')
               return (
@@ -172,6 +174,12 @@ export default function SavedContentPage() {
                         {meta?.title ?? '제목 불러오는 중...'}
                       </p>
                       <p style={{ fontSize: fs(12), color: 'var(--ink-3)', marginTop: 2, lineHeight: 1.4 }}>
+                        <span
+                          data-testid="saved-media-badge"
+                          style={{ display: 'inline-block', padding: '0 6px', marginRight: 6, borderRadius: 999, fontSize: fs(11), fontWeight: 600, lineHeight: 1.5, color: kind === 'video' ? 'var(--ink-0)' : 'var(--ink-2)', background: 'var(--surface-2)', border: '1px solid var(--divider)' }}
+                        >
+                          {kind === 'video' ? '비디오' : '오디오'}
+                        </span>
                         {kindLabel(meta?.type)} · {formatSize(entry.size)} · {formatDate(entry.downloadedAt)}
                         {playing ? ' · 재생 중' : ''}
                       </p>

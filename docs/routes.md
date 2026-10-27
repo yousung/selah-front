@@ -16,7 +16,7 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 | `/search` | `SearchPage` | 검색 |
 | `/recent` | `RecentPage` | 최근 재생 |
 | `/settings` | `SettingsPage` | 설정 |
-| `/settings/saved` | `SavedContentPage` | 저장된 컨텐츠 목록(찬송/설교/독서·용량·저장일) + 곡별 삭제(확인 모달). 재생 중인 곡은 삭제 비활성, 행 탭 시 해당 플레이어로 이동 |
+| `/settings/saved` | `SavedContentPage` | 저장된 컨텐츠 목록(오디오/비디오 배지·찬송/설교/독서·용량·저장일; 같은 id도 `-audio`/`-video` 별개 행) + 곡별 삭제(확인 모달). 재생 중인 곡은 삭제 비활성, 행 탭 시 해당 플레이어로 이동 |
 | `/sermon` | `SermonPage` | 설교 시리즈 목록 (2열 그리드) |
 | `/sermon/series/:id` | `SermonSeriesPage` | 시리즈별 설교 목록 + 설교자 필터 칩 |
 | `/sermon/player/:id` | `SermonPlayerPage` | 설교 플레이어 (YouTube iframe, 영상/음성 전환) |

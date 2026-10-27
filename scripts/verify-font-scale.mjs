@@ -496,6 +496,13 @@ try {
               meta: { title: `${title} ${i}`, thumbnail: null, type: ['MUSIC', 'SERMON', 'READING'][i - 1] },
             })
           }
+          // 같은 id의 비디오 항목(가장 최근 저장 → 첫 행): 오디오와 별개 행·삭제 대상이어야 한다.
+          tx.objectStore('files').put({
+            id: 'saved-1-video', filename: 'saved-1-video', mimeType: 'video/mp4',
+            size: 40_000_000, downloadedAt: Date.now() - 3600000, lastPlayedAt: Date.now(),
+            status: 'complete', formatVersion: 2,
+            meta: { title: `${title} 1`, thumbnail: null, type: 'MUSIC' },
+          })
           tx.oncomplete = resolve
           tx.onerror = () => reject(tx.error)
         })
@@ -503,12 +510,22 @@ try {
       await checkPage(page, '/settings/saved', `${width}px/${scale}x saved content`)
       await page.getByTestId('saved-row').first().waitFor({ state: 'visible', timeout: 5000 })
       await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x saved content rendered`)
+      assert.deepEqual(
+        await page.getByTestId('saved-media-badge').allTextContents(),
+        ['비디오', '오디오', '오디오', '오디오'],
+        'saved media badges',
+      )
       await page.getByTestId('saved-delete').first().click()
       await page.getByTestId('saved-confirm').waitFor({ state: 'visible', timeout: 5000 })
       await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x saved content confirm`)
       await assertVisibleButtonsReadable(page, `${width}px/${scale}x saved content confirm`)
       await page.getByTestId('saved-confirm-ok').click()
-      await page.waitForFunction(() => document.querySelectorAll('[data-testid="saved-row"]').length === 2)
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="saved-row"]').length === 3)
+      assert.deepEqual(
+        await page.getByTestId('saved-media-badge').allTextContents(),
+        ['오디오', '오디오', '오디오'],
+        'only the video row deleted',
+      )
       await page.evaluate(() => new Promise((resolve) => {
         const req = indexedDB.open('selah-media', 1)
         req.onsuccess = () => {
