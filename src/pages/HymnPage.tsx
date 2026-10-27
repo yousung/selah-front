@@ -6,8 +6,6 @@ import { api } from '@/lib/api'
 import { useSettingsStore } from '@/store/settingsStore'
 import VideoCard from '@/components/VideoCard'
 import FestivalYearChips from '@/components/FestivalYearChips'
-import { useBulkDownload, type BulkDownload } from '@/lib/useBulkDownload'
-import { BulkDownloadToggle, BulkSelectMark, BulkDownloadOverlay } from '@/components/BulkDownload'
 import {
   useGridLimit,
   useFestivals,
@@ -45,32 +43,7 @@ function hasVideoToday(playlists?: Playlist[]): boolean {
   )
 }
 
-/** 목록 카드 + 선택 모드 체크 표시. 선택 모드에선 탭이 선택 토글이 된다(저장됨/비공개/방송중은 무반응). */
-function HymnCard({ video, bulk, onPlay, layout, highlight }: {
-  video: Video; bulk: BulkDownload; onPlay: () => void; layout: 'card' | 'list'; highlight?: string
-}) {
-  const pick = bulk.pickable(video)
-  return (
-    <div style={{ position: 'relative' }}>
-      <VideoCard
-        video={video}
-        layout={layout}
-        highlight={highlight}
-        isDownloading={bulk.downloadingIds.has(video.id)}
-        selectMode={bulk.selectMode}
-        onClick={bulk.selectMode ? () => { if (pick) bulk.toggleSelect(video.id) } : onPlay}
-      />
-      {bulk.selectMode && pick && (
-        <BulkSelectMark
-          selected={bulk.selected.has(video.id)}
-          style={layout === 'card' ? { right: 8, top: 8, transform: 'none' } : undefined}
-        />
-      )}
-    </div>
-  )
-}
-
-function PlaylistSection({ playlist, subtitle, bulk }: { playlist: Playlist; subtitle?: string; bulk: BulkDownload }) {
+function PlaylistSection({ playlist, subtitle }: { playlist: Playlist; subtitle?: string }) {
   const navigate = useNavigate()
   const playHymn = usePlayHymn()
 
@@ -97,7 +70,7 @@ function PlaylistSection({ playlist, subtitle, bulk }: { playlist: Playlist; sub
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-4">
         {visibleVideos.map((v) => (
-          <HymnCard key={v.id} video={v} bulk={bulk} onPlay={() => handlePlay(v)} layout="card" />
+          <VideoCard key={v.id} video={v} onClick={() => handlePlay(v)} layout="card" />
         ))}
       </div>
     </section>
@@ -105,18 +78,16 @@ function PlaylistSection({ playlist, subtitle, bulk }: { playlist: Playlist; sub
 }
 
 /** 시편 찬송 모임 — 최신 연도 기본, 연도 칩으로 전환. 그리드는 limit개만, 큐는 그해 전체. 목록이 비었거나 에러면 섹션 숨김 */
-function FestivalSection({ limit, bulk, festivals, year, playlist, onYearChange }: {
-  limit: number
-  bulk: BulkDownload
-  festivals: NonNullable<ReturnType<typeof useFestivals>['data']> | undefined
-  year: number | undefined
-  playlist: Playlist | null
-  onYearChange: (y: number) => void
-}) {
+function FestivalSection({ limit }: { limit: number }) {
   const navigate = useNavigate()
   const playHymn = usePlayHymn()
+  const { data: festivals } = useFestivals()
+  const [selectedYear, setSelectedYear] = useState<number>()
+  const year = selectedYear ?? festivals?.[0]?.year
+  const { data: festival } = useFestival(year)
 
   if (!festivals?.length || year == null) return null
+  const playlist = festival ? toFestivalPlaylist(festival) : null
 
   return (
     <section className="mb-8 animate-fade-up">
@@ -134,12 +105,12 @@ function FestivalSection({ limit, bulk, festivals, year, playlist, onYearChange 
         </button>
       </div>
       <div className="px-4 mb-3">
-        <FestivalYearChips festivals={festivals} year={year} onChange={onYearChange} />
+        <FestivalYearChips festivals={festivals} year={year} onChange={setSelectedYear} />
       </div>
       {playlist && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-4">
           {playlist.videos.slice(0, limit).map((v) => (
-            <HymnCard key={v.id} video={v} bulk={bulk} onPlay={() => playHymn(v, playlist)} layout="card" />
+            <VideoCard key={v.id} video={v} onClick={() => playHymn(v, playlist)} layout="card" />
           ))}
         </div>
       )}
@@ -151,14 +122,8 @@ export default function HymnPage() {
   const playHymn = usePlayHymn()
   const onlyOurChurch = useSettingsStore((s) => s.onlyOurChurch)
   const limit = useGridLimit()
-  const bulk = useBulkDownload()
   const { data: playlists, isLoading } = usePlaylists(limit, onlyOurChurch)
   const { data: recentPlaylist } = useRecentPlaylist(limit, onlyOurChurch)
-  const { data: festivals } = useFestivals()
-  const [selectedYear, setSelectedYear] = useState<number>()
-  const festivalYear = selectedYear ?? festivals?.[0]?.year
-  const { data: festival } = useFestival(festivalYear)
-  const festivalPlaylist = festival ? toFestivalPlaylist(festival) : null
 
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -218,14 +183,8 @@ export default function HymnPage() {
 
   const handleSearchPlay = (v: Video) => playHymn(v)
 
-  // 일괄 다운로드 대상 = 지금 화면에 보이는 곡(중복 제거)
-  const visibleVideos = debouncedQuery
-    ? searchVideos
-    : [...(recentPlaylist?.videos ?? []), ...(playlists?.flatMap((pl) => pl.videos) ?? []), ...(festivalPlaylist?.videos.slice(0, limit) ?? [])]
-  const selectableIds = Array.from(new Set(visibleVideos.filter(bulk.pickable).map((v) => v.id)))
-
   return (
-    <div className="animate-fade-in" style={{ paddingBottom: bulk.selectMode ? 80 : 16 }}>
+    <div className="animate-fade-in" style={{ paddingBottom: 16 }}>
       {/* AppBar */}
       <header
         className="sticky top-0 z-10 safe-top"
@@ -272,7 +231,6 @@ export default function HymnPage() {
               </button>
             )}
           </div>
-          <div className="flex-shrink-0 ml-3"><BulkDownloadToggle bulk={bulk} /></div>
         </div>
       </header>
 
@@ -289,7 +247,7 @@ export default function HymnPage() {
           ) : searchVideos.length ? (
             <>
               {searchVideos.map((v) => (
-                <HymnCard key={v.id} video={v} bulk={bulk} onPlay={() => handleSearchPlay(v)} layout="list" highlight={debouncedQuery} />
+                <VideoCard key={v.id} video={v} onClick={() => handleSearchPlay(v)} layout="list" highlight={debouncedQuery} />
               ))}
               <div ref={sentinelRef} className="h-1" />
               {isFetchingNextPage ? (
@@ -340,10 +298,10 @@ export default function HymnPage() {
             ) : playlists?.length ? (
               <>
                 {recentPlaylist && recentPlaylist.videos.length > 0 && (
-                  <PlaylistSection playlist={recentPlaylist} subtitle="최근 7일 내 등록된 찬양" bulk={bulk} />
+                  <PlaylistSection playlist={recentPlaylist} subtitle="최근 7일 내 등록된 찬양" />
                 )}
-                {playlists.map((pl) => <PlaylistSection key={pl.id} playlist={pl} bulk={bulk} />)}
-                <FestivalSection limit={limit} bulk={bulk} festivals={festivals} year={festivalYear} playlist={festivalPlaylist} onYearChange={setSelectedYear} />
+                {playlists.map((pl) => <PlaylistSection key={pl.id} playlist={pl} />)}
+                <FestivalSection limit={limit} />
               </>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
@@ -355,7 +313,6 @@ export default function HymnPage() {
           </div>
         </>
       )}
-      <BulkDownloadOverlay bulk={bulk} selectableIds={selectableIds} />
     </div>
   )
 }

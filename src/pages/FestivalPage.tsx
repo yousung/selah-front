@@ -1,21 +1,25 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import VideoCard from '@/components/VideoCard'
 import FestivalYearChips from '@/components/FestivalYearChips'
+import { useBulkDownload } from '@/lib/useBulkDownload'
+import { BulkDownloadToggle, BulkSelectMark, BulkDownloadOverlay } from '@/components/BulkDownload'
 import { useFestivals, useFestival, usePlayHymn, toFestivalPlaylist } from '@/lib/hymnPlaylists'
 
 export default function FestivalPage() {
   const { year: yearParam } = useParams<{ year: string }>()
   const navigate = useNavigate()
   const playHymn = usePlayHymn()
+  const bulk = useBulkDownload()
   const year = Number(yearParam)
   const validYear = Number.isInteger(year) ? year : undefined
 
   const { data: festivals } = useFestivals()
   const { data: festival, isLoading, isError } = useFestival(validYear)
   const playlist = festival ? toFestivalPlaylist(festival) : null
+  const selectableIds = (playlist?.videos ?? []).filter(bulk.pickable).map((v) => v.id)
 
   return (
-    <div className="animate-fade-in" style={{ paddingBottom: 16 }}>
+    <div className="animate-fade-in" style={{ paddingBottom: bulk.selectMode ? 80 : 16 }}>
       {/* Sticky header */}
       <header
         className="sticky top-0 z-10 safe-top"
@@ -39,6 +43,7 @@ export default function FestivalPage() {
               <p className="text-xs" style={{ color: 'var(--ink-2)' }}>총 {playlist.videos.length}팀 · 주님의 교회</p>
             )}
           </div>
+          <div className="flex-shrink-0 mr-1"><BulkDownloadToggle bulk={bulk} /></div>
         </div>
         {festivals && validYear != null && festivals.length > 1 && (
           <div className="px-4 pb-3">
@@ -62,7 +67,18 @@ export default function FestivalPage() {
         ) : playlist?.videos.length ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-4">
             {playlist.videos.map((v) => (
-              <VideoCard key={v.id} video={v} onClick={() => playHymn(v, playlist)} layout="card" />
+              <div key={v.id} style={{ position: 'relative' }}>
+                <VideoCard
+                  video={v}
+                  onClick={bulk.selectMode ? () => { if (bulk.pickable(v)) bulk.toggleSelect(v.id) } : () => playHymn(v, playlist)}
+                  layout="card"
+                  isDownloading={bulk.downloadingIds.has(v.id)}
+                  selectMode={bulk.selectMode}
+                />
+                {bulk.selectMode && bulk.pickable(v) && (
+                  <BulkSelectMark selected={bulk.selected.has(v.id)} style={{ right: 8, top: 8, transform: 'none' }} />
+                )}
+              </div>
             ))}
           </div>
         ) : (
@@ -74,6 +90,7 @@ export default function FestivalPage() {
           </div>
         )}
       </div>
+      <BulkDownloadOverlay bulk={bulk} selectableIds={selectableIds} />
     </div>
   )
 }

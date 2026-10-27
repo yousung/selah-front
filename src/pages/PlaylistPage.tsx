@@ -9,6 +9,8 @@ import { useQueueStore } from '@/store/queueStore'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { getSortPref, setSortPref } from '@/lib/sortPref'
 import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { useBulkDownload } from '@/lib/useBulkDownload'
+import { BulkDownloadToggle, BulkSelectMark, BulkDownloadOverlay } from '@/components/BulkDownload'
 
 type SortMode = 'chapterAsc' | 'chapterDesc'
 
@@ -53,6 +55,7 @@ export default function PlaylistPage() {
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const onlyOurChurch = useSettingsStore((s) => s.onlyOurChurch)
   const setQueue = useQueueStore((s) => s.setQueue)
+  const bulk = useBulkDownload()
 
   const [sortMode, setSortMode] = useState<SortMode>(() => (searchParams.get('sort') as SortMode) || getSortPref('playlist', id))
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '')
@@ -95,6 +98,7 @@ export default function PlaylistPage() {
 
   const allVideos = data?.pages.flatMap((p) => p.videos) ?? []
   const total = data?.pages[0]?.total ?? 0
+  const selectableIds = allVideos.filter(bulk.pickable).map((v) => v.id)
 
   const prevIdRef = useRef<string | undefined>(undefined)
   useEffect(() => {
@@ -166,7 +170,7 @@ export default function PlaylistPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in" style={{ paddingBottom: bulk.selectMode ? 80 : 0 }}>
       {/* Sticky header */}
       <header
         className="sticky top-0 z-10 safe-top"
@@ -193,6 +197,7 @@ export default function PlaylistPage() {
                 : `총 ${total}편 · 주님의 교회`}
             </p>
           </div>
+          <div className="flex-shrink-0 mr-1"><BulkDownloadToggle bulk={bulk} /></div>
         </div>
 
         {/* Search */}
@@ -277,7 +282,16 @@ export default function PlaylistPage() {
           <>
             {allVideos.map((v) => (
               <LazyRow key={v.id}>
-                <VideoCard video={v} onClick={() => handlePlay(v)} layout="list" />
+                <div style={{ position: 'relative' }}>
+                  <VideoCard
+                    video={v}
+                    onClick={bulk.selectMode ? () => { if (bulk.pickable(v)) bulk.toggleSelect(v.id) } : () => handlePlay(v)}
+                    layout="list"
+                    isDownloading={bulk.downloadingIds.has(v.id)}
+                    selectMode={bulk.selectMode}
+                  />
+                  {bulk.selectMode && bulk.pickable(v) && <BulkSelectMark selected={bulk.selected.has(v.id)} />}
+                </div>
               </LazyRow>
             ))}
 
@@ -305,6 +319,7 @@ export default function PlaylistPage() {
           </div>
         )}
       </div>
+      <BulkDownloadOverlay bulk={bulk} selectableIds={selectableIds} />
     </div>
   )
 }
