@@ -23,7 +23,7 @@
 - `fontScale`은 `Layout` 사용자 영역의 `--font-scale`로 전달되어 본문·내비게이션·하위 오버레이에 적용된다. 관리자 UI는 별도 영역이다.
 - `occupation`(설정 → 표시 → 직업, 라벨 맵 `OCCUPATION_LABELS`: 직장인/주부/학생/목사)은 로컬 전용이며 `lib/currentPrayer.ts`의 일과 기도 하위 기도 선택에만 쓴다. `null`(미설정)은 직장인으로 취급하고 설정 화면에서도 직장인이 선택된 것으로 보인다.
 - `videoDownloadQuality`(설정 → 재생 → 화질, **비디오 모드에서만 보임** — 오디오 모드에선 같은 자리가 `quality` 음질 선택) — 저화질=`'360p'`, 고화질=`'720p'`. 비디오 모드 저장 시 `/videos/:id/download?quality=`로 넘기는 화질 상한이자, 스트리밍 재생의 shaka 화질(`dashPlayer.setDashVideoHeight`, 재생 중 변경 즉시 적용)이다. 저장분 재생에는 영향 없다. 480p는 av01 전용(iOS 불가)이라 선택지에 없다. 버전 올림 없이 추가했다(persist가 저장값을 기본값 위에 얕게 병합).
-- persist `version: 2` — `migrate`가 기존 필드를 그대로 두고 `occupation: null`을 채우며, v2에서 제거된 `autoDownload`(자동 다운로드 폐지, 다운로드는 사용자 요청 시에만)는 옛 저장값에서 버린다.
+- persist `version: 2` — `migrate`가 기존 필드를 그대로 두고 `occupation: null`을 채우며, v2에서 제거된 `autoDownload`(UI 없던 토글 — 재생 시 자동 저장은 토글 없이 항상 동작, `audio.md` 참조)는 옛 저장값에서 버린다.
 
 ## queueStore (`selah-queue`)
 

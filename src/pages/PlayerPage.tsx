@@ -688,9 +688,9 @@ export default function PlayerPage() {
     if (video.isSecret) return
     if (!offlineMediaOk) return
     if (streamOnly) return
-    // 사용자가 버튼을 눌렀을 때만 호출된다(자동 다운로드 없음). 재생은 스트림으로 계속되고,
+    // 수동 다운로드 버튼과 재생 시작 후 자동 다운로드(아래 effect)가 같이 쓴다. 재생은 스트림으로 계속되고,
     // 다운로드가 끝나면 AudioContext가 현재 위치를 유지한 채 로컬 파일로 전환한다.
-    // 동기 in-flight 가드: 연타 시 두 번째 호출을 즉시 차단. dlStatus(상태)는 비동기 지연이 있어 가드로 부적합.
+    // 동기 in-flight 가드: 연타/자동 중복 발화 시 두 번째 호출을 즉시 차단. dlStatus(상태)는 비동기 지연이 있어 가드로 부적합.
     if (downloadingRef.current) return
     downloadingRef.current = true
     try {
@@ -741,6 +741,37 @@ export default function PlayerPage() {
       downloadingRef.current = false
     }
   }, [id, video, offlineMediaOk, streamOnly, offlineStorageMode, mediaMode, mediaType, mediaCacheKey, videoDownloadQuality])
+
+  // ── 자동 다운로드: 재생이 실제로 시작된 뒤 현재 모드 파일을 저장한다 ──
+  // 오디오 모드 = `-audio`, 비디오 모드 = `-video` + `-audio`(handleDownload → downloadVideoWithAudio).
+  // seek은 다운로드 여부와 무관하게 항상 열려 있다(게이트 없음).
+  // 같은 키(id+모드)는 한 번만 시도한다 — 실패 후 일시정지→재생마다 다시 받는 반복 재시도를 막는다.
+  const autoDlTriedRef = useRef<string | null>(null)
+  const autoDlAllowed = !!video && !!mediaCacheKey && currentVideo?.id === video.id
+    && offlineMediaOk && offlineStorageMode !== 'thrift' && !streamOnly && !isDownloaded
+    && !video.isSecret && !isLiveVideo(video.isLive) && !isTempVideo(video.isTemp)
+    && autoDlTriedRef.current !== mediaCacheKey
+
+  useEffect(() => {
+    // 스트림이 실제 재생된 뒤 시작한다. 같은 Invidious 호스트에 스트림과 전체 다운로드를
+    // 동시에 열면 모바일 브라우저에서 다운로드가 연결/대역폭을 선점해 재생이 무한 로딩된다.
+    if (!isPlaying || !autoDlAllowed) return
+    autoDlTriedRef.current = mediaCacheKey
+    void handleDownload()
+  // video?.id로 의존: 백그라운드 refetch(같은 id, 새 ref)로 재발화하지 않도록
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video?.id, mediaCacheKey, isPlaying, autoDlAllowed])
+
+  useEffect(() => {
+    // 복구 경로: 재생을 요청했는데 8초 넘게 로딩에서 못 벗어나면(스트림이 미디어 초기화에서 멈춤)
+    // 다운로드를 시작해 저장 파일 재생으로 살린다. 재생 요청 없이 열어만 둔 화면에서는 받지 않는다.
+    if (isPlaying || !isLoading || !autoDlAllowed) return
+    const timer = window.setTimeout(() => {
+      autoDlTriedRef.current = mediaCacheKey
+      void handleDownload()
+    }, 8000)
+    return () => window.clearTimeout(timer)
+  }, [isPlaying, isLoading, autoDlAllowed, mediaCacheKey, handleDownload])
 
   // 영상에서 벗어날 때(id 변경/언마운트) 진행 중이던 다운로드 취소.
   // 특히 비공개 영상으로 넘어갈 때, 이전 곡 다운로드가 완료되면 그 완료 이벤트로
