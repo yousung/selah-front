@@ -479,6 +479,23 @@ try {
       }
       await checkPage(page, '/settings', `${width}px/${scale}x settings`)
 
+      // 재생 → 음질/화질 자리: 오디오 모드는 음질 3단, 비디오 모드는 화질 저화질/고화질(videoDownloadQuality).
+      const qualityRow = page.locator('[data-tour="setting-quality"]')
+      assert.deepEqual(await qualityRow.getByRole('button').allTextContents(), ['고음질', '보통', '저음질'], `${width}px/${scale}x audio quality options`)
+      assert.equal(await page.getByText('비디오 저장 화질').count(), 0, `${width}px/${scale}x video download quality row removed`)
+      await page.locator('[data-tour="setting-media"]').getByRole('button', { name: '비디오' }).click()
+      await waitSettled(page)
+      await qualityRow.getByText('화질', { exact: true }).waitFor({ state: 'visible', timeout: 5000 })
+      assert.deepEqual(await qualityRow.getByRole('button').allTextContents(), ['저화질', '고화질'], `${width}px/${scale}x video quality options`)
+      await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x settings video quality`)
+      await qualityRow.getByRole('button', { name: '고화질' }).click()
+      await waitSettled(page)
+      const videoQuality = await page.evaluate(() => JSON.parse(localStorage.getItem('selah-settings') ?? '{}').state?.videoDownloadQuality)
+      assert.equal(videoQuality, '720p', `${width}px/${scale}x video quality persists`)
+      await qualityRow.getByRole('button', { name: '저화질' }).click()
+      await page.locator('[data-tour="setting-media"]').getByRole('button', { name: '오디오' }).click()
+      await waitSettled(page)
+
       // 저장된 컨텐츠 목록: IDB에 메타 포함 항목을 심어 긴 제목 줄바꿈·삭제 확인 모달을 검증한다.
       await page.evaluate(async (title) => {
         const db = await new Promise((resolve, reject) => {

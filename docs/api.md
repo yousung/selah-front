@@ -115,7 +115,12 @@ unloadDash(): Promise<void>                                          // 재생�
 destroyDash(): Promise<void>                                         // detach + Player 파괴
 isDashAttached(el: HTMLMediaElement | null | undefined): boolean
 isDashAbortError(err): boolean                                       // 7000/7001 = 정상 흐름
+setDashVideoHeight(height: number): void                             // 비디오 화질 고정(360/720), 재생 중 변경 즉시 적용
 ```
+
+- 화질은 `abr.restrictions`(soft)의 min=max height로 고정한다(상한만 걸면 ABR이 720↔360을 오감). 만족하는 variant가 없으면 shaka가 최저 variant로
+  재생하므로 저장분(variant 1개) 재생이 깨지지 않는다. 최상위 `restrictions`로 걸면 4012로 죽는다.
+  `AudioContext`가 `settingsStore.videoDownloadQuality`를 구독해 호출한다.
 
 - `el`은 `<video>`와 `<audio>` **둘 다** 받는다. 싱글턴이 두 엘리먼트 사이를 오갈 수 있으므로
   `ensureDashPlayer`는 다른 엘리먼트에 붙어 있으면 먼저 `detach()`한다. detach가 이전

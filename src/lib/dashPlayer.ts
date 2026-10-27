@@ -33,7 +33,10 @@ interface ShakaPlayer {
   load(uri: string, startTime?: number | null, mimeType?: string): Promise<void>
   unload(): Promise<void>
   destroy(): Promise<void>
-  configure(config: { manifest?: { disableVideo?: boolean } }): void
+  configure(config: {
+    manifest?: { disableVideo?: boolean }
+    abr?: { restrictions?: { minHeight?: number; maxHeight?: number } }
+  }): void
   addEventListener(type: string, listener: (event: Event) => void): void
 }
 
@@ -89,6 +92,8 @@ let manifestBlobUrl: string | null = null
 // 진행 중인 destroyDash()의 Promise. teardown이 비동기이고 그 사이 엘리먼트를 건드리므로
 // "정리 중"도 attach와 똑같이 위험한 구간이다 — isDashAttached()가 이걸 같이 본다.
 let teardownPromise: Promise<void> | null = null
+// 비디오 화질(설정 `videoDownloadQuality`). `setDashVideoHeight()`로 갱신한다.
+let videoHeight: number | null = null
 
 function revokeManifestBlob() {
   if (!manifestBlobUrl) return
@@ -307,7 +312,33 @@ export async function ensureDashPlayer(
   // `restrictions.maxHeight = 0`을 쓰면 안 된다: 이 매니페스트는 audio 1 + video 3 구성이라
   // shaka DASH 파서가 audio×video 조합 variant만 만든다(audio-only variant 없음). 그 상태에서
   // 모든 variant를 제한하면 RESTRICTIONS_CANNOT_BE_MET(4012)로 재생이 죽는다.
-  p.configure({ manifest: { disableVideo: el.nodeName === 'AUDIO' } })
+  p.configure({
+    manifest: { disableVideo: el.nodeName === 'AUDIO' },
+    abr: { restrictions: videoRestrictions(el.nodeName === 'AUDIO' ? null : videoHeight) },
+  })
+}
+
+function videoRestrictions(height: number | null): { minHeight: number; maxHeight: number } {
+  return height == null ? { minHeight: 0, maxHeight: Infinity } : { minHeight: height, maxHeight: height }
+}
+
+/**
+ * 비디오 스트림 화질을 고정한다(360/720). 상한만 걸면 ABR이 대역폭 추정에 따라 720↔360을
+ * 오가서(실측: 고화질 선택 후 ~6초 간격으로 itag 136↔134) 설정 라벨과 화면이 어긋나므로
+ * min=max로 그 높이만 고르게 한다. 재생 중에 바꿔도 된다 — shaka `configure()`가 ABR을 다시
+ * enable하면서 `trySuggestStreams()`로 즉시 variant를 다시 고른다(`lib/player.js` applyConfig_ →
+ * `simple_abr_manager.js` enable). 버퍼는 비우지 않으므로 끊김 없이 이어진다.
+ *
+ * 최상위 `restrictions`가 아니라 **`abr.restrictions`(soft)** 를 쓴다: 조건을 만족하는 variant가
+ * 없으면 shaka가 최저 variant로 재생을 이어간다(`simple_abr_manager.js` chooseVariant). 최상위로
+ * 걸면 RESTRICTIONS_CANNOT_BE_MET(4012)로 죽는다 — 예컨대 720p로 저장한 로컬 파일(variant 1개)을
+ * 360으로 틀 때, 또는 해당 높이가 없는 영상. 그래서 저장분 재생에는 영향이 없다.
+ */
+export function setDashVideoHeight(height: number): void {
+  videoHeight = height
+  if (player && attachedEl?.nodeName === 'VIDEO') {
+    player.configure({ abr: { restrictions: videoRestrictions(height) } })
+  }
 }
 
 /**

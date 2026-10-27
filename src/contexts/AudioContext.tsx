@@ -6,7 +6,7 @@ import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { api } from '@/lib/api'
 import { buildLocalDashManifest, deleteMedia, getCachedMediaPlaybackUrl, isOpfsSupported, MEDIA_DOWNLOADED_EVENT, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
 import type { MediaDownloadedDetail } from '@/lib/mediaStore'
-import { checkDashSupport, destroyDash, ensureDashPlayer, isDashAbortError, isDashAttached, loadDash, reloadOnceForShakaChunk, unloadDash } from '@/lib/dashPlayer'
+import { checkDashSupport, destroyDash, ensureDashPlayer, isDashAbortError, isDashAttached, loadDash, reloadOnceForShakaChunk, setDashVideoHeight, unloadDash } from '@/lib/dashPlayer'
 import { isDesktopSafari, isIosWebKit } from '@/lib/mediaStore'
 import { primeMediaElement } from '@/lib/mediaUnlock'
 import { isIOS } from '@/lib/platform'
@@ -155,6 +155,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const videoSlotRef = useRef<HTMLDivElement | null>(null)
   const quality = useSettingsStore((s) => s.quality)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
+  const videoQuality = useSettingsStore((s) => s.videoDownloadQuality)
   const autoNextDelay = useSettingsStore((s) => s.autoNextDelay)
   const playMode = useSettingsStore((s) => s.playMode)
   const playbackRate = useSettingsStore((s) => s.playbackRate)
@@ -389,6 +390,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const qualityRef = useRef(quality)
   useEffect(() => { qualityRef.current = quality }, [quality])
+  // 비디오 모드 화질(설정 → 재생 → 화질)은 저장 화질이자 스트림 화질이다. 재생 중 변경도 바로 적용된다.
+  useEffect(() => { setDashVideoHeight(videoQuality === '720p' ? 720 : 360) }, [videoQuality])
   const mediaModeRef = useRef(mediaMode)
   useEffect(() => { mediaModeRef.current = mediaMode }, [mediaMode])
 

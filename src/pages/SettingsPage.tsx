@@ -127,9 +127,9 @@ const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string }[] = [
   { value: 'video', label: '비디오' },
 ]
 
-const VIDEO_DOWNLOAD_QUALITY_OPTIONS: { value: VideoDownloadQuality; label: string }[] = [
-  { value: '360p', label: '360p' },
-  { value: '720p', label: '720p' },
+const VIDEO_QUALITY_OPTIONS: { value: VideoDownloadQuality; label: string }[] = [
+  { value: '360p', label: '저화질' },
+  { value: '720p', label: '고화질' },
 ]
 
 const OFFLINE_MODE_OPTIONS: { value: OfflineStorageMode; label: string; desc: string }[] = [
@@ -298,10 +298,8 @@ export default function SettingsPage() {
 
           <div data-tour="setting-quality">
             {mediaMode === 'video' ? (
-              <Field title="음질" description="비디오 모드에서는 음질을 조절할 수 없습니다.">
-                <div style={{ opacity: 0.5, pointerEvents: 'none' }}>
-                  <Segmented value={quality} onChange={setQuality} options={QUALITY_OPTIONS} />
-                </div>
+              <Field title="화질" description="고화질(720p)은 더 선명하지만 저화질(360p)보다 데이터와 저장 용량을 2배 가까이 씁니다. 재생 중인 영상과 이후 저장하는 영상에 적용되며, 이미 저장한 영상은 그대로입니다.">
+                <Segmented value={videoDownloadQuality} onChange={setVideoDownloadQuality} options={VIDEO_QUALITY_OPTIONS} />
               </Field>
             ) : (
               <Field title="음질" description="음질이 높을수록 데이터를 더 씁니다. 저음질로 설정하면 가장 적은 데이터로 또렷하게 들을 수 있습니다.">
@@ -379,13 +377,6 @@ export default function SettingsPage() {
                 <Segmented value={offlineStorageMode} onChange={handleStorageModeChange} options={OFFLINE_MODE_OPTIONS} />
               </Field>
             </div>
-
-            <Field
-              title="비디오 저장 화질"
-              description="비디오 모드에서 저장할 때의 최대 화질입니다. 720p는 더 선명하지만 360p보다 용량이 2배 가까이 큽니다. 이미 저장한 영상에는 적용되지 않습니다."
-            >
-              <Segmented value={videoDownloadQuality} onChange={setVideoDownloadQuality} options={VIDEO_DOWNLOAD_QUALITY_OPTIONS} />
-            </Field>
 
             <Field
               title="저장된 컨텐츠"
