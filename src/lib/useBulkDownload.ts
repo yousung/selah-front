@@ -10,11 +10,12 @@ import { downloadMedia, isOfflineMediaSupported, cancelDownload, deleteMedia } f
  * 사용자가 직접 고른 항목만 받는다(자동 다운로드 없음). UI는 `components/BulkDownload.tsx`.
  */
 export function useBulkDownload() {
+  const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
   const { cachedIds, refresh } = useCachedMediaStore()
-  // 목록 다운로드는 재생 모드와 무관하게 항상 오디오 파일을 저장한다(비디오 모드 재생은 DASH 스트림 유지,
-  // 저장된 오디오는 오디오 모드에서 사용). 절약 모드·미지원 환경에선 다운로드 UI 자체를 숨긴다.
-  const enabled = isOfflineMediaSupported() && offlineStorageMode !== 'thrift'
+  // 목록 다운로드는 오디오 파일만 저장한다. 비디오 모드는 DASH 스트림 전용(저장할 단일 파일 없음)이라
+  // 오디오가 받아지면 헷갈리므로 숨긴다. 절약 모드·미지원 환경에서도 다운로드 UI 자체를 숨긴다.
+  const enabled = isOfflineMediaSupported() && mediaMode !== 'video' && offlineStorageMode !== 'thrift'
   const dlType = 'audio' as const
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
