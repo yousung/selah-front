@@ -176,6 +176,12 @@ iOS WebKit은 **엘리먼트마다** "사용자 제스처 처리 중 `play()`가
 수백 ms 갭으로 안 끊긴다). 시뮬레이터가 엘리먼트별 제약을 강제하지 않아 재현이 안 되는 것인지
 원인이 딴 데 있는지는 미결이며, 판정은 아래 `PlayAttempt` 실기기 데이터로 한다.
 
+## useBackgroundAudioHandoff.ts — 비디오 모드 백그라운드 오디오 핸드오프
+
+AudioContext 전용 훅. 비디오 모드에서 숨김/잠금 시 `<audio>`로 이어 듣고 복귀 시 `<video>`로 되돌린다.
+반환: `onVideoLoaded(id, startPos, autoPlay): boolean`(true면 호출자는 `<video>`를 재생하지 않는다),
+`discardPrepared()`, `reset()`. 동작·불변식은 [`audio.md` 백그라운드 오디오 핸드오프](./audio.md#비디오-모드-백그라운드-오디오-핸드오프).
+
 ## mediaDiag.ts — `PlayAttempt` (첫 play() 시도 기록)
 
 `setLastPlayAttempt()`가 `playVideo()`의 세 재생 경로(`cache`/`stream`/`dash`)에서
