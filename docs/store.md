@@ -100,6 +100,10 @@ interface RecentItem { id, title, thumbnail, tag, hymnTitle?, duration?, chapter
 
 액션: `refresh()` — IDB에서 완료 엔트리를 다시 읽어 `cachedIds` 갱신
 
+`FileEntry.meta?`(`{title, thumbnail, type}`)는 저장 목록(`/settings/saved`) 표시용이다. 다운로드 시점이 아니라
+목록 첫 조회 때 `/videos/:id`로 받아 `setMediaMeta()`로 기록하며, 이후엔 오프라인에서도 제목이 보인다.
+개별 삭제는 `deleteMedia(id, 'audio')` 후 `refresh()`.
+
 ## adminAuthStore (`admin-auth`)
 
 파일: `src/store/adminAuthStore.ts`

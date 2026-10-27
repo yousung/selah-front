@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useSettingsStore, OCCUPATION_LABELS } from '@/store/settingsStore'
 import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale, Occupation } from '@/store/settingsStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
@@ -197,6 +198,7 @@ export default function SettingsPage() {
     setOfflineStorageMode, setFontScale, setOnlyOurChurch, setOccupation,
   } = useSettingsStore()
   const { currentVideo } = useAudio()
+  const navigate = useNavigate()
   const [clearing, setClearing] = useState(false)
 
   // 저장 모드 변경 시 즉시 새 정책으로 기존 다운로드를 정리한다.
@@ -379,10 +381,21 @@ export default function SettingsPage() {
                 <>
                   {usedBytes != null && usedBytes > 0
                     ? `현재 ${usedBytes >= 1024 * 1024 * 1024 ? `${(usedBytes / (1024 * 1024 * 1024)).toFixed(1)}GB` : `${(usedBytes / (1024 * 1024)).toFixed(0)}MB`} 저장됨 · `
-                    : ''}오프라인 저장 미디어와 이어듣기 위치를 모두 삭제합니다.
+                    : ''}저장 목록에서 곡별로 삭제하거나, 모두 지울 수 있습니다.
                 </>
               }
             >
+              <button
+                type="button"
+                onClick={() => navigate('/settings/saved')}
+                className="w-full flex items-center justify-between"
+                style={{ background: 'transparent', minHeight: 40, marginBottom: 8 }}
+              >
+                <span className="text-sm font-medium" style={{ color: 'var(--ink-0)' }}>저장된 목록 보기</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--ink-3)', flexShrink: 0 }}>
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
               <button
                 type="button"
                 onClick={handleClearMedia}

@@ -479,6 +479,46 @@ try {
       }
       await checkPage(page, '/settings', `${width}px/${scale}x settings`)
 
+      // 저장된 컨텐츠 목록: IDB에 메타 포함 항목을 심어 긴 제목 줄바꿈·삭제 확인 모달을 검증한다.
+      await page.evaluate(async (title) => {
+        const db = await new Promise((resolve, reject) => {
+          const req = indexedDB.open('selah-media', 1)
+          req.onsuccess = () => resolve(req.result)
+          req.onerror = () => reject(req.error)
+        })
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction('files', 'readwrite')
+          for (let i = 1; i <= 3; i++) {
+            tx.objectStore('files').put({
+              id: `saved-${i}-audio`, filename: `saved-${i}-audio`, mimeType: 'audio/mp4',
+              size: 5_000_000 * i, downloadedAt: Date.now() - i * 86400000, lastPlayedAt: Date.now(),
+              status: 'complete', formatVersion: 2,
+              meta: { title: `${title} ${i}`, thumbnail: null, type: ['MUSIC', 'SERMON', 'READING'][i - 1] },
+            })
+          }
+          tx.oncomplete = resolve
+          tx.onerror = () => reject(tx.error)
+        })
+      }, longTitle)
+      await checkPage(page, '/settings/saved', `${width}px/${scale}x saved content`)
+      await page.getByTestId('saved-row').first().waitFor({ state: 'visible', timeout: 5000 })
+      await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x saved content rendered`)
+      await page.getByTestId('saved-delete').first().click()
+      await page.getByTestId('saved-confirm').waitFor({ state: 'visible', timeout: 5000 })
+      await assertNoHorizontalPageOverflow(page, `${width}px/${scale}x saved content confirm`)
+      await assertVisibleButtonsReadable(page, `${width}px/${scale}x saved content confirm`)
+      await page.getByTestId('saved-confirm-ok').click()
+      await page.waitForFunction(() => document.querySelectorAll('[data-testid="saved-row"]').length === 2)
+      await page.evaluate(() => new Promise((resolve) => {
+        const req = indexedDB.open('selah-media', 1)
+        req.onsuccess = () => {
+          const tx = req.result.transaction('files', 'readwrite')
+          tx.objectStore('files').clear()
+          tx.oncomplete = resolve
+        }
+      }))
+      await checkPage(page, '/settings', `${width}px/${scale}x settings after saved`)
+
       const optionFontSize = await page.locator('[data-tour="setting-font"] button').first()
         .evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
       assert.equal(optionFontSize, 14 * scale, `${width}px/${scale}x setting controls must retain full text scaling`)

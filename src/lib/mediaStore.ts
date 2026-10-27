@@ -14,6 +14,14 @@ export interface FileEntry {
   lastPlayedAt: number
   status: 'downloading' | 'complete'
   formatVersion?: number
+  /** 저장 목록(설정 → 저장된 컨텐츠) 표시용 메타. 오프라인에서도 제목을 보이려고 목록 첫 조회 때 채운다. */
+  meta?: SavedMediaMeta
+}
+
+export interface SavedMediaMeta {
+  title: string
+  thumbnail: string | null
+  type: string | null
 }
 
 export interface StorageInfo {
@@ -411,6 +419,13 @@ export async function deleteMedia(id: string, type?: 'audio' | 'video'): Promise
   }
 }
 
+/** 저장 항목에 표시용 메타를 기록한다(완료된 항목만, 없으면 무시). */
+export async function setMediaMeta(cacheKey: string, meta: SavedMediaMeta): Promise<void> {
+  const entry = await idbGet<FileEntry>('files', cacheKey)
+  if (!entry || entry.status !== 'complete') return
+  await idbPut('files', { ...entry, meta })
+}
+
 async function evictByCacheKey(cacheKey: string): Promise<void> {
   await removeMediaCacheKey(cacheKey)
 }
@@ -429,7 +444,7 @@ export async function enforceStoragePolicy(excludeKey?: string): Promise<void> {
   const { offlineStorageMode } = useSettingsStore.getState()
 
   // '계속'(custom) 모드: 용량 제한 없음 — 어떤 다운로드도 자동 삭제하지 않는다.
-  // (사용자가 직접 '저장된 내용 모두 지우기'로만 삭제. 개별 삭제는 todo.md 참고.)
+  // (사용자가 직접 '저장된 내용 모두 지우기'로만 삭제. 개별 삭제는 설정 → 저장된 컨텐츠 목록(SavedContentPage)에서.)
   if (offlineStorageMode === 'custom') return
 
   const all = await idbGetAll<FileEntry>('files')
