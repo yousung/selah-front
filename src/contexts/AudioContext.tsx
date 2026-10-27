@@ -1050,6 +1050,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         setPosition(startPos)
         // 백그라운드(핸드오프 중 자동다음 등)면 <video> 대신 오디오로 튼다. 아니면 핸드오프용 오디오를 미리 준비한다.
         if (audioHandoff.onVideoLoaded(video.id, startPos, autoPlay)) {
+          // 안 내리면 뒤늦은 <video> canplay(onVideoCanPlay)가 백그라운드에서 <video>를 같이 튼다.
+          pendingAutoPlayRef.current = false
           setIsLoading(false)
           return
         }
