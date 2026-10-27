@@ -10,12 +10,12 @@ import { downloadMedia, isOfflineMediaSupported, cancelDownload, deleteMedia } f
  * 사용자가 직접 고른 항목만 받는다(자동 다운로드 없음). UI는 `components/BulkDownload.tsx`.
  */
 export function useBulkDownload() {
-  const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
   const { cachedIds, refresh } = useCachedMediaStore()
-  // 비디오 모드는 DASH 스트림 전용(저장 파일 없음), 절약 모드는 저장 안 함 → 다운로드 UI 자체를 숨긴다.
-  const enabled = isOfflineMediaSupported() && mediaMode !== 'video' && offlineStorageMode !== 'thrift'
-  const dlType = mediaMode === 'video' ? 'video' : 'audio'
+  // 목록 다운로드는 재생 모드와 무관하게 항상 오디오 파일을 저장한다(비디오 모드 재생은 DASH 스트림 유지,
+  // 저장된 오디오는 오디오 모드에서 사용). 절약 모드·미지원 환경에선 다운로드 UI 자체를 숨긴다.
+  const enabled = isOfflineMediaSupported() && offlineStorageMode !== 'thrift'
+  const dlType = 'audio' as const
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set())
@@ -70,12 +70,11 @@ export function useBulkDownload() {
         let success = false
         for (let attempt = 0; attempt < 3 && !success && !bulkCancelledRef.current; attempt++) {
           try {
-            const path = dlType === 'video' ? `/videos/${videoId}/download` : `/audios/${videoId}/download`
             const { data } = await api.get<{ url: string; mimeType?: string }>(
-              path,
-              dlType !== 'video' ? { params: { quality: 'high' } } : undefined,
+              `/audios/${videoId}/download`,
+              { params: { quality: 'high' } },
             )
-            await downloadMedia(videoId, data.url, { type: dlType as 'audio' | 'video', mimeType: data.mimeType })
+            await downloadMedia(videoId, data.url, { type: dlType, mimeType: data.mimeType })
             refresh()
             success = true
           } catch {
@@ -99,10 +98,10 @@ export function useBulkDownload() {
   const handleBulkCancel = useCallback(async () => {
     bulkCancelledRef.current = true
     // 진행 중 다운로드 즉시 중단
-    for (const videoId of bulkIdsRef.current) cancelDownload(videoId, dlType as 'audio' | 'video')
+    for (const videoId of bulkIdsRef.current) cancelDownload(videoId, dlType)
     // 이번 배치에서 받은 것(완료분 포함) 모두 삭제
     await Promise.all(
-      bulkIdsRef.current.map((videoId) => deleteMedia(videoId, dlType as 'audio' | 'video').catch(() => {})),
+      bulkIdsRef.current.map((videoId) => deleteMedia(videoId, dlType).catch(() => {})),
     )
     setDownloadingIds(new Set())
     setBulkState(null)
