@@ -41,6 +41,12 @@ HashRouter 기반 (`#/`). `src/App.tsx` 에서 선언.
 
 `Layout` 컴포넌트: BottomNav(5탭: 홈/찬송/설교/양식/메뉴, `src/components/Layout.tsx` 탭 배열 기준) + MiniPlayer 공통 렌더. 사용자 앱 루트의 `--font-scale`을 하위 화면과 오버레이가 상속한다.
 
+### 정적 페이지 (SPA 밖, `public/`)
+
+| 경로 | 설명 |
+|------|------|
+| `/yt.html?v=<youtubeId>` | 카카오톡 유튜브 공유용 리다이렉트 → `https://www.youtube.com/watch?v=<id>`. `v`가 11자 ID 형식이 아니면 `/`로(오픈 리다이렉트 방지). `noindex` |
+
 ## 관리자 라우트 (`AdminGuard` → `AdminLayout`)
 
 진입: `#/admin/thelc/login` (JWT 로그인)  

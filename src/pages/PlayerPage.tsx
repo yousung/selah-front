@@ -6,6 +6,7 @@ import { clearSelahMenu } from '@/lib/selahMenu'
 import { useAudio, usePosition } from '@/contexts/AudioContext'
 import { usePlaylistStore } from '@/store/playlistStore'
 import PlaylistBottomSheet from '@/components/PlaylistBottomSheet'
+import ShareSheet from '@/components/ShareSheet'
 import { useSettingsStore } from '@/store/settingsStore'
 import type { PlayMode } from '@/store/settingsStore'
 import { useRecentStore } from '@/store/recentStore'
@@ -19,7 +20,7 @@ import type { VideoDownloadInfo } from '@/lib/mediaStore'
 import type { MediaCorruptDetail } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { fs } from '@/lib/fontScale'
-import { shareSongToKakao, shareSermonToKakao } from '@/lib/kakaoShare'
+import { shareSongToKakao, shareSermonToKakao, shareYoutubeToKakao, isShareableYoutubeId } from '@/lib/kakaoShare'
 import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
 
 interface Video {
@@ -358,6 +359,7 @@ export default function PlayerPage() {
   const [searchParams] = useSearchParams()
   const isInAnyPlaylist = usePlaylistStore((s) => s.isInAnyPlaylist)
   const [playlistSheetOpen, setPlaylistSheetOpen] = useState(false)
+  const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const playMode = useSettingsStore((s) => s.playMode)
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
@@ -682,6 +684,14 @@ export default function PlayerPage() {
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recentMode, id, sermonStateCategoryId])
+
+  // 유튜브 공유는 공개 영상만 — 비공개(isSecret)는 원본 주소가 새면 안 된다.
+  const canShareYoutube = !!video && !video.isSecret && isShareableYoutubeId(video.youtubeId)
+  const shareSelah = () => {
+    if (!id || !video) return
+    if (isSermonPlayer) shareSermonToKakao({ id, title: video.title, thumbnail: video.thumbnail, description: video.description ?? undefined, playerBase })
+    else shareSongToKakao({ id, title: video.title, thumbnail: video.thumbnail, description: video.description ?? undefined })
+  }
 
   const handleDownload = useCallback(async () => {
     if (!id || !video) return
@@ -1124,9 +1134,8 @@ export default function PlayerPage() {
           )}
           {id && video && (
             <button
-              onClick={() => isSermonPlayer
-                ? shareSermonToKakao({ id, title: video.title, thumbnail: video.thumbnail, description: video.description ?? undefined, playerBase })
-                : shareSongToKakao({ id, title: video.title, thumbnail: video.thumbnail, description: video.description ?? undefined })}
+              // 비공개 영상·YouTube ID 없는 영상은 유튜브 공유 없이 바로 셀라 공유(기존 동작)
+              onClick={() => canShareYoutube ? setShareSheetOpen(true) : shareSelah()}
               className="p-2 transition-transform hover:scale-110"
               style={{ color: 'var(--ink-3)' }}
               aria-label="카카오톡 공유"
@@ -1189,6 +1198,13 @@ export default function PlayerPage() {
         <LyricsDescriptionTabs lyric={lyric} description={video?.description} heading={isReadingPlayer ? '요약본' : '해설'} />
         <AdjacentNav adjacent={adjacent} hasCtx={hasAdjacentCtx} onNav={handleAdjacentNav} />
       </div>
+      {shareSheetOpen && video && canShareYoutube && (
+        <ShareSheet
+          onClose={() => setShareSheetOpen(false)}
+          onShareSelah={shareSelah}
+          onShareYoutube={() => shareYoutubeToKakao({ youtubeId: video.youtubeId as string, title: video.title })}
+        />
+      )}
       {playlistSheetOpen && id && (
         <PlaylistBottomSheet
           videoId={id}

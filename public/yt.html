@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>YouTube로 이동 중 — 셀라</title>
+<!-- 카카오 공유 링크는 등록 도메인(selah.day)만 허용 → 유튜브 공유는 이 페이지를 거쳐 원본 영상으로 보낸다. -->
+<script>
+  (function () {
+    var v = new URLSearchParams(location.search).get('v') || ''
+    if (!/^[A-Za-z0-9_-]{11}$/.test(v)) { location.replace('/'); return }
+    var url = 'https://www.youtube.com/watch?v=' + v
+    location.replace(url)
+    document.addEventListener('DOMContentLoaded', function () {
+      var a = document.getElementById('go')
+      if (a) a.href = url
+    })
+  })()
+</script>
+<style>
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif; display: flex; min-height: 100vh; align-items: center; justify-content: center; color: #333; background: #fff; }
+  a { color: #c00; }
+</style>
+</head>
+<body>
+  <p>YouTube로 이동 중입니다… <a id="go" href="/">바로 가기</a></p>
+</body>
+</html>

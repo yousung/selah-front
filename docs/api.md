@@ -231,6 +231,14 @@ type HymnVideo, HymnPlaylist
 - `usePlayHymn`: 라이브 → YouTube 새 탭 / `setSelahMenu('/hymn')` / 이미 재생 중이면 `/player/:id` 이동만 / `playlist`를 넘기면 재생 가능 항목으로 큐 교체(`id === 'recent'`면 보이는 영상만) 후 `playVideo(autoPlay: autoPlayOnDetail)` → `/player/:id`. `playlist` 생략(검색 결과)은 큐를 건드리지 않는다.
 - `toFestivalPlaylist`: 카드 표시용 `videos`는 `hymnTitle = festivalTeam`, `title = "{year} 시편찬양제"`로 바꾸고, 큐용 `playlists`는 원본 영상(원 제목) 그대로.
 
+## kakaoShare.ts — 카카오톡 공유
+
+카카오 JS SDK(`index.html` 스크립트) + `VITE_KAKAO_JS_KEY`. 카카오는 콘솔 등록 도메인 링크만 허용 → 모든 링크는 `https://selah.day` 기준.
+
+- `shareSongToKakao` / `shareSermonToKakao`: **셀라 공유** — `selah.day/#/player/:id`(설교·독서는 `playerBase`) feed 템플릿.
+- `shareYoutubeToKakao({ youtubeId, title })`: **유튜브 공유** — 링크는 `selah.day/yt.html?v=<id>`(정적 리다이렉트 페이지, `public/yt.html`) → `youtube.com/watch?v=<id>`. 설명에 `youtu.be/<id>` 표시.
+- `isShareableYoutubeId`: 11자 YouTube ID 형식 검사. `PlayerPage`는 `!isSecret && isShareableYoutubeId(youtubeId)`일 때만 `ShareSheet`(셀라/유튜브 택일)를 띄우고, 아니면 바로 셀라 공유.
+
 ## currentPrayer.ts — 지금의 기도
 
 일상 기도문(`daily`)에서 현재 시각·직업에 맞는 **한 단락만** 고른다. 기도문 전체를 보여주지 않는다.

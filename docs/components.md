@@ -20,6 +20,7 @@
 | `lib/useVideoFullscreen.ts` (훅) | 비디오 모드 `<video>` 전체화면 토글(표준/webkit API, iOS는 `webkitEnterFullscreen`). 엘리먼트 이동·리마운트 없음. Layout이 fixed `<video>` 우상단에 버튼을 띄워 사용(`<main>` 안에 두면 z 20 영상에 가려짐), 전체화면 중엔 네이티브 `controls` on, 노출 조건은 `useAudio().isVideoPlayback()` |
 | `TagBadge.tsx` | 태그 표시 뱃지 |
 | `PlaylistBottomSheet.tsx` | 영상을 재생목록에 추가하는 바텀시트 (playlistStore) |
+| `ShareSheet.tsx` | 플레이어 카카오톡 공유 대상 선택 바텀시트(셀라 공유 / 유튜브 공유, `lib/kakaoShare.ts`). `document.body`로 portal(모바일 하단 `<nav>`에 가리지 않게) + `--font-scale`을 설정 스토어에서 직접 적용 |
 | `PwaInstallPrompt.tsx` | PWA 설치 유도 배너 |
 
 ## 설교 페이지 컴포넌트 (`src/pages/sermon/`)
