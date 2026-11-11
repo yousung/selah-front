@@ -98,10 +98,11 @@ export const useSettingsStore = create<SettingsState>()(
       // v1: occupation 추가 — 기존 설정은 그대로 두고 occupation만 null로 채운다
       // v2: autoDownload 제거(자동 다운로드 폐지) — 옛 저장값은 버린다
       // videoDownloadQuality는 버전 올림 없이 추가: persist가 저장값을 기본값 위에 얕게 병합해 없으면 '360p'가 된다
-      version: 2,
+      // v3: 제거된 0.5배 설정은 기본 속도 1배로 전환한다.
+      version: 3,
       migrate: (persisted) => {
         const { autoDownload: _removed, ...rest } = (persisted ?? {}) as Record<string, unknown>
-        return { occupation: null, ...rest } as unknown as SettingsState
+        return { occupation: null, ...rest, playbackRate: rest.playbackRate === 0.5 ? 1 : (rest.playbackRate ?? 1) } as unknown as SettingsState
       },
     },
   ),
