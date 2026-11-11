@@ -8,15 +8,6 @@ import { useAudio } from '@/contexts/AudioContext'
 import { fs } from '@/lib/fontScale'
 import { bumpImageCacheBust } from '@/lib/thumb'
 
-const PLAYBACK_RATE_OPTIONS: { value: number; label: string }[] = [
-  { value: 0.7, label: '0.7x' },
-  { value: 1, label: '1x' },
-  { value: 1.25, label: '1.25x' },
-  { value: 1.5, label: '1.5x' },
-  { value: 1.75, label: '1.75x' },
-  { value: 2, label: '2x' },
-]
-
 const FONT_SCALE_OPTIONS: { value: FontScale; label: string }[] = [
   { value: 1, label: '보통' },
   { value: 1.5, label: '크게' },
@@ -310,7 +301,24 @@ export default function SettingsPage() {
           </div>
 
           <Field title="재생 속도" description="설교를 빠르게 들어 시간을 아낄 수 있습니다. 배속은 설교에만 적용되며, 찬송은 항상 정속(원래 속도)으로 재생됩니다.">
-            <Segmented value={playbackRate} onChange={setPlaybackRate} options={PLAYBACK_RATE_OPTIONS} />
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <output htmlFor="playback-rate" className="font-semibold" style={{ fontSize: fs(16), color: 'var(--ink-1)' }}>
+                  {playbackRate.toFixed(1)}배
+                </output>
+                <button type="button" onClick={() => setPlaybackRate(1)} className="px-3 py-2 rounded-[10px]"
+                  style={{ minHeight: 44, fontSize: fs(13), color: 'var(--ink-2)', background: 'var(--surface-2)' }}>
+                  기본값 1배
+                </button>
+              </div>
+              <input id="playback-rate" type="range" min={0.5} max={2} step={0.1}
+                value={playbackRate} onChange={(e) => setPlaybackRate(Number(e.target.value))}
+                aria-label="재생 속도" aria-valuetext={`${playbackRate.toFixed(1)}배`}
+                className="w-full cursor-pointer" style={{ minHeight: 44, accentColor: 'var(--primary-700)' }} />
+              <div className="flex justify-between" style={{ fontSize: fs(12), color: 'var(--ink-3)' }}>
+                <span>0.5배</span><span>2.0배</span>
+              </div>
+            </div>
           </Field>
         </SectionBox>
 

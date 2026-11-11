@@ -20,6 +20,11 @@ export const OCCUPATION_LABELS: Record<Occupation, string> = {
   pastor: '목사',
 }
 
+function normalizePlaybackRate(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 1
+  return Math.round(Math.min(2, Math.max(0.5, value)) * 10) / 10
+}
+
 interface SettingsState {
   theme: Theme
   quality: AudioQuality
@@ -82,7 +87,7 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoPlayOnDetail: (autoPlayOnDetail) => set({ autoPlayOnDetail }),
       setAutoNextDelay: (autoNextDelay) => set({ autoNextDelay }),
       setPlayMode: (playMode) => set({ playMode }),
-      setPlaybackRate: (playbackRate) => set({ playbackRate }),
+      setPlaybackRate: (playbackRate) => set({ playbackRate: normalizePlaybackRate(playbackRate) }),
       setShowCatechismHeadings: (showCatechismHeadings) => set({ showCatechismHeadings }),
       setShowCatechismToc: (showCatechismToc) => set({ showCatechismToc }),
       setOfflineStorageMode: (offlineStorageMode) => set({ offlineStorageMode }),
@@ -98,11 +103,11 @@ export const useSettingsStore = create<SettingsState>()(
       // v1: occupation 추가 — 기존 설정은 그대로 두고 occupation만 null로 채운다
       // v2: autoDownload 제거(자동 다운로드 폐지) — 옛 저장값은 버린다
       // videoDownloadQuality는 버전 올림 없이 추가: persist가 저장값을 기본값 위에 얕게 병합해 없으면 '360p'가 된다
-      // v3: 제거된 0.5배 설정은 기본 속도 1배로 전환한다.
-      version: 3,
+      // v4: 0.5~2배 슬라이더의 0.1 단위에 맞춰 기존 배속을 반올림한다.
+      version: 4,
       migrate: (persisted) => {
         const { autoDownload: _removed, ...rest } = (persisted ?? {}) as Record<string, unknown>
-        return { occupation: null, ...rest, playbackRate: rest.playbackRate === 0.5 ? 1 : (rest.playbackRate ?? 1) } as unknown as SettingsState
+        return { occupation: null, ...rest, playbackRate: normalizePlaybackRate(rest.playbackRate) } as unknown as SettingsState
       },
     },
   ),
