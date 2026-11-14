@@ -15,6 +15,8 @@ import { setLastDashSupport, setLastPlayback, setLastPlaybackError, setLastPlayA
 import { thumbUrl, thumbQualityFor } from '@/lib/thumb'
 import { saveSermonResume, clearSermonResume } from '@/lib/sermonResume'
 import { isLiveVideo } from '@/lib/liveVideo'
+import { attachVolumeBoost, isCorsReopening, isVolumeBoostAttached, markCorsReopen, wakeVolumeBoost, needsCorsReload, setVolumeBoostGain } from '@/lib/volumeBoost'
+import { getVolumeBoost, useVolumeBoostStore } from '@/store/volumeBoostStore'
 
 interface VideoInfo {
   id: string
@@ -420,6 +422,39 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     () => mediaModeRef.current === 'video' && !dashFallbackRef.current && !dashLoadFailedRef.current && !audioHandoffActiveRef.current,
     [],
   )
+  // ── 소리 크게(곡별 실시간 증폭, lib/volumeBoost.ts) ──
+  // 처음 1.5/2배를 쓸 때만 재생 엘리먼트를 Web Audio에 연결한다(되돌릴 수 없으므로). 그 전엔 기존 경로 그대로.
+  // allowReopen: 같은 곡에서 사용자가 배율을 켰을 때만 true. 곡 전환·play 이벤트에선 다시 열지 않는다
+  // (playVideo가 이미 src 전에 crossOrigin을 켜므로, 여기서 또 열면 seekTo를 덮거나 재생을 멈추는 경합이 난다).
+  const applyVolumeBoost = useCallback(async (el: HTMLMediaElement | null, opts: { allowReopen?: boolean } = {}) => {
+    if (!el) return
+    const id = currentVideoDataRef.current?.id
+    const level = getVolumeBoost(id)
+    if (level > 1 && !isVolumeBoostAttached(el)) {
+      if (isCorsReopening(el)) return
+      if (needsCorsReload(el)) {
+        // 교차 출처 progressive 스트림을 CORS 없이 받은 상태 — 그대로 연결하면 무음이다.
+        // 백그라운드 핸드오프 중엔 다시 열지 않는다(핸드오프가 다음 src부터 CORS로 받는다).
+        if (!opts.allowReopen || audioHandoffActiveRef.current) return
+        const active = currentVideoDataRef.current
+        if (!active) return
+        markCorsReopen(el)
+        void playVideoRef.current?.(active, {
+          // isPlayingRef는 'play' 이벤트 직후엔 아직 false다 — 엘리먼트의 실제 상태를 본다.
+          autoPlay: !el.paused || isPlayingRef.current,
+          skipRecentAdd: true,
+          seekTo: positionRef.current,
+          resume: true,
+        })
+        return // 다시 열린 뒤 'play'에서 연결된다
+      }
+    }
+    if (level > 1 || isVolumeBoostAttached(el)) await attachVolumeBoost(el)
+    // await 사이 곡이 바뀌었으면 옛 배율을 덮어쓰지 않는다.
+    if (currentVideoDataRef.current?.id !== id) return
+    setVolumeBoostGain(getVolumeBoost(id))
+  }, [])
+
   const audioHandoff = useBackgroundAudioHandoff({
     audioRef,
     videoRef: reactPlayerRef,
@@ -591,9 +626,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       ['durationchange', () => applyPendingSeek(audio)],
       ['timeupdate', () => syncPosition(audio)],
       ['play', () => {
+        void applyVolumeBoost(audio)
         pendingAutoPlayRef.current = false
         setIsPlaying(true); setIsLoading(false); updatePositionState(audio)
       }],
+      // CORS 재오픈 직후엔 'play'가 새 src의 'loadstart'보다 먼저 와서(실측) 위에서 연결이 보류된다.
+      // 'playing'은 loadstart 뒤라 여기서 다시 시도한다(이미 연결돼 있으면 컨텍스트만 깨운다).
+      ['playing', () => { void applyVolumeBoost(audio) }],
       ['pause', () => {
         setIsPlaying(false)
       }],
@@ -786,6 +825,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // 옛 src를 무음으로 덮으므로 이전 곡이 새어나오지 않는다. 제스처 없이 호출된 경우
     // (자동재생 effect, auto-next, MEDIA_DOWNLOADED 재진입)엔 play()가 조용히 거절될 뿐이고
     // 엘리먼트는 어차피 EMPTY로 되돌아가므로 무해하다.
+    // 제스처 안(동기 구간)에서 증폭 그래프를 깨운다 — 첫 await 뒤의 'play' 이벤트는 iOS에서 제스처 밖이다.
+    wakeVolumeBoost(getVolumeBoost(video.id) > 1)
     let primed = false
     if (isIOS()) {
       // shaka가 잡고 있는 <video>는 건드리면 MediaSource가 깨진다. 그 경우 이미 앞선 재생으로
@@ -1114,6 +1155,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       // src를 쓰기 전에 반드시 뗀다(await 뒤라 트랙 교체 재확인 필요).
       await releaseAudioFromDash()
       if (currentVideoIdRef.current !== video.id) return
+      // 소리 크게: 증폭할 곡(또는 이미 Web Audio에 연결된 엘리먼트)은 교차 출처 스트림을 CORS로 받아야
+      // 그래프에서 무음이 되지 않는다. src 전에 켜 두면 재생 도중 다시 여는 일이 없다.
+      if (getVolumeBoost(video.id) > 1 || isVolumeBoostAttached(audio)) audio.crossOrigin = 'anonymous'
       audio.src = data.url
       audio.volume = volume
       applyPlaybackRate(audio)
@@ -1233,6 +1277,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [audioHandoff, cancelAutoNext, clearCacheWatchdog, isVideoPlayback])
 
   const togglePlay = useCallback(() => {
+    wakeVolumeBoost(getVolumeBoost(currentVideoDataRef.current?.id) > 1)
     if (isVideoPlayback()) {
       const video = reactPlayerRef.current
       if (!video) return
@@ -1301,6 +1346,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
     const currentMedia = () => (isVideoPlayback() ? reactPlayerRef.current : audioRef.current)
     set('play', () => {
+      wakeVolumeBoost(getVolumeBoost(currentVideoDataRef.current?.id) > 1)
       currentMedia()?.play().catch(() => {})
     })
     set('pause', () => { currentMedia()?.pause() })
@@ -1314,9 +1360,20 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, [seek, seekBy, isVideoPlayback])
 
   const onVideoPlay = useCallback(() => {
+    void applyVolumeBoost(reactPlayerRef.current)
     setIsPlaying(true)
     setIsLoading(false)
-  }, [])
+  }, [applyVolumeBoost])
+
+  const boostLevel = useVolumeBoostStore((st) => (currentVideo ? st.boosts[currentVideo.id] ?? 1 : 1))
+  const boostTrackRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    const el = isVideoPlayback() ? reactPlayerRef.current : audioRef.current
+    // 같은 곡에서 배율만 바뀐 경우에만 재오픈을 허용한다(곡 전환은 playVideo/play 이벤트가 처리).
+    const sameTrack = boostTrackRef.current === currentVideo?.id
+    boostTrackRef.current = currentVideo?.id
+    void applyVolumeBoost(el, { allowReopen: sameTrack })
+  }, [boostLevel, currentVideo?.id, applyVolumeBoost, isVideoPlayback])
 
   const onVideoPause = useCallback(() => {
     setIsPlaying(false)

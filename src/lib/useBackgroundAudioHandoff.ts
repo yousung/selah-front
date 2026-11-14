@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, type MutableRefObject, type RefObject } from 'react'
+import { isVolumeBoostAttached } from '@/lib/volumeBoost'
+import { getVolumeBoost } from '@/store/volumeBoostStore'
 import { api } from '@/lib/api'
 import { isDashAttached } from '@/lib/dashPlayer'
 import { getCachedMediaPlaybackUrl, isOpfsSupported } from '@/lib/mediaStore'
@@ -115,6 +117,8 @@ export function useBackgroundAudioHandoff(opts: Options) {
     revokeBlob()
     if (url.startsWith('blob:')) blobUrlRef.current = url
     audio.preload = isIOS() ? 'auto' : 'metadata'
+    // 소리 크게: 증폭 곡이거나 이미 Web Audio에 연결된 엘리먼트면 CORS로 받아야 무음이 되지 않는다.
+    if (getVolumeBoost(id) > 1 || isVolumeBoostAttached(audio)) audio.crossOrigin = 'anonymous'
     audio.src = url
     audio.load()
     preparedRef.current = { id, src: audio.getAttribute('src') ?? url }

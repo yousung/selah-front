@@ -96,6 +96,27 @@ visible / `pageshow`) 오디오 위치로 `<video>`를 seek해 재개하고 오�
 `seekTo`는 `resume` 없이도 적용된다. 팝업이 거는 재생은 `resume: true`를 같이 넘긴다(샤카
 청크 리로드 가드 등에 쓰이는 "듣던 트랙 이어 열기" 표시).
 
+### 소리 크게 (곡별 실시간 증폭)
+
+PlayerPage 재생바 아래 `원래 · 2배 · 5배`(곡별 기억, `volumeBoostStore`). `lib/volumeBoost.ts`가 재생 엘리먼트를
+Web Audio 그래프(`MediaElementSource → Gain(배율) → DynamicsCompressor 리미터 → destination`)에 연결한다.
+
+- 연결은 **처음 2/5배를 쓸 때만**, AudioContext가 running일 때만 한다(`createMediaElementSource`는 되돌릴 수 없고,
+  suspended 컨텍스트에 연결하면 무음). 연결 후 배율 1이면 Gain 1·리미터 off. 기능을 안 쓰면 재생 경로는 기존과 같다.
+- 교차 출처 progressive 스트림(크롬·안드로이드 오디오)은 `crossOrigin="anonymous"`로 받아야 한다. 증폭 곡(또는 이미 연결된
+  엘리먼트)은 `playVideo`가 스트림 src 전에 켜고, 재생 도중 켜면 현재 위치에서 다시 연다. 스트림은 전부 Invidious 프록시
+  (`youtube.lovizu.com`, `latest_version` 폴백 포함)라 CORS 허용(실측). DASH(MSE blob)·저장 파일(SW, same-origin)은 해당 없음.
+- 연결 지점: `<audio>` 'play'·'playing' 핸들러, `onVideoPlay`, 배율/곡 변경 effect(`applyVolumeBoost`). CORS 재오픈 직후엔
+  'play'가 새 src의 'loadstart'보다 먼저 와서(실측) 'playing'에서 다시 시도한다. 재오픈 플래그는 loadstart가 안 와도 4초 뒤 풀린다.
+- 제스처 안 깨우기: `wakeVolumeBoost()`를 `togglePlay`·Media Session 'play'·`playVideo` 동기 구간(첫 await 전)에서 부른다 —
+  인터럽트로 멈춘 컨텍스트 재개, 새로고침/자동 다음곡 뒤 증폭 곡의 컨텍스트 생성을 제스처 안에서 한다(iOS).
+- 화면이 꺼진 상태(`visibilityState === 'hidden'`, 백그라운드 핸드오프·자동 다음곡)에선 **새로 연결하지 않는다** — 잠금화면 소리는
+  네이티브 경로 유지. 화면 복귀 후 재생 때 연결된다.
+- 5배(+14dB)는 리미터가 큰 소리를 눌러 다이내믹이 납작해진다. DynamicsCompressor 자동 makeup gain(크롬)으로 실제 배율은 표기보다 약간 크다.
+- iOS: `navigator.audioSession.type = 'playback'`을 켜고, 화면 복귀 시 컨텍스트를 resume한다. 2.4.20에서 같은 방식(Web Audio 경유)을
+  WebKit Bug 221334(끊김)로 제거한 이력이 있다 — **iPhone 실기기 검증 전**.
+- 2026-11-14 비교: 저장 파일 재인코딩, shaka 구간 재인코딩, 실시간 셋을 구현해 봤고 사용자가 PC에서 체감한 건 실시간뿐이라 이것만 남겼다.
+
 ## Context Value 인터페이스
 
 ```ts

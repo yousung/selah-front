@@ -40,6 +40,7 @@ AI 개발 시 전체 스캔 없이 이 파일로 탐색 시작.
 - `selah-playlists` — 사용자 재생목록
 - `selah-durations` — 영상별 duration 캐시
 - `selah-recent` — 최근 재생 목록
+- `selah-volume-boost-v2` — 곡별 "소리 크게" 배율(`store.md` volumeBoostStore). 캐시 삭제에도 보존
 - `admin-auth` — 관리자 JWT 토큰
 
 **명령**:

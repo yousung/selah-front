@@ -16,7 +16,7 @@ const FONT_SCALE_OPTIONS: { value: FontScale; label: string }[] = [
 
 const OCCUPATION_OPTIONS = (Object.keys(OCCUPATION_LABELS) as Occupation[]).map((value) => ({ value, label: OCCUPATION_LABELS[value] }))
 
-const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings', 'selah-onboarding-v1'])
+const LOCAL_STORAGE_KEYS_TO_KEEP = new Set(['selah-playlists', 'selah-settings', 'selah-onboarding-v1', 'selah-volume-boost-v2'])
 const CACHE_BUST_PARAM = 'selah-cache-bust'
 
 function clearLocalStorageExcept(keysToKeep: Set<string>) {

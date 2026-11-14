@@ -84,6 +84,12 @@ interface RecentItem { id, title, thumbnail, tag, hymnTitle?, duration?, chapter
 
 액션: `setDuration(id, duration)` — 0 이하·비유한 값 무시
 
+## volumeBoostStore (`selah-volume-boost-v2`)
+
+파일: `src/store/volumeBoostStore.ts`. 곡(video.id)별 "소리 크게" 배율 `boosts: Record<id, 2|5>`(1이면 키 삭제). persist version 1 — v0의 1.5는 2로 마이그레이션.
+값은 진폭 배수이고 실제 증폭은 `lib/volumeBoost.ts`(`audio.md` "소리 크게" 절). 2.4.x의 `selah-volume-boost`(1~10, ×3 스케일)와
+의미가 달라 새 키를 쓴다. SettingsPage `LOCAL_STORAGE_KEYS_TO_KEEP`에 들어 있어 "캐시 삭제"로 지워지지 않는다.
+
 ## cachedMediaStore (localStorage 아님 — OPFS/IndexedDB)
 
 파일: `src/store/cachedMediaStore.ts`, 실제 저장은 `src/lib/mediaStore.ts`

@@ -20,6 +20,8 @@ import type { VideoDownloadInfo } from '@/lib/mediaStore'
 import type { MediaCorruptDetail } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { fs } from '@/lib/fontScale'
+import { isVolumeBoostSupported, unlockVolumeBoost } from '@/lib/volumeBoost'
+import { useVolumeBoostStore, VOLUME_BOOST_LEVELS } from '@/store/volumeBoostStore'
 import { shareSongToKakao, shareSermonToKakao, shareYoutubeToKakao, isShareableYoutubeId } from '@/lib/kakaoShare'
 import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
 
@@ -838,6 +840,11 @@ export default function PlayerPage() {
     return () => window.removeEventListener(MEDIA_CORRUPT_EVENT, onCorrupt)
   }, [id, mediaType, handleDownload, handleRetry])
 
+  // 소리 크게(곡별, 실시간 Web Audio 증폭 — lib/volumeBoost.ts). 누르는 즉시 적용, 곡마다 기억.
+  const boostLevel = useVolumeBoostStore((st) => (id ? st.boosts[id] ?? 1 : 1))
+  const setBoost = useVolumeBoostStore((st) => st.setBoost)
+  const showVolumeBoost = !!id && isVolumeBoostSupported() && !video?.isSecret
+
   const progress = dragValue !== null ? dragValue : (duration > 0 ? position / duration : 0)
   const isFav = id ? isInAnyPlaylist(id) : false
   const artworkDuration = video?.duration ? fmtTime(video.duration) : null
@@ -951,6 +958,39 @@ export default function PlayerPage() {
           <span className="text-[11px]" style={{ color: 'var(--ink-2)' }}>{fmtTime(position)}</span>
           <span className="text-[11px]" style={{ color: 'var(--ink-2)' }}>{fmtTime(duration)}</span>
         </div>
+        {showVolumeBoost && (
+          <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
+            <span style={{ fontSize: fs(12), fontWeight: 600, color: 'var(--ink-2)' }}>소리 크게</span>
+            <div className="flex rounded-full p-0.5" style={{ background: 'var(--surface-2)', border: '1px solid var(--divider)' }}>
+              {VOLUME_BOOST_LEVELS.map((level) => {
+                const active = boostLevel === level
+                return (
+                  <button
+                    key={level}
+                    onClick={() => {
+                      // iOS: AudioContext는 사용자 제스처 안에서만 시작된다 — 클릭 핸들러에서 동기로 깨운다.
+                      if (level > 1) unlockVolumeBoost()
+                      setBoost(id!, level)
+                    }}
+                    className="rounded-full transition-colors active:scale-95"
+                    style={{
+                      minHeight: fs(28),
+                      padding: '2px 12px',
+                      fontSize: fs(12),
+                      fontWeight: active ? 700 : 500,
+                      background: active ? 'var(--primary-700)' : 'transparent',
+                      color: active ? 'var(--white)' : 'var(--ink-1)',
+                      whiteSpace: 'nowrap',
+                    }}
+                    aria-pressed={active}
+                  >
+                    {level === 1 ? '원래' : `${level}배`}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Play controls */}
