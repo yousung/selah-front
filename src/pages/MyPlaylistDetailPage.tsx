@@ -5,7 +5,7 @@ import { usePlaylistStore, PlaylistVideo } from '@/store/playlistStore'
 import { useQueueStore } from '@/store/queueStore'
 import { setSelahMenu } from '@/lib/selahMenu'
 import Thumb from '@/components/Thumb'
-import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { isPlayableInQueue, openLiveVideo } from '@/lib/liveVideo'
 function stripBrackets(s: string) {
   return s.replace(/\[.*?\]/g, '').trim()
 }
@@ -157,7 +157,7 @@ export default function MyPlaylistDetailPage() {
 
   const handlePlay = (video: PlaylistVideo) => {
     if (!playlist) return
-    if (openLiveVideoInNewTab(video)) return
+    if (openLiveVideo(video)) return
     setSelahMenu(`/my-playlists/${playlist.id}`)
     if (currentVideo?.id === video.id) {
       navigate(`/player/${video.id}`)

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useQueueStore } from '@/store/queueStore'
-import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { isPlayableInQueue, openLiveVideo } from '@/lib/liveVideo'
 import { setSelahMenu } from '@/lib/selahMenu'
 import { getReadingCategories, getReadingCategory, getReadingLatest } from '@/lib/api'
 
@@ -69,7 +69,7 @@ export function usePlayReading() {
   const navigate = useNavigate()
   const setQueue = useQueueStore((s) => s.setQueue)
   return (videos: ReadingQueueVideo[], video: ReadingQueueVideo, category: { id: string; title: string }) => {
-    if (openLiveVideoInNewTab(video)) return
+    if (openLiveVideo(video)) return
     const playable = videos.filter(isPlayableInQueue)
     const ids = playable.map((v) => v.id)
     const metas = playable.map((v) => ({

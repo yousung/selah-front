@@ -8,7 +8,7 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { getSortPref, setSortPref } from '@/lib/sortPref'
-import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { isPlayableInQueue, openLiveVideo } from '@/lib/liveVideo'
 import { useBulkDownload } from '@/lib/useBulkDownload'
 import { BulkDownloadToggle, BulkSelectMark, BulkDownloadOverlay } from '@/components/BulkDownload'
 
@@ -152,7 +152,7 @@ export default function PlaylistPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length])
 
   const handlePlay = (v: Video) => {
-    if (openLiveVideoInNewTab(v)) return
+    if (openLiveVideo(v)) return
     if (currentVideo?.id === v.id) {
       navigate(`/player/${v.id}`)
       return

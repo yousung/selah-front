@@ -6,6 +6,7 @@ import { fs } from '@/lib/fontScale'
 import PlaylistBottomSheet from './PlaylistBottomSheet'
 import HighlightText from './HighlightText'
 import Thumb from '@/components/Thumb'
+import LiveThumb from '@/components/LiveThumb'
 import SecretThumbPlaceholder from '@/components/SecretThumbPlaceholder'
 import { isLiveVideo } from '@/lib/liveVideo'
 
@@ -191,7 +192,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
             {video.isSecret ? (
               <SecretThumbPlaceholder />
             ) : isLive ? (
-              <SecretThumbPlaceholder label="방송중" />
+              <LiveThumb thumbnail={video.thumbnail} youtubeId={video.youtubeId} size="sm" />
             ) : isTemp ? (
               <>
                 <TempThumbPlaceholder />
@@ -262,7 +263,7 @@ export default function VideoCard({ video, onClick, layout = 'card', highlight, 
           {video.isSecret ? (
             <SecretThumbPlaceholder />
           ) : isLive ? (
-            <SecretThumbPlaceholder label="방송중" />
+            <LiveThumb thumbnail={video.thumbnail} youtubeId={video.youtubeId} />
           ) : isTemp ? (
             <>
               <TempThumbPlaceholder />

@@ -228,7 +228,7 @@ type HymnVideo, HymnPlaylist
 ```
 
 - 두 조회 훅은 localStorage(`home-playlists-cache-v2-{our-church|all}`, `home-recent-playlist-cache-v2-{our-church|all}`)에 마지막 응답을 저장해 `initialData`로 쓰고, 오프라인/요청 실패 시 그 값으로 fallback한다.
-- `usePlayHymn`: 라이브 → YouTube 새 탭 / `setSelahMenu('/hymn')` / 이미 재생 중이면 `/player/:id` 이동만 / `playlist`를 넘기면 재생 가능 항목으로 큐 교체(`id === 'recent'`면 보이는 영상만) 후 `playVideo(autoPlay: autoPlayOnDetail)` → `/player/:id`. `playlist` 생략(검색 결과)은 큐를 건드리지 않는다.
+- `usePlayHymn`: 라이브 → 앱 안 유튜브 IFrame 오버레이(`openLiveVideo`) / `setSelahMenu('/hymn')` / 이미 재생 중이면 `/player/:id` 이동만 / `playlist`를 넘기면 재생 가능 항목으로 큐 교체(`id === 'recent'`면 보이는 영상만) 후 `playVideo(autoPlay: autoPlayOnDetail)` → `/player/:id`. `playlist` 생략(검색 결과)은 큐를 건드리지 않는다.
 - `toFestivalPlaylist`: 카드 표시용 `videos`는 `hymnTitle = festivalTeam`, `title = "{year} 시편찬양제"`로 바꾸고, 큐용 `playlists`는 원본 영상(원 제목) 그대로.
 
 ## kakaoShare.ts — 카카오톡 공유
@@ -266,6 +266,16 @@ useCurrentPrayer(): { slot: PrayerSlot | null; isLoading: boolean }
 | 19:01–03:59 | 4 하루를 마치는 기도 (토요일 밤 포함) |
 
 검증: `node scripts/verify-current-prayer.mjs` (로컬 백엔드 `GET /prayers/current?category=daily` 실데이터 + vite `ssrLoadModule`로 TS 로드, 경계 시각 × 직업).
+
+## liveVideo.ts — 방송중(`isLive`) 영상
+
+- `isLiveVideo(isLive)`, `isSecretVideo`, `isPlayableInQueue`(방송중·비공개는 큐 재생 제외), `youtubeWatchUrl(id)`.
+- `openLiveVideo(video)`: 방송중이면 `liveVideoStore.open()` → `LiveVideoOverlay`가 유튜브 공식 IFrame 플레이어로 띄우고 true. 아니면 false(호출부가 평소대로 재생). 예전 `openLiveVideoInNewTab`(유튜브 새 탭)을 대체. 목록·검색·최근·큐·미니플레이어·플레이어 이전/다음 등 모든 재생 진입점이 이걸 먼저 부른다.
+
+## youtubeIframeApi.ts — 유튜브 IFrame Player API 로더
+
+- `loadYouTubeIframeApi()`: `https://www.youtube.com/iframe_api`를 한 번만 넣고 `onYouTubeIframeAPIReady` 뒤 `window.YT` resolve. 스크립트 실패 시 reject(다음 호출에서 재시도). 최소 타입(`YTNamespace`, `YTPlayer`) 포함.
+- 참고: https://developers.google.com/youtube/iframe_api_reference
 
 ## 주의
 

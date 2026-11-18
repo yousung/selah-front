@@ -22,6 +22,8 @@
 | `PlaylistBottomSheet.tsx` | 영상을 재생목록에 추가하는 바텀시트 (playlistStore) |
 | `ShareSheet.tsx` | 플레이어 카카오톡 공유 대상 선택 바텀시트(셀라 공유 / 유튜브 공유, `lib/kakaoShare.ts`). `document.body`로 portal(모바일 하단 `<nav>`에 가리지 않게) + `--font-scale`을 설정 스토어에서 직접 적용 |
 | `PwaInstallPrompt.tsx` | PWA 설치 유도 배너 |
+| `LiveVideoOverlay.tsx` | 방송중(`isLive`) 영상 플레이어. `liveVideoStore`가 채워지면 `document.body`로 portal된 오버레이에 **유튜브 공식 IFrame Player API**(`lib/youtubeIframeApi.ts`, `new YT.Player`)로 실시간 재생. 스트림은 유튜브가 직접 보냄(Invidious·백엔드 경유 없음). 열릴 때·`PLAYING` 상태가 될 때 앱 오디오 일시정지. `onError` 101/150(삽입 금지)·기타 → 안내 + "YouTube에서 보기" 링크. ✕·배경 클릭·Esc로 닫으면 `player.destroy()`. `Layout.tsx`에 마운트. 글자 크기 상속 |
+| `LiveThumb.tsx` | 방송중 영상 썸네일 — 실제 썸네일(`Thumb`, DB `thumbnail` 없으면 `i.ytimg.com/vi/<youtubeId>/hqdefault.jpg`) + 왼쪽 위 빨간 LIVE 배지. 실패 시 "방송중" 자리표시. `VideoCard`(목록·그리드)·`SermonPage` 타일·`PlayerPage` 아트워크 |
 
 ## 설교 페이지 컴포넌트 (`src/pages/sermon/`)
 

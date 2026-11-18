@@ -7,7 +7,7 @@ import { setSelahMenu } from '@/lib/selahMenu'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import VideoCard from '@/components/VideoCard'
-import { openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { openLiveVideo } from '@/lib/liveVideo'
 
 type SortMode = 'chapterAsc' | 'chapterDesc'
 type SearchField = 'all' | 'title' | 'chapter' | 'psalm'
@@ -128,7 +128,7 @@ export default function SearchPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, allVideos.length])
 
   const handlePlay = (v: Video) => {
-    if (openLiveVideoInNewTab(v)) return
+    if (openLiveVideo(v)) return
     setSelahMenu('/search')
     const ctx = new URLSearchParams({ sort: sortMode })
     if (debouncedQuery) {

@@ -11,7 +11,7 @@ import { useBulkDownload } from '@/lib/useBulkDownload'
 import { BulkDownloadToggle, BulkSelectMark, BulkDownloadOverlay } from '@/components/BulkDownload'
 import { fs } from '@/lib/fontScale'
 import { getSortPref, setSortPref, type SortMode } from '@/lib/sortPref'
-import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { isPlayableInQueue, openLiveVideo } from '@/lib/liveVideo'
 
 interface CategoryNode {
   id: string
@@ -359,7 +359,7 @@ export default function SermonCategoryPage() {
   )
 
   const handleVideoClick = (video: Video) => {
-    if (openLiveVideoInNewTab(video)) return
+    if (openLiveVideo(video)) return
     const queueVideos = allVideos.filter(isPlayableInQueue)
     const ids = queueVideos.map((v) => v.id)
     const metas = queueVideos.map((v) => ({

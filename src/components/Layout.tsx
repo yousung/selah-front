@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useLocation, useNavigationType } from "react-router-dom";
 import MiniPlayer from "./MiniPlayer";
 import QueuePanel from "./QueuePanel";
+import LiveVideoOverlay from "./LiveVideoOverlay";
 import PwaInstallPrompt from "./PwaInstallPrompt";
 import MyPlaylistsSheet from "./MyPlaylistsSheet";
 import { useAudio } from "@/contexts/AudioContext";
@@ -683,6 +684,9 @@ export default function Layout() {
           isOpen={queueOpen}
           onClose={() => useQueueStore.setState({ isOpen: false })}
         />
+
+        {/* ── 방송중 영상(유튜브 공식 IFrame 플레이어) ── */}
+        <LiveVideoOverlay />
 
         <PwaInstallPrompt />
 

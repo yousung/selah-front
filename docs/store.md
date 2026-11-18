@@ -84,6 +84,11 @@ interface RecentItem { id, title, thumbnail, tag, hymnTitle?, duration?, chapter
 
 액션: `setDuration(id, duration)` — 0 이하·비유한 값 무시
 
+## liveVideoStore (저장 안 함)
+
+파일: `src/store/liveVideoStore.ts`. 지금 열린 방송중 영상 `live: { youtubeId, title? } | null`, 액션 `open(target)` / `close()`.
+`lib/liveVideo.ts` `openLiveVideo()`가 채우고 `components/LiveVideoOverlay.tsx`가 구독한다.
+
 ## cachedMediaStore (localStorage 아님 — OPFS/IndexedDB)
 
 파일: `src/store/cachedMediaStore.ts`, 실제 저장은 `src/lib/mediaStore.ts`

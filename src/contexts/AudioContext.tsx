@@ -74,6 +74,8 @@ interface AudioContextValue {
   playVideo: (video: VideoInfo, options?: { autoPlay?: boolean; skipRecentAdd?: boolean; seekTo?: number; resume?: boolean }) => Promise<void>
   stop: () => void
   togglePlay: () => void
+  /** 무조건 멈춤(토글 아님). 재생 대기 중인 자동재생도 취소 — 방송중 오버레이처럼 다른 소리가 시작될 때 쓴다. */
+  pause: () => void
   seek: (seconds: number) => void
   seekBy: (delta: number) => void
   seekFraction: (fraction: number) => void
@@ -1232,6 +1234,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     setError(null)
   }, [audioHandoff, cancelAutoNext, clearCacheWatchdog, isVideoPlayback])
 
+  const pause = useCallback(() => {
+    pendingAutoPlayRef.current = false
+    cancelAutoNext()
+    audioRef.current?.pause()
+    reactPlayerRef.current?.pause()
+  }, [cancelAutoNext])
+
   const togglePlay = useCallback(() => {
     if (isVideoPlayback()) {
       const video = reactPlayerRef.current
@@ -1528,13 +1537,13 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AudioContextValue>(() => ({
     currentVideo, isPlaying, isLoading, isEnded, duration: effectiveDuration, autoNextProgress, error, volume,
     isStreamFallback, isVideoPlayback, reactPlayerRef, videoSlotRef,
-    playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, setVolume: handleSetVolume,
+    playVideo, stop, togglePlay, pause, seek, seekBy, seekFraction, cancelAutoNext, setVolume: handleSetVolume,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
     onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
   }), [
     currentVideo, isPlaying, isLoading, isEnded, effectiveDuration, autoNextProgress, error, volume,
     isStreamFallback, isVideoPlayback, reactPlayerRef, videoSlotRef,
-    playVideo, stop, togglePlay, seek, seekBy, seekFraction, cancelAutoNext, handleSetVolume,
+    playVideo, stop, togglePlay, pause, seek, seekBy, seekFraction, cancelAutoNext, handleSetVolume,
     onVideoPlay, onVideoPause, onVideoWaiting, onVideoCanPlay,
     onVideoTimeUpdate, onVideoLoadedMetadata, onVideoDurationChange, onVideoEnded, onVideoError,
   ])

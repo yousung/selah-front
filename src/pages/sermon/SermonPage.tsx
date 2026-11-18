@@ -8,8 +8,9 @@ import { setSelahMenu } from '@/lib/selahMenu'
 import { getLastSermonResume, dismissSermonLast, type SermonResumeData } from '@/lib/sermonResume'
 import { fs } from '@/lib/fontScale'
 import Thumb from '@/components/Thumb'
+import LiveThumb from '@/components/LiveThumb'
 import SecretThumbPlaceholder from '@/components/SecretThumbPlaceholder'
-import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { isPlayableInQueue, openLiveVideo } from '@/lib/liveVideo'
 
 interface CategoryNode {
   id: string
@@ -69,7 +70,7 @@ function VideoThumbCard({ video, onPlay, titleOnly }: { video: Video; onPlay: ()
         {video.isSecret ? (
           <SecretThumbPlaceholder />
         ) : video.isLive ? (
-          <SecretThumbPlaceholder label="방송중" />
+          <LiveThumb thumbnail={video.thumbnail} youtubeId={video.youtubeId} />
         ) : video.thumbnail ? (
           <Thumb src={video.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
@@ -179,7 +180,7 @@ function VideoRowContent({ categoryId, categoryTitle, accent }: { categoryId: st
   const videos = data?.videos ?? []
 
   const handlePlay = useCallback((video: Video) => {
-    if (openLiveVideoInNewTab(video)) return
+    if (openLiveVideo(video)) return
     const queueVideos = videos.filter(isPlayableInQueue)
     const ids = queueVideos.map((v) => v.id)
     const metas = queueVideos.map((v) => ({

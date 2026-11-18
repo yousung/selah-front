@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAudio } from '@/contexts/AudioContext'
 import { useQueueStore } from '@/store/queueStore'
 import Thumb from '@/components/Thumb'
-import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { isPlayableInQueue, openLiveVideo } from '@/lib/liveVideo'
 
 function stripBrackets(s: string) {
   return s.replace(/\[.*?\]/g, '').trim()
@@ -70,7 +70,7 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
     setQueue(newIds, 0, newVideos)
     const first = newVideos[0]
     if (first) {
-      if (openLiveVideoInNewTab(first)) return
+      if (openLiveVideo(first)) return
       void playVideo(
         { id: first.id, youtubeId: first.youtubeId ?? null, title: first.title, thumbnail: first.thumbnail, tag: first.tag ?? null, hymnTitle: first.hymnTitle ?? null, duration: first.duration, chapter: first.chapter ?? null, isSecret: first.isSecret ?? null, isLive: first.isLive ?? null },
         { autoPlay: true },
@@ -110,7 +110,7 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
         const nextMeta = videos[nextOriginalIdx]
         setQueue(newIds, newNextIdx, newVideos)
         if (nextMeta) {
-          if (openLiveVideoInNewTab(nextMeta)) return
+          if (openLiveVideo(nextMeta)) return
           void playVideo(
             { id: nextMeta.id, youtubeId: nextMeta.youtubeId ?? null, title: nextMeta.title, thumbnail: nextMeta.thumbnail, tag: nextMeta.tag ?? null, hymnTitle: nextMeta.hymnTitle ?? null, duration: nextMeta.duration, chapter: nextMeta.chapter ?? null, isSecret: nextMeta.isSecret ?? null, isLive: nextMeta.isLive ?? null },
             { autoPlay: true },
@@ -141,7 +141,7 @@ export default function QueuePanel({ isOpen, onClose }: Props) {
     }
     setQueue(ids, idx)
     if (meta) {
-      if (openLiveVideoInNewTab(meta)) return
+      if (openLiveVideo(meta)) return
       void playVideo(
         { id: meta.id, youtubeId: meta.youtubeId ?? null, title: meta.title, thumbnail: meta.thumbnail, tag: meta.tag ?? null, hymnTitle: meta.hymnTitle ?? null, duration: meta.duration, chapter: meta.chapter ?? null, isSecret: meta.isSecret ?? null, isLive: meta.isLive ?? null },
         { autoPlay: true },

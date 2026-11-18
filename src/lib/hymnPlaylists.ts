@@ -6,7 +6,7 @@ import { setSelahMenu } from '@/lib/selahMenu'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useQueueStore } from '@/store/queueStore'
 import { useAudio } from '@/contexts/AudioContext'
-import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { isPlayableInQueue, openLiveVideo } from '@/lib/liveVideo'
 
 // 찬송 플레이리스트 조회·재생 — HymnPage와 홈 HomeHymnTile이 같은 queryKey/캐시/재생 순서를 쓰도록 공유
 
@@ -141,7 +141,7 @@ export function usePlayHymn() {
   const setQueue = useQueueStore((s) => s.setQueue)
 
   return (v: HymnVideo, playlist?: HymnPlaylist) => {
-    if (openLiveVideoInNewTab(v)) return
+    if (openLiveVideo(v)) return
     setSelahMenu('/hymn')
     if (currentVideo?.id === v.id) {
       navigate(`/player/${v.id}`)

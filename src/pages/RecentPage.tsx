@@ -4,7 +4,7 @@ import { useRecentStore, type RecentItem } from '@/store/recentStore'
 import { useAudio } from '@/contexts/AudioContext'
 import { useSettingsStore } from '@/store/settingsStore'
 import VideoCard from '@/components/VideoCard'
-import { openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { openLiveVideo } from '@/lib/liveVideo'
 
 export default function RecentPage() {
   const navigate = useNavigate()
@@ -13,7 +13,7 @@ export default function RecentPage() {
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
 
   const handlePlay = (item: RecentItem) => {
-    if (openLiveVideoInNewTab(item)) return
+    if (openLiveVideo(item)) return
     setSelahMenu('/recent')
     if (currentVideo?.id === item.id) {
       navigate(`/player/${item.id}?recentMode=1`)

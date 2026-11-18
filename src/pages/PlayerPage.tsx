@@ -13,6 +13,7 @@ import { useRecentStore } from '@/store/recentStore'
 import { useQueueStore } from '@/store/queueStore'
 import TagBadge from '@/components/TagBadge'
 import Thumb from '@/components/Thumb'
+import LiveThumb from '@/components/LiveThumb'
 import SecretThumbPlaceholder from '@/components/SecretThumbPlaceholder'
 import { getSermonResume, clearSermonResume, type SermonResumeData } from '@/lib/sermonResume'
 import { downloadMedia, downloadVideoWithAudio, isMediaCached, isOfflineMediaSupported, cancelDownload, MEDIA_CORRUPT_EVENT } from '@/lib/mediaStore'
@@ -21,7 +22,7 @@ import type { MediaCorruptDetail } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { fs } from '@/lib/fontScale'
 import { shareSongToKakao, shareSermonToKakao, shareYoutubeToKakao, isShareableYoutubeId } from '@/lib/kakaoShare'
-import { isPlayableInQueue, openLiveVideoInNewTab } from '@/lib/liveVideo'
+import { isPlayableInQueue, openLiveVideo } from '@/lib/liveVideo'
 
 interface Video {
   id: string
@@ -545,7 +546,7 @@ export default function PlayerPage() {
   const sermonStateCategoryTitle = (location.state as { categoryTitle?: string } | null)?.categoryTitle
 
   const handleAdjacentNav = useCallback((target: AdjacentVideo) => {
-    if (openLiveVideoInNewTab(target)) return
+    if (openLiveVideo(target)) return
     const idx = queueIds.indexOf(target.id)
     if (idx !== -1) setQueue(queueIds, idx)
     playVideo(
@@ -621,7 +622,7 @@ export default function PlayerPage() {
 
   const handleSermonResumeContinue = useCallback(() => {
     if (!video || !sermonResumeChoice) return
-    if (openLiveVideoInNewTab(video)) return
+    if (openLiveVideo(video)) return
     sermonResumePendingRef.current = false
     hasPlayedRef.current = true
     playVideo(
@@ -640,7 +641,7 @@ export default function PlayerPage() {
 
   const handleSermonResumeRestart = useCallback(() => {
     if (!video) return
-    if (openLiveVideoInNewTab(video)) return
+    if (openLiveVideo(video)) return
     clearSermonResume(video.id)
     sermonResumePendingRef.current = false
     hasPlayedRef.current = true
@@ -796,7 +797,7 @@ export default function PlayerPage() {
 
   const handleRetry = useCallback(() => {
     if (video) {
-      if (openLiveVideoInNewTab(video)) return
+      if (openLiveVideo(video)) return
       playVideo({
         id: video.id,
         youtubeId: video.youtubeId ?? null,
@@ -859,7 +860,7 @@ export default function PlayerPage() {
       {video?.isSecret ? (
         <SecretThumbPlaceholder />
       ) : isLiveVideo(video?.isLive) ? (
-        <SecretThumbPlaceholder label="방송중" />
+        <LiveThumb thumbnail={video?.thumbnail} youtubeId={video?.youtubeId} />
       ) : video && isTempVideo(video.isTemp) ? (
         <>
           <TempArtworkPlaceholder />
