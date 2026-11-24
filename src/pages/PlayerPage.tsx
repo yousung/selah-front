@@ -23,6 +23,7 @@ import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { fs } from '@/lib/fontScale'
 import { shareSongToKakao, shareSermonToKakao, shareYoutubeToKakao, isShareableYoutubeId } from '@/lib/kakaoShare'
 import { isPlayableInQueue, openLiveVideo } from '@/lib/liveVideo'
+import { loadYouTubeIframeApi, type YTPlayer } from '@/lib/youtubeIframeApi'
 
 interface Video {
   id: string
@@ -298,6 +299,10 @@ interface Adjacent {
   first?: AdjacentVideo | null
 }
 
+// 기본 플레이어가 YouTube여도 이 곡은 iframe을 자동으로 열지 않는다(사용자가 셀라로 전환했거나 '한 곡' 종료로 닫힘).
+// 미니 플레이어로 다시 들어와도(재마운트) 유지되도록 모듈 변수로 둔다.
+let ytDismissedId: string | null = null
+
 function PlayModeIcon({ mode }: { mode: PlayMode }) {
   if (mode === 'single') {
     return (
@@ -363,6 +368,8 @@ export default function PlayerPage() {
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const autoPlayOnDetail = useSettingsStore((s) => s.autoPlayOnDetail)
   const playMode = useSettingsStore((s) => s.playMode)
+  const ytAutoNextDelay = useSettingsStore((s) => s.autoNextDelay)
+  const defaultPlayer = useSettingsStore((s) => s.defaultPlayer)
   const setPlayMode = useSettingsStore((s) => s.setPlayMode)
   const mediaMode = useSettingsStore((s) => s.mediaMode)
   const offlineStorageMode = useSettingsStore((s) => s.offlineStorageMode)
@@ -372,8 +379,11 @@ export default function PlayerPage() {
   const isCachedInStore = useCachedMediaStore((s) => !!mediaCacheKey && s.cachedIds.has(mediaCacheKey))
   const {
     currentVideo, isPlaying, isLoading, duration, autoNextProgress, error, isStreamFallback,
-    playVideo, togglePlay, seekBy, seekFraction, cancelAutoNext, videoSlotRef,
+    playVideo, stop, togglePlay, seekBy, seekFraction, cancelAutoNext, videoSlotRef,
   } = useAudio()
+  const [ytEmbedId, setYtEmbedId] = useState<string | null>(null)
+  // 같은 곡을 셀라↔YouTube로 전환할 때 이어 재생할 위치(초). 1초 미만·끝 2초 이내면 처음부터(0).
+  const [ytStartSec, setYtStartSec] = useState(0)
   const position = usePosition()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const [dlState, setDlState] = useState<{ key: string | null; status: DownloadStatus }>({ key: null, status: 'idle' })
@@ -549,7 +559,9 @@ export default function PlayerPage() {
     if (openLiveVideo(target)) return
     const idx = queueIds.indexOf(target.id)
     if (idx !== -1) setQueue(queueIds, idx)
-    playVideo(
+    // 기본 플레이어가 YouTube면 셀라 엔진을 건너뛴다 — 다음 화면의 자동재생 effect가 iframe을 연다.
+    if (defaultPlayer === 'youtube' && isShareableYoutubeId(target.youtubeId) && !target.isSecret && !isLiveVideo(target.isLive)) stop()
+    else playVideo(
       {
         id: target.id,
         youtubeId: target.youtubeId ?? null,
@@ -569,15 +581,18 @@ export default function PlayerPage() {
       { autoPlay: true, skipRecentAdd: recentMode },
     )
     navigate(`${playerBase}/${target.id}${recentMode ? '?recentMode=1' : ''}`)
-  }, [isSermonPlayer, playerBase, queueIds, setQueue, recentMode, navigate, playVideo, sermonStateCategoryId, sermonStateCategoryTitle])
+  }, [isSermonPlayer, playerBase, queueIds, setQueue, recentMode, navigate, playVideo, stop, defaultPlayer, sermonStateCategoryId, sermonStateCategoryTitle])
 
   const sermonSeek = (location.state as { sermonSeek?: number } | null)?.sermonSeek
+  const canEmbedYoutube = !!video && isShareableYoutubeId(video.youtubeId) && !video.isSecret && !isLiveVideo(video.isLive) && !isTempVideo(video.isTemp)
+  const autoEmbed = defaultPlayer === 'youtube' && canEmbedYoutube
 
   // ── sermon resume: 저장 위치 있으면 "이어서/처음부터" 팝업(자동재생 보류) ──
   // play effect보다 먼저 선언되어, 같은 커밋에서 pending ref를 먼저 세팅한다.
   // (C 팝업이 sermonSeek를 넘기는 경우는 이미 선택된 것이므로 팝업을 띄우지 않는다.)
   useEffect(() => {
     if (!isSermonPlayer || !video || video.isSecret || sermonSeek != null) return
+    if (autoEmbed && ytDismissedId !== video.id) return
     if (currentVideo?.id === video.id) return
     const saved = getSermonResume(video.id)
     if (saved && saved.position > 0) {
@@ -591,6 +606,14 @@ export default function PlayerPage() {
     if (!video) return
     if (video.isSecret) return
     if (hasPlayedRef.current) return
+    // 기본 플레이어 YouTube: 셀라 엔진은 멈추고(목록 등에서 이미 시작했을 수 있음) iframe으로 연다.
+    if (autoEmbed && ytDismissedId !== video.id) {
+      hasPlayedRef.current = true
+      stop()
+      setYtStartSec(0)
+      setYtEmbedId(video.id)
+      return
+    }
     if (sermonResumePendingRef.current) return
     if (currentVideo?.id === video.id) {
       hasPlayedRef.current = true
@@ -618,7 +641,7 @@ export default function PlayerPage() {
       // 분기가 seekTo를 버리지 않는다(위 handleSermonResumeContinue와 같은 이유).
       { autoPlay: autoPlayOnDetail, seekTo: sermonSeek, resume: sermonSeek != null },
     )
-  }, [autoPlayOnDetail, currentVideo?.id, isSermonPlayer, playerBase, playVideo, video, sermonSeek, sermonStateCategoryId, sermonStateCategoryTitle])
+  }, [autoPlayOnDetail, autoEmbed, currentVideo?.id, isSermonPlayer, playerBase, playVideo, stop, video, sermonSeek, sermonStateCategoryId, sermonStateCategoryTitle])
 
   const handleSermonResumeContinue = useCallback(() => {
     if (!video || !sermonResumeChoice) return
@@ -688,6 +711,40 @@ export default function PlayerPage() {
 
   // 유튜브 공유는 공개 영상만 — 비공개(isSecret)는 원본 주소가 새면 안 된다.
   const canShareYoutube = !!video && !video.isSecret && isShareableYoutubeId(video.youtubeId)
+  const ytEmbedActive = !!video && ytEmbedId === video.id && isShareableYoutubeId(video.youtubeId)
+  const ytLabel = ytEmbedActive ? '셀라 플레이어로 재생' : 'YouTube로 재생'
+  const ytIframeRef = useRef<HTMLIFrameElement>(null)
+  const ytPlayerRef = useRef<YTPlayer | null>(null)
+  // YouTube 재생 종료 → AudioContext의 자동 다음 재생 규칙(playMode)을 따른다. 카운트다운 지연(3s/5s)은 생략.
+  // loop = iframe에서 처음부터 다시, playlist/repeat = 다음 곡(기본 플레이어에 따라 iframe/셀라),
+  // 'off'·'single'·다음 곡 없음 = iframe을 내리고 썸네일로(셀라 엔진은 재생하지 않음).
+  const onYtEndedRef = useRef<() => void>(() => {})
+  onYtEndedRef.current = () => {
+    const autoNext = ytAutoNextDelay !== 'off' && playMode !== 'single'
+    if (autoNext && playMode === 'loop') {
+      ytPlayerRef.current?.seekTo(0, true)
+      ytPlayerRef.current?.playVideo()
+      return
+    }
+    const target = autoNext ? adjacent?.next ?? (playMode === 'repeat' ? adjacent?.first : null) : null
+    setYtEmbedId(null)
+    if (target) handleAdjacentNav(target)
+    else ytDismissedId = video?.id ?? null
+  }
+
+  // YouTube 재생이 끝나면 iframe을 내린다 — 끝 화면의 추천 영상으로 이어 재생되는 것을 막는다.
+  useEffect(() => {
+    if (!ytEmbedActive) return
+    let cancelled = false
+    void loadYouTubeIframeApi().then((YT) => {
+      if (cancelled || !ytIframeRef.current) return
+      // destroy()는 iframe DOM을 지워 React 언마운트와 충돌하므로 호출하지 않는다(cancelled 플래그로 무시).
+      ytPlayerRef.current = new YT.Player(ytIframeRef.current, {
+        events: { onStateChange: (e: { data: number }) => { if (!cancelled && e.data === YT.PlayerState.ENDED) onYtEndedRef.current() } },
+      })
+    }).catch(() => {})
+    return () => { cancelled = true; ytPlayerRef.current = null }
+  }, [ytEmbedActive, video?.id])
   const shareSelah = () => {
     if (!id || !video) return
     if (isSermonPlayer) shareSermonToKakao({ id, title: video.title, thumbnail: video.thumbnail, description: video.description ?? undefined, playerBase })
@@ -795,7 +852,8 @@ export default function PlayerPage() {
     }
   }, [id, mediaType])
 
-  const handleRetry = useCallback(() => {
+  const handleRetry = useCallback((seekTo?: number) => {
+    setYtEmbedId(null)
     if (video) {
       if (openLiveVideo(video)) return
       playVideo({
@@ -813,9 +871,21 @@ export default function PlayerPage() {
         isLive: video.isLive,
         categoryId: isSermonPlayer ? sermonStateCategoryId : undefined,
         categoryTitle: isSermonPlayer ? sermonStateCategoryTitle : undefined,
-      })
+      }, seekTo ? { seekTo, resume: true } : undefined)
     }
   }, [isSermonPlayer, playerBase, playVideo, video, sermonStateCategoryId, sermonStateCategoryTitle])
+
+  const carryOverSec = (t: number, d: number) => (t >= 1 && !(d > 0 && t > d - 2) ? Math.floor(t) : 0)
+  const openYtEmbed = (vid: { id: string }) => {
+    setYtStartSec(currentVideo?.id === vid.id ? carryOverSec(position, duration) : 0)
+    stop()
+    setYtEmbedId(vid.id)
+  }
+  const switchToSelah = (vid: { id: string }) => {
+    const p = ytPlayerRef.current
+    ytDismissedId = vid.id
+    handleRetry(carryOverSec(p?.getCurrentTime?.() ?? 0, p?.getDuration?.() ?? 0))
+  }
 
   // 저장 파일 손상 감지(캐시 재생 후 3초 무진행). AudioContext가 손상 파일을 삭제한 뒤
   // MEDIA_CORRUPT_EVENT를 쏜다 → 메시지 표시 + 재다운로드. 완료 시 AudioContext가 자동 재생,
@@ -857,7 +927,16 @@ export default function PlayerPage() {
         border: '1px solid var(--divider)',
       }}
     >
-      {video?.isSecret ? (
+      {ytEmbedActive && video ? (
+        <iframe
+          ref={ytIframeRef}
+          src={`https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&playsinline=1&rel=0&enablejsapi=1${ytStartSec ? `&start=${ytStartSec}` : ''}&origin=${encodeURIComponent(window.location.origin)}`}
+          title={video.title}
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+          style={{ width: '100%', height: '100%', border: 0 }}
+        />
+      ) : video?.isSecret ? (
         <SecretThumbPlaceholder />
       ) : isLiveVideo(video?.isLive) ? (
         <LiveThumb thumbnail={video?.thumbnail} youtubeId={video?.youtubeId} />
@@ -929,13 +1008,17 @@ export default function PlayerPage() {
 
       {error && !video?.isSecret && (
         <div className="mb-4 text-center">
-          <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>
-          <button className="text-sm mt-2 underline" style={{ color: 'var(--primary-700)' }} onClick={handleRetry}>다시 시도</button>
+          {error && <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>}
+          <button className="text-sm mt-2 underline" style={{ color: 'var(--primary-700)' }} onClick={() => handleRetry()}>다시 시도</button>
+          {video && isShareableYoutubeId(video.youtubeId) && (
+            <button className="text-sm mt-2 ml-4 underline" style={{ color: 'var(--primary-700)' }} onClick={() => openYtEmbed(video)}>YouTube로 재생</button>
+          )}
         </div>
       )}
 
       {/* Seek bar + Play controls + Playback mode — 비공개 영상은 숨김 */}
       {!video?.isSecret && <>
+      {!ytEmbedActive && <>
       <div className="mb-2">
         <input
           type="range" min={0} max={1} step={0.001} value={progress}
@@ -1034,9 +1117,37 @@ export default function PlayerPage() {
           </svg>
         </button>
       </div>
+      </>}
 
       {/* 재생 모드 */}
-      <div className="relative flex justify-end items-center mt-5">
+      <div className="relative flex justify-between items-center mt-5">
+        {video && canEmbedYoutube && (
+          <div className="relative">
+            <button
+              onClick={() => {
+                if (ytEmbedActive) switchToSelah(video); else openYtEmbed(video)
+              }}
+              aria-label={ytLabel} title={ytLabel}
+              className="flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-80 active:scale-95"
+              style={{
+                padding: '6px 12px',
+                fontSize: fs(13),
+                fontWeight: 700,
+                lineHeight: fs(16),
+                whiteSpace: 'nowrap',
+                ...(ytEmbedActive
+                  ? { background: 'rgba(61,107,68,0.12)', border: '1px solid rgba(61,107,68,0.22)', color: 'var(--primary-700)' }
+                  : { background: 'var(--surface-2)', border: '1px solid var(--divider)', color: 'var(--ink-1)' }),
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2.5" y="5" width="19" height="14" rx="4" />
+                <path d="M10 9.5v5l4.5-2.5z" fill="currentColor" />
+              </svg>
+              {ytEmbedActive ? '셀라 플레이어' : 'YouTube'}
+            </button>
+          </div>
+        )}
         {showModeTooltip && (
           <div
             className="absolute bottom-full right-0 mb-2 px-2.5 py-1.5 rounded-[6px] text-xs font-medium whitespace-nowrap pointer-events-none"

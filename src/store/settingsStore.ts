@@ -6,6 +6,7 @@ export type Theme = 'light' | 'dark'
 export type AudioQuality = 'high' | 'medium' | 'low'
 export type AutoNextDelay = 'immediate' | '3s' | '5s' | 'off'
 export type PlayMode = 'single' | 'playlist' | 'repeat' | 'loop'
+export type DefaultPlayer = 'selah' | 'youtube'
 export type MediaMode = 'audio' | 'video'
 export type OfflineStorageMode = 'thrift' | 'normal' | 'generous' | 'custom'
 /** 비디오 모드 저장 화질 상한. 480p는 av01 전용이라(iOS 불가) 없다 — backend `getDownloadUrl` 참고 */
@@ -32,6 +33,7 @@ interface SettingsState {
   autoPlayOnDetail: boolean
   autoNextDelay: AutoNextDelay
   playMode: PlayMode
+  defaultPlayer: DefaultPlayer
   playbackRate: number
   showCatechismHeadings: boolean
   showCatechismToc: boolean
@@ -48,6 +50,7 @@ interface SettingsState {
   setAutoPlayOnDetail: (enabled: boolean) => void
   setAutoNextDelay: (v: AutoNextDelay) => void
   setPlayMode: (v: PlayMode) => void
+  setDefaultPlayer: (v: DefaultPlayer) => void
   setPlaybackRate: (v: number) => void
   setShowCatechismHeadings: (enabled: boolean) => void
   setShowCatechismToc: (enabled: boolean) => void
@@ -68,6 +71,7 @@ export const useSettingsStore = create<SettingsState>()(
       autoPlayOnDetail: true,
       autoNextDelay: 'immediate',
       playMode: 'playlist',
+      defaultPlayer: 'selah',
       playbackRate: 1,
       showCatechismHeadings: true,
       showCatechismToc: true,
@@ -87,6 +91,7 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoPlayOnDetail: (autoPlayOnDetail) => set({ autoPlayOnDetail }),
       setAutoNextDelay: (autoNextDelay) => set({ autoNextDelay }),
       setPlayMode: (playMode) => set({ playMode }),
+      setDefaultPlayer: (defaultPlayer) => set({ defaultPlayer }),
       setPlaybackRate: (playbackRate) => set({ playbackRate: normalizePlaybackRate(playbackRate) }),
       setShowCatechismHeadings: (showCatechismHeadings) => set({ showCatechismHeadings }),
       setShowCatechismToc: (showCatechismToc) => set({ showCatechismToc }),
@@ -102,7 +107,7 @@ export const useSettingsStore = create<SettingsState>()(
       storage: createJSONStorage(() => localStorage),
       // v1: occupation 추가 — 기존 설정은 그대로 두고 occupation만 null로 채운다
       // v2: autoDownload 제거(자동 다운로드 폐지) — 옛 저장값은 버린다
-      // videoDownloadQuality는 버전 올림 없이 추가: persist가 저장값을 기본값 위에 얕게 병합해 없으면 '360p'가 된다
+      // videoDownloadQuality·defaultPlayer는 버전 올림 없이 추가: persist가 저장값을 기본값 위에 얕게 병합해 없으면 '360p'('selah')가 된다
       // v4: 0.5~2배 슬라이더의 0.1 단위에 맞춰 기존 배속을 반올림한다.
       version: 4,
       migrate: (persisted) => {

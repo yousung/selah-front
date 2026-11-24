@@ -8,6 +8,9 @@ export interface YTPlayer {
   playVideo(): void
   pauseVideo(): void
   destroy(): void
+  seekTo(seconds: number, allowSeekAhead: boolean): void
+  getCurrentTime(): number
+  getDuration(): number
 }
 
 export interface YTPlayerEvent {
@@ -19,7 +22,8 @@ export interface YTNamespace {
   Player: new (
     el: HTMLElement | string,
     opts: {
-      videoId: string
+      /** 기존 iframe(enablejsapi=1)에 붙일 때는 생략 */
+      videoId?: string
       width?: string | number
       height?: string | number
       host?: string

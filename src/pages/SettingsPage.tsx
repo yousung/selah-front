@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSettingsStore, OCCUPATION_LABELS } from '@/store/settingsStore'
-import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale, Occupation, VideoDownloadQuality } from '@/store/settingsStore'
+import type { Theme, AudioQuality, MediaMode, OfflineStorageMode, FontScale, Occupation, VideoDownloadQuality, DefaultPlayer } from '@/store/settingsStore'
 import { clearAllMedia, isOfflineMediaSupported, storageInfo, enforceStoragePolicy } from '@/lib/mediaStore'
 import { useCachedMediaStore } from '@/store/cachedMediaStore'
 import { useAudio } from '@/contexts/AudioContext'
@@ -119,6 +119,11 @@ const MEDIA_MODE_OPTIONS: { value: MediaMode; label: string }[] = [
   { value: 'video', label: '비디오' },
 ]
 
+const DEFAULT_PLAYER_OPTIONS: { value: DefaultPlayer; label: string }[] = [
+  { value: 'selah', label: '셀라' },
+  { value: 'youtube', label: 'YouTube' },
+]
+
 const VIDEO_QUALITY_OPTIONS: { value: VideoDownloadQuality; label: string }[] = [
   { value: '360p', label: '저화질' },
   { value: '720p', label: '고화질' },
@@ -187,10 +192,10 @@ function ToggleField({ title, description, checked, onChange }: { title: string;
 
 export default function SettingsPage() {
   const {
-    theme, quality, mediaMode, playbackRate,
+    theme, quality, mediaMode, playbackRate, defaultPlayer,
     showCatechismHeadings, showCatechismToc,
     offlineStorageMode, videoDownloadQuality, fontScale, onlyOurChurch, occupation,
-    setTheme, setQuality, setMediaMode,
+    setTheme, setQuality, setMediaMode, setDefaultPlayer,
     setPlaybackRate, setShowCatechismHeadings, setShowCatechismToc,
     setOfflineStorageMode, setVideoDownloadQuality, setFontScale, setOnlyOurChurch, setOccupation,
   } = useSettingsStore()
@@ -299,6 +304,10 @@ export default function SettingsPage() {
               </Field>
             )}
           </div>
+
+          <Field title="기본 재생 플레이어" description="YouTube로 설정하면 YouTube에서 볼 수 있는 영상은 곡 화면에서 YouTube 플레이어로 바로 재생됩니다. 비공개·방송중 영상은 항상 셀라 플레이어로 재생됩니다.">
+            <Segmented value={defaultPlayer} onChange={setDefaultPlayer} options={DEFAULT_PLAYER_OPTIONS} />
+          </Field>
 
           <Field title="재생 속도" description="설교를 빠르게 들어 시간을 아낄 수 있습니다. 배속은 설교에만 적용되며, 찬송은 항상 정속(원래 속도)으로 재생됩니다.">
             <div>
