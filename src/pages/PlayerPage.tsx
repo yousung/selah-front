@@ -1036,9 +1036,10 @@ export default function PlayerPage() {
           <span className="text-[11px]" style={{ color: 'var(--ink-2)' }}>{fmtTime(duration)}</span>
         </div>
       </div>
+      </>}
 
-      {/* Play controls */}
-      <div className="flex items-center justify-center gap-5 mt-4">
+      {/* Play controls — YouTube 재생 중에는 이전/다음곡만(재생·탐색은 iframe 자체 컨트롤) */}
+      <div className={`flex items-center justify-center mt-4 ${ytEmbedActive ? 'gap-16' : 'gap-5'}`}>
         {/* 이전곡 */}
         <button
           onClick={() => adjacent?.prev && handleAdjacentNav(adjacent.prev)}
@@ -1051,6 +1052,7 @@ export default function PlayerPage() {
           </svg>
         </button>
 
+        {!ytEmbedActive && <>
         {/* -15s */}
         <button
           onClick={() => seekBy(-15)}
@@ -1097,6 +1099,7 @@ export default function PlayerPage() {
             <span className="absolute text-[10px] font-bold" style={{ color: 'var(--ink-1)', letterSpacing: '-0.5px' }}>15</span>
           </div>
         </button>
+        </>}
 
         {/* 다음곡 */}
         <button
@@ -1117,7 +1120,6 @@ export default function PlayerPage() {
           </svg>
         </button>
       </div>
-      </>}
 
       {/* 재생 모드 */}
       <div className="relative flex justify-between items-center mt-5">
